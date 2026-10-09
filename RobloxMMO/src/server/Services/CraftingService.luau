@@ -1,5 +1,5 @@
 --!strict
--- 대장장이: 제련(재료 + 수수료 → 괴)과 곡괭이·도끼 판매.
+-- 대장장이: 제련(재료 + 수수료 → 괴)과 곡괭이·도끼 판매. 무기 구매(사냥꾼)도 buyTool을 같이 쓴다.
 -- 클라이언트는 "이 레시피를 몇 번 / 이 곡괭이(도끼)를 사겠다"만 보내고, 거리·재료·골드는 서버가 확인한다.
 -- 모루 타이밍 미니게임으로 직접 만드는 제작은 나중에 추가한다 (지금은 NPC 의뢰 구매만).
 
@@ -51,17 +51,28 @@ local function smeltOnce(player: Player, recipeId: string): (boolean, string?)
 	return true, nil
 end
 
--- 곡괭이·도끼 구매. 종류(Kind)마다 따로 단계를 밟는다 (곡괭이 티어와 도끼 티어는 별개)
-local function buyTool(player: Player, toolId: string, kind: PickaxeDefs.ToolKind)
+-- 한국어 조사: 앞 글자에 받침이 있으면 withFinal, 없으면 withoutFinal ("칼을" / "도끼를")
+local function josa(word: string, withFinal: string, withoutFinal: string): string
+	local last = 0
+	for _, code in utf8.codes(word) do
+		last = code
+	end
+	local hasFinal = last >= 0xAC00 and last <= 0xD7A3 and (last - 0xAC00) % 28 ~= 0
+	return word .. (if hasFinal then withFinal else withoutFinal)
+end
+
+-- 도구·무기 구매. 종류(Kind)마다 따로 단계를 밟는다 (곡괭이 티어·도끼 티어·칼 티어... 는 별개)
+-- 사냥꾼(무기)도 이 함수를 쓴다 (CombatService)
+function CraftingService.buyTool(player: Player, toolId: string, kind: PickaxeDefs.ToolKind)
 	local def = PickaxeDefs[toolId]
-	local config = Config.Pickaxes[toolId]
+	local config = Config.Pickaxes[toolId] or Config.Weapons[toolId]
 	if not def or def.Kind ~= kind or not config or not config.Price then
 		return
 	end
-	local kindName = if kind == "Axe" then "도끼" else "곡괭이"
+	local kindName = PickaxeService.kindName(kind)
 	local currentTier = PickaxeService.getTier(player, kind)
 	if InventoryService.count(player, toolId) > 0 or def.Tier <= currentTier then
-		NotifyService.send(player, `이미 이 {kindName}나 더 좋은 {kindName}를 가지고 있어요.`, "info")
+		NotifyService.send(player, `이미 이 {josa(kindName, "이나", "나")} 더 좋은 {josa(kindName, "을", "를")} 가지고 있어요.`, "info")
 		return
 	end
 	if def.Tier > currentTier + 1 then
@@ -123,9 +134,9 @@ local function onShopAction(player: Player, shopId: unknown, action: unknown, id
 			NotifyService.send(player, failReason, "bad")
 		end
 	elseif action == "BuyPickaxe" then
-		buyTool(player, idArg, "Pickaxe")
+		CraftingService.buyTool(player, idArg, "Pickaxe")
 	elseif action == "BuyAxe" then
-		buyTool(player, idArg, "Axe")
+		CraftingService.buyTool(player, idArg, "Axe")
 	end
 end
 

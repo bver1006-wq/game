@@ -543,6 +543,9 @@ local function playLightning(target: Vector3, isMine: boolean)
 	end)
 end
 
+-- 다른 연출(전투)에서도 쓰도록 공개한다
+HitFeelController.tierImpact = tierImpact
+
 -- 서버의 HitEffect: 근처 누군가가 바위를 쳤다
 local function onHitEffect(
 	rock: Model?,

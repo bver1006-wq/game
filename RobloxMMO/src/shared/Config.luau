@@ -99,6 +99,65 @@ Config.Pickaxes = {
 	},
 }
 
+-- 무기: 데미지·쿨다운(초)·사거리(스터드)·대장장이 아닌 사냥꾼 판매 가격
+-- 칼은 빠르고, 방망이는 느리지만 세고 밀쳐 내고, 활은 약하지만 멀리서 쏜다
+-- TODO(미정): 수치와 가격은 임시값. 플레이테스트로 조정
+Config.Weapons = {
+	WoodenSword = { Damage = 8, Cooldown = 0.5, Range = 7 }, -- 시작 지급
+	CopperSword = { Damage = 13, Cooldown = 0.5, Range = 7.5, Price = { Gold = 80, Items = { CopperIngot = 3, Oak = 2 } } },
+	IronSword = { Damage = 20, Cooldown = 0.5, Range = 8, Price = { Gold = 300, Items = { IronIngot = 5, Birch = 2 } } },
+	DiamondSword = { Damage = 32, Cooldown = 0.5, Range = 9, Price = { Gold = 1200, Items = { SteelIngot = 6, Maple = 2 } } },
+	WoodenBow = { Damage = 7, Cooldown = 0.8, Range = 40, Price = { Gold = 30, Items = { Pine = 5 } } },
+	CopperBow = { Damage = 11, Cooldown = 0.8, Range = 45, Price = { Gold = 100, Items = { CopperIngot = 2, Birch = 3 } } },
+	IronBow = { Damage = 17, Cooldown = 0.8, Range = 50, Price = { Gold = 350, Items = { IronIngot = 4, Maple = 3 } } },
+	DiamondBow = { Damage = 27, Cooldown = 0.8, Range = 55, Price = { Gold = 1300, Items = { SteelIngot = 5, Ebony = 2 } } },
+	BaseballBat = { Damage = 12, Cooldown = 0.9, Range = 6.5, Knockback = 4, Price = { Gold = 30, Items = { Oak = 5 } } },
+	GoblinClub = { Damage = 20, Cooldown = 0.9, Range = 6.5, Knockback = 5, Price = { Gold = 120, Items = { CopperIngot = 3, Oak = 4 } } },
+	MorningStar = { Damage = 31, Cooldown = 0.9, Range = 7, Knockback = 6, Price = { Gold = 400, Items = { IronIngot = 6, Bone = 5 } } },
+	DiamondMace = { Damage = 48, Cooldown = 0.9, Range = 7.5, Knockback = 8, Price = { Gold = 1500, Items = { SteelIngot = 7, BugbearFur = 3 } } },
+}
+
+-- 전투 공통 수치
+Config.Combat = {
+	CritChance = 0.12, -- 치명타 확률
+	CritMultiplier = 1.6, -- 치명타 데미지 배수
+	DamageSpread = 0.1, -- 데미지 ±10% 흔들림
+	RangeTolerance = 2, -- 서버 거리 검사 여유(스터드)
+	CooldownTolerance = 0.1, -- 서버 쿨다운 여유(초)
+	ArrowSpeed = 140, -- 화살 날아가는 연출 속도(스터드/초)
+	MobBroadcastRange = 120, -- 전투 연출을 받을 거리(스터드)
+	HpBarRange = 45, -- 이 거리 안의 몹에 체력바 표시(스터드)
+	-- 무기 티어별 타격 연출 (도끼 표와 같은 항목)
+	TierEffects = {
+		[1] = { Color = Color3.fromRGB(255, 240, 200), Chunks = 0, Ring = 2.5, Shake = 1, Sparkle = false, Sparks = 4, Slash = false },
+		[2] = { Color = Color3.fromRGB(255, 150, 70), Chunks = 0, Ring = 3.5, Shake = 1.2, Sparkle = false, Sparks = 10, Slash = true },
+		[3] = { Color = Color3.fromRGB(230, 235, 255), Chunks = 0, Ring = 4.5, Shake = 1.45, Sparkle = false, Sparks = 16, Slash = true },
+		[4] = { Color = Color3.fromRGB(110, 235, 255), Chunks = 0, Ring = 6, Shake = 1.75, Sparkle = true, Sparks = 24, Slash = true },
+	},
+}
+
+-- 몹 수치 (정의는 MobDefs). TODO(미정): 임시값
+-- Hp 체력, Damage 한 번에 플레이어에게 주는 피해(플레이어 체력 100), AttackInterval 공격 간격(초), AttackRange 공격 거리
+-- Speed 이동 속도(스터드/초), Aggro 플레이어를 알아채는 거리, Gold 골드 범위, Loot 전리품 개수 범위, Respawn 다시 나오는 시간(초)
+-- Count 맵에 사는 수, MinDistance~MaxDistance 마을 중심에서의 거리(제작 스크립트가 이 띠 안에 생성 자리를 고른다)
+Config.Mobs = {
+	Slime = { Hp = 20, Damage = 5, AttackInterval = 1.5, AttackRange = 3.5, Speed = 7, Aggro = 18, Gold = { 2, 5 }, Loot = { 1, 2 }, Respawn = 12, Count = 8, MinDistance = 45, MaxDistance = 110, Scale = 0.9 },
+	Skeleton = { Hp = 40, Damage = 8, AttackInterval = 1.4, AttackRange = 4, Speed = 9, Aggro = 22, Gold = { 5, 9 }, Loot = { 1, 2 }, Respawn = 18, Count = 5, MinDistance = 95, MaxDistance = 170, Scale = 1 },
+	Zombie = { Hp = 55, Damage = 10, AttackInterval = 1.6, AttackRange = 4, Speed = 6, Aggro = 20, Gold = { 7, 12 }, Loot = { 1, 2 }, Respawn = 18, Count = 5, MinDistance = 95, MaxDistance = 170, Scale = 1 },
+	Cerberus = { Hp = 90, Damage = 14, AttackInterval = 1.2, AttackRange = 4.5, Speed = 13, Aggro = 26, Gold = { 14, 24 }, Loot = { 1, 2 }, Respawn = 30, Count = 3, MinDistance = 160, MaxDistance = 240, Scale = 1.1 },
+	Bugbear = { Hp = 140, Damage = 18, AttackInterval = 1.8, AttackRange = 5.5, Speed = 10, Aggro = 24, Gold = { 25, 40 }, Loot = { 1, 3 }, Respawn = 45, Count = 2, MinDistance = 190, MaxDistance = 260, Scale = 1.4 },
+}
+Config.MobAI = {
+	TickRate = 15, -- 1초에 몇 번 생각하고 움직이는지
+	Leash = 35, -- 집(생성 자리)에서 이 거리를 넘게 쫓아가면 포기하고 돌아간다
+	WanderRadius = 10, -- 한가할 때 집 주변을 어슬렁거리는 반경
+	WanderPause = { 1.5, 4 }, -- 어슬렁 사이 쉬는 시간 범위(초)
+	HopHeight = 1.2, -- 슬라임 튀는 높이
+	WalkBob = 0.15, -- 걸을 때 위아래 흔들림
+	LungeDistance = 0.8, -- 공격할 때 앞으로 들이받는 거리
+	KnockbackTime = 0.2, -- 방망이에 맞아 밀려나는 시간(초)
+}
+
 -- 가방: 칸 단위. 쌓이는 아이템(광석·괴)은 한 칸에 MaxStack개까지, 도구는 1개가 1칸
 Config.Inventory = {
 	StartSlots = 10, -- 처음 가방 칸 수
@@ -116,6 +175,7 @@ Config.Inventory = {
 Config.Debug = {
 	GiveAllPickaxes = true, -- true면 들어올 때 곡괭이·도끼를 전부 지급 (테스트용, 2026-10-09 사용자 요청으로 켬)
 	GiveReturnScrolls = 5, -- 들어오면 귀환 주문서를 이만큼 지급. 테스트 끝나면 0
+	StartSlots = 30, -- Studio 테스트 때 가방 칸 수 (도구·무기를 전부 받으면 21칸이 필요하다)
 }
 
 -- 귀환 주문서: 쓰면 CastTime초 뒤 마을(태그 TownArrival)로 돌아간다. 그사이 움직이면 취소
@@ -143,6 +203,11 @@ Config.SellPrices = {
 	Birch = 4,
 	Maple = 8,
 	Ebony = 25,
+	SlimeJelly = 2, -- 몹 전리품
+	Bone = 4,
+	OldCloth = 5,
+	CerberusFang = 12,
+	BugbearFur = 20,
 }
 
 -- 대장장이 제련: 재료 + 수수료(골드) → 결과 1개
@@ -313,6 +378,12 @@ Config.Sounds = {
 	HitPerfect = "rbxassetid://9120146349", -- Pickaxe Hit
 	PickaxeClang = "rbxassetid://9125361455", -- 곡괭이 "깡!" (Anvil Hit, ProSoundEffects). 돌 소리에 겹쳐 재생
 	WoodChop = "rbxassetid://9120950231", -- 도끼로 나무 찍는 "퍽" (ProSoundEffects). 나무 타격음
+	-- 전투: 따로 찾기 전까지 있는 소리를 음높이만 바꿔 쓴다. TODO: 칼·활·방망이 전용 소리 찾기
+	SwordHit = "rbxassetid://9125361455", -- 칼 (Anvil Hit을 높게)
+	ClubHit = "rbxassetid://9118608146", -- 방망이 (Rock Hits Rock을 낮게)
+	ArrowHit = "rbxassetid://9120950231", -- 화살 꽂힘 (Wood Chop)
+	PlayerHurt = "rbxassetid://9118608146", -- 몹에게 맞음
+	MobDie = "rbxassetid://17779566040", -- 몹이 펑 사라짐 (pop click을 낮게)
 	TreeBreak = "rbxassetid://9120963881", -- 나무가 갈라지며 쓰러지는 소리 (ProSoundEffects)
 	JudgmentPop = "rbxassetid://17779566040", -- minimal pop click
 	RockBreak = "rbxassetid://9118587698", -- Rock Drop On Concrete Breaks (ProSoundEffects)

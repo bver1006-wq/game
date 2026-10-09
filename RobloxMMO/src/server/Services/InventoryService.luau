@@ -6,6 +6,7 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local ItemDefs = require(ReplicatedStorage.Shared.ItemDefs)
@@ -81,7 +82,9 @@ end
 local function getBag(player: Player): Bag
 	local bag = bags[player]
 	if not bag then
-		bag = { Items = {}, Gold = 0, Slots = Config.Inventory.StartSlots, BagLevel = 0 }
+		-- Studio에서 도구·무기를 전부 받는 테스트를 할 때는 가방을 넉넉하게
+		local testSlots = RunService:IsStudio() and Config.Debug.GiveAllPickaxes and Config.Debug.StartSlots or nil
+		bag = { Items = {}, Gold = 0, Slots = testSlots or Config.Inventory.StartSlots, BagLevel = 0 }
 		bags[player] = bag
 	end
 	return bag

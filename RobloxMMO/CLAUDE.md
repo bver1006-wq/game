@@ -58,7 +58,9 @@ src/
 │     ├─ DataService.luau       (MVP-1) 저장
 │     ├─ InventoryService.luau  (MVP-1) 가방
 │     ├─ EconomyService.luau    (MVP-1) 골드, NPC 판매
-│     ├─ CraftingService.luau   (MVP-1) 제련, 곡괭이 제작
+│     ├─ CraftingService.luau   (MVP-1) 제련, 곡괭이 제작 (도구·무기 구매 buyTool)
+│     ├─ MobService.luau        몹 생성·AI·체력·처치 보상 (2026-10-09 추가)
+│     ├─ CombatService.luau     무기 공격 검증·데미지, 사냥꾼 무기 판매 (2026-10-09 추가)
 │     └─ TrophyService.luau     (MVP-1) 트로피, 뱃지
 ├─ client/                      → StarterPlayerScripts
 │  ├─ Main.client.luau
@@ -69,11 +71,13 @@ src/
 │     ├─ SwingAnimation.luau    휘두르기 애니메이션, 히트스톱
 │     ├─ HitFeelController.luau 히트스톱, 카메라, 파티클, 소리
 │     ├─ RockHUD.luau           바위 체력바, 판정 문구, 획득량 (BillboardGui)
-│     └─ FeverController.luau   피버 연출, 연타 입력
+│     ├─ FeverController.luau   피버 연출, 연타 입력
+│     └─ CombatController.luau  무기 공격·몹 조준·타격/처치 연출·몹 체력바 (2026-10-09 추가)
 └─ shared/                      → ReplicatedStorage/Shared
    ├─ Config.luau               모든 밸런스 수치
    ├─ OreDefs.luau              자원 노드(광석·나무) 정의
-   ├─ PickaxeDefs.luau          채집 도구(곡괭이·도끼) 정의
+   ├─ PickaxeDefs.luau          손에 드는 도구(곡괭이·도끼·칼·활·방망이) 정의
+   ├─ MobDefs.luau              몹 정의
    └─ Remotes.luau              RemoteEvent 이름 목록
 ```
 
@@ -247,7 +251,7 @@ src/
   - 동작은 Roblox 기본 애니메이션(앉기 2506281703, 서 있기 507766388, 휘두르기 522635514)을 클라 NpcAnimator가 재생
   - 대장장이: 속성 Pose=Sit, Work=Hammer(망치질 + SparkPoint 불꽃·쇳소리). 모든 NPC는 가까이 가면 고개를 돌림
   - 상인 가판대는 광장 서쪽 가장자리(집 벽 앞)
-  - 상인의 버프 음식·물약, 사냥꾼의 무기·방어구·신발은 7장 제외 항목이라 "준비 중" 탭만 둠 (사용자 결정)
+  - 상인의 버프 음식·물약은 7장 제외 항목이라 "준비 중" 탭만 둠 (사용자 결정). 사냥꾼은 무기(칼·활·방망이)를 판다 (방어구·신발은 아직)
 - [x] 제련: 재료 + 수수료(골드) → 괴. 곡괭이는 대장장이에게 골드(+괴)로 구매 (모루 미니게임 직접 제작은 아직)
 - [x] 광산: 지상 동굴 입구(마을 동쪽, 바위 언덕 + 갱도 + 버팀목·랜턴·레일·광차, 스폰 위치 포함) + 1층(석탄·구리, T2) + 2층(철, T3) + 3층 잠김
   - 층은 맵 밖(x=1200)에 지형(Terrain)으로 판 6x6 미로 동굴 (통로 폭 16, 칸 간격 24). 종유석·수정·벽 횃불
@@ -275,11 +279,22 @@ src/
   - 나무 모델 기준점(Pivot)은 줄기 밑동 가운데, PrimaryPart 없음(있으면 기준점이 부품 방향을 따라가 눕는다). 줄기 반지름 = 템플릿 속성 HitRadius(없으면 OreDefs.HitRadius), 타격 높이 = HitHeight
   - 연출: "퍽" 소리(Sounds.WoodChop), 나뭇조각·떨어지는 잎(OreDefs.LeafColor), 덜 흔들림. 잔상은 줄기 둘레 고리가 줄어든다. 다 베면 Sounds.TreeBreak와 함께 친 사람 반대쪽으로 쓰러진다(클라 복제본). 체력바·말풍선은 타격 높이 위 (Config.HitFeel.Tree)
   - Studio 제작: Rojo가 `studio/`를 ServerStorage/StudioTools로 넣는다. 템플릿이 없으면 게임 시작 때 서버가 자동 실행한다(저장 안 됨). 편집 상태 명령 모음에서 `require(game.ServerStorage.StudioTools.BuildTreesAndAxes:Clone())` 실행하면 도끼 Tool(같은 티어 곡괭이 손잡이 재사용)·나무 템플릿 5종x3모양·아이콘·스폰 자리를 만든다. 다시 실행하면 새로 만든다
+- [x] 사냥과 전투 (2026-10-09 사용자 결정으로 7장 제외 항목에서 앞당김)
+  - 몹 5종: 귀여운 슬라임·스켈레톤·좀비·케르베로스·버그베어 (MobDefs, 수치 Config.Mobs). 마을에서 멀수록 센 몹
+    - 모델은 제작 스크립트 `studio/BuildWeaponsAndMobs.luau`가 부품으로 짓는다 (Templates/Mobs, 고정 Root + 용접, 앞 = -Z, 기준점 = 발밑). 생성 자리는 Workspace/MobSpawns (속성 MobType)
+    - 서버 MobService가 TickRate번/초로 생각·이동(PivotTo): 어슬렁 → 가까운 플레이어 쫓기 → 공격(Humanoid:TakeDamage), 집에서 Leash 넘게 멀어지면 포기. 슬라임은 통통 튐. 피버 중 플레이어는 무적
+    - 처치하면 처치한 사람에게 골드 + 전리품(슬라임 젤리·뼈다귀·낡은 천·케르베로스 송곳니·버그베어 털, 상인에게 판매). Respawn초 뒤 같은 자리에 다시
+  - 무기 12종 = 칼(나무 검·구리 검·철 장검·다이아몬드 대검) / 활(나무·구리·철 장궁·다이아몬드) / 방망이(야구방망이·도깨비방망이·모닝스타·다이아몬드 철퇴)
+    - PickaxeDefs에 Kind Sword/Bow/Club으로 넣어 곡괭이와 같은 Tool·가방·빠른 칸·단계 구매를 쓴다. 가방 분류는 "무기". 플레이어 속성 SwordTier·BowTier·ClubTier
+    - 수치는 Config.Weapons (칼 빠름 / 방망이 느리지만 세고 밀쳐 냄 / 활 약하지만 멀리). 치명타·흔들림은 Config.Combat
+    - 나무 검은 시작 지급, 나머지는 사냥꾼 카엘 상점 칼·활·방망이 탭에서 구매 (골드 + 괴·통나무·전리품)
+    - 모양은 제작 스크립트가 돌 곡괭이 Tool의 쥐는 각도를 그대로 쓰고 부품으로 짓는다. 연출: 맞으면 하얗게 번쩍, 데미지 숫자(치명타 노랑), 티어별 불꽃·빛줄기(Config.Combat.TierEffects), 활은 화살이 날아간다
+  - TODO: 칼·활·방망이 전용 소리 (지금은 있는 소리 음높이만 바꿈), 몹 애니메이션, 방어구
 - [ ] 저장(DataService), 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)
 
-- 사냥과 전투 / 판타지 광석(미스릴, 마나석 등) / 마나 산업화와 문명 단계
+- ~~사냥과 전투~~ (2026-10-09 사용자 결정으로 구현) / 판타지 광석(미스릴, 마나석 등) / 마나 산업화와 문명 단계
 - 거래소, 경매, 지역 경제 / 내구도와 수리 / 자유 배치와 꾸미기
 - 마을 영지 / 배고픔 외 욕구 / 직업 슬롯과 조합 칭호 / 연금·물약 / 운송과 지역 서버
 

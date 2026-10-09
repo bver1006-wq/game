@@ -4,7 +4,7 @@
 -- Studio의 NPC 모델 속성 ShopId가 여기 키와 같아야 한다.
 
 export type ShopTab = {
-	Id: "Smelt" | "Pickaxe" | "Axe" | "Sell" | "Buy" | "Bag" | "ComingSoon",
+	Id: "Smelt" | "Pickaxe" | "Axe" | "Sword" | "Bow" | "Club" | "Sell" | "Buy" | "Bag" | "ComingSoon",
 	Title: string,
 	Note: string?, -- ComingSoon 탭에 보여줄 설명
 }
@@ -33,7 +33,7 @@ local ShopDefs: { [string]: ShopDef } = {
 		Id = "Merchant",
 		NpcName = "상인 미라",
 		Role = "잡화 매입 · 가방 · 음식 · 물약",
-		Greeting = "캐 온 광석이나 괴, 통나무까지 값 잘 쳐줄게요!",
+		Greeting = "캐 온 광석이나 괴, 통나무, 몹 전리품까지 값 잘 쳐줄게요!",
 		Tabs = {
 			{ Id = "Sell", Title = "팔기" },
 			{ Id = "Buy", Title = "잡화" },
@@ -45,11 +45,13 @@ local ShopDefs: { [string]: ShopDef } = {
 	Hunter = {
 		Id = "Hunter",
 		NpcName = "사냥꾼 카엘",
-		Role = "무기 · 가죽 방어구",
-		Greeting = "사냥 장비라면 나한테 오게. ...아직 가게 정리 중이지만.",
+		Role = "칼 · 활 · 방망이",
+		Greeting = "들판에 귀여운 녀석들이 늘었어. 얕보면 큰코다치니 무기 하나 챙겨 가게.",
 		Tabs = {
-			-- MVP 제외 항목(사냥과 전투). NPC만 먼저 배치
-			{ Id = "ComingSoon", Title = "무기 · 방어구 · 신발", Note = "무기, 방어구, 신발은 준비 중이에요." },
+			-- 사냥과 전투는 2026-10-09 사용자 결정으로 앞당김. 방어구·신발은 아직 없음
+			{ Id = "Sword", Title = "칼" },
+			{ Id = "Bow", Title = "활" },
+			{ Id = "Club", Title = "방망이" },
 		},
 	},
 }
