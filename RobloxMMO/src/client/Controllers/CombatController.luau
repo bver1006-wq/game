@@ -66,6 +66,35 @@ local function nearestMob(range: number): Model?
 	return best
 end
 
+-- 활: 화면 가운데(카메라가 보는 쪽) 가까이 있는 몹을 먼저 노린다. 없으면 가장 가까운 몹
+local function bowTarget(range: number): Model?
+	local character = localPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local camera = Workspace.CurrentCamera
+	if not root or not root:IsA("BasePart") or not camera then
+		return nil
+	end
+	local look = camera.CFrame.LookVector * Vector3.new(1, 0, 1)
+	look = if look.Magnitude > 0.01 then look.Unit else Vector3.zAxis
+	local maxAngle = math.rad(Config.Combat.BowAimAngle)
+	local best: Model? = nil
+	local bestScore = math.huge
+	for _, mob in CollectionService:GetTagged(MOB_TAG) do
+		local hp = mob:GetAttribute("Hp")
+		if mob:IsA("Model") and mob:IsDescendantOf(Workspace) and typeof(hp) == "number" and hp > 0 then
+			local flat = (mob:GetPivot().Position - root.Position) * Vector3.new(1, 0, 1)
+			local distance = flat.Magnitude
+			if distance <= range and distance > 0.1 then
+				local angle = math.acos(math.clamp(flat.Unit:Dot(look), -1, 1))
+				if angle <= maxAngle and distance < bestScore then
+					best, bestScore = mob, distance
+				end
+			end
+		end
+	end
+	return best or nearestMob(range)
+end
+
 -- 캐릭터가 대상을 바라보게 돌린다
 local function face(target: Vector3)
 	local character = localPlayer.Character
@@ -79,6 +108,42 @@ local function face(target: Vector3)
 	end
 end
 
+-- 화살이 날아간다 (도착하면 onArrive)
+local function shootArrow(from: Vector3, to: Vector3, tier: number, onArrive: () -> ())
+	local effect = Config.Combat.TierEffects[tier]
+	local arrow = Instance.new("Part")
+	arrow.Size = Vector3.new(0.12, 0.12, 2)
+	arrow.Material = if tier >= 4 then Enum.Material.Neon else Enum.Material.Wood
+	arrow.Color = if tier >= 2 and effect then effect.Color else Color3.fromRGB(150, 110, 70)
+	arrow.Anchored = true
+	arrow.CanCollide = false
+	arrow.CanQuery = false
+	arrow.CanTouch = false
+	arrow.CastShadow = false
+	arrow.CFrame = CFrame.lookAt(from, to)
+	arrow.Parent = effectsFolder
+	local a0 = Instance.new("Attachment")
+	a0.Position = Vector3.new(0, 0.1, 1)
+	a0.Parent = arrow
+	local a1 = Instance.new("Attachment")
+	a1.Position = Vector3.new(0, -0.1, 1)
+	a1.Parent = arrow
+	local trail = Instance.new("Trail")
+	trail.Attachment0 = a0
+	trail.Attachment1 = a1
+	trail.Color = ColorSequence.new(if effect then effect.Color else Color3.new(1, 1, 1))
+	trail.Transparency = NumberSequence.new(0.3, 1)
+	trail.Lifetime = 0.15
+	trail.LightEmission = 0.7
+	trail.Parent = arrow
+	local travel = math.max((to - from).Magnitude / Config.Combat.ArrowSpeed, 0.05)
+	TweenService:Create(arrow, TweenInfo.new(travel, Enum.EasingStyle.Linear), { CFrame = CFrame.lookAt(to, to + (to - from).Unit) }):Play()
+	task.delay(travel, function()
+		arrow:Destroy()
+		onArrive()
+	end)
+end
+
 -- 무기로 한 번 공격한다 (InputController가 부른다). 쿨다운은 서버와 같은 값으로 로컬에서도 막는다
 function CombatController.attack(def: PickaxeDefs.PickaxeDef)
 	local config = Config.Weapons[def.Id]
@@ -90,15 +155,36 @@ function CombatController.attack(def: PickaxeDefs.PickaxeDef)
 		return
 	end
 	lastAttackClock = now
+	if def.Kind == "Bow" then
+		-- 활: 화살 없이 언제든 쏜다. 몹이 사거리 안에 있으면 그쪽으로, 없으면 앞으로 날아간다
+		local mob = bowTarget(config.Range)
+		local character = localPlayer.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root or not root:IsA("BasePart") then
+			return
+		end
+		local from = root.Position + Vector3.new(0, 1, 0)
+		local to: Vector3
+		if mob then
+			face(mob:GetPivot().Position)
+			to = mob:GetPivot().Position + Vector3.new(0, mob:GetExtentsSize().Y * 0.5, 0)
+			attackRemote:FireServer(mob)
+		else
+			local camera = Workspace.CurrentCamera
+			local look = (if camera then camera.CFrame.LookVector else root.CFrame.LookVector) * Vector3.new(1, 0, 1)
+			look = if look.Magnitude > 0.01 then look.Unit else root.CFrame.LookVector
+			face(root.Position + look)
+			to = from + look * config.Range
+		end
+		HitFeelController.playSound(Config.Sounds.BowShoot, from, 2.2, 0.5)
+		shootArrow(from, to, def.Tier, function() end) -- 내 화살은 바로 보여 준다 (서버 연출에서는 다시 그리지 않는다)
+		return
+	end
 	local mob = nearestMob(config.Range)
 	if mob then
 		face(mob:GetPivot().Position)
 	end
-	if def.Kind ~= "Bow" then
-		SwingAnimation.play()
-	elseif not mob then
-		return -- 활은 쏠 대상이 없으면 쏘지 않는다
-	end
+	SwingAnimation.play()
 	if mob then
 		attackRemote:FireServer(mob)
 	end
@@ -162,12 +248,63 @@ local function flash(mob: Model)
 	end)
 end
 
+-- 치명타: 몹이 짧게 불타오른다 (불꽃 + 주황 빛)
+local function burn(mob: Model)
+	local root = mob.PrimaryPart or mob:FindFirstChildWhichIsA("BasePart")
+	if not root then
+		return
+	end
+	local burnTime = Config.Combat.CritBurnTime
+	local attachment = Instance.new("Attachment")
+	attachment.Position = Vector3.new(0, mob:GetExtentsSize().Y * 0.45, 0)
+	attachment.Parent = root
+	local fire = Instance.new("ParticleEmitter")
+	fire.Texture = "rbxasset://textures/particles/fire_main.dds"
+	fire.Color = ColorSequence.new(Color3.fromRGB(255, 220, 90), Color3.fromRGB(255, 70, 20))
+	fire.LightEmission = 1
+	fire.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.6), NumberSequenceKeypoint.new(1, 0) })
+	fire.Transparency = NumberSequence.new(0.1, 1)
+	fire.Lifetime = NumberRange.new(0.3, 0.55)
+	fire.Speed = NumberRange.new(3, 6)
+	fire.SpreadAngle = Vector2.new(35, 35)
+	fire.Acceleration = Vector3.new(0, 8, 0)
+	fire.Rate = 70
+	fire.Parent = attachment
+	local embers = Instance.new("ParticleEmitter")
+	embers.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	embers.Color = ColorSequence.new(Color3.fromRGB(255, 160, 60))
+	embers.LightEmission = 1
+	embers.Size = NumberSequence.new(0.25, 0)
+	embers.Lifetime = NumberRange.new(0.4, 0.8)
+	embers.Speed = NumberRange.new(5, 10)
+	embers.SpreadAngle = Vector2.new(180, 180)
+	embers.Rate = 0
+	embers.Parent = attachment
+	embers:Emit(18)
+	local light = Instance.new("PointLight")
+	light.Color = Color3.fromRGB(255, 130, 40)
+	light.Range = 12
+	light.Brightness = 3
+	light.Parent = attachment
+	HitFeelController.playSound(Config.Sounds.CritBurn, root.Position, 1.8, 0.35)
+	TweenService:Create(light, TweenInfo.new(burnTime), { Brightness = 0 }):Play()
+	task.delay(burnTime, function()
+		fire.Enabled = false
+	end)
+	task.delay(burnTime + 0.6, function()
+		attachment:Destroy()
+	end)
+end
+
 -- 맞은 순간 연출 (활은 화살이 도착한 뒤에 부른다)
 local function playImpact(mob: Model?, damage: number, isCrit: boolean, kind: string, tier: number, isMine: boolean, hitPosition: Vector3)
 	local def = if mob then mobDef(mob) else nil
 	local color = if def then def.Color else Color3.new(1, 1, 1)
 	if mob then
 		flash(mob)
+		if isCrit and mob.Parent then
+			burn(mob)
+		end
 	end
 	HitFeelController.emitDebris(hitPosition, color, if isCrit then 18 else 10, if isCrit then 1.4 else 1)
 	HitFeelController.tierImpact(mob, hitPosition, color, tier, if isCrit then "Perfect" else "Normal", Enum.Material.SmoothPlastic, Config.Combat.TierEffects)
@@ -182,7 +319,7 @@ local function playImpact(mob: Model?, damage: number, isCrit: boolean, kind: st
 	end
 
 	if isCrit then
-		popNumber(hitPosition, `{damage}!`, Color3.fromRGB(255, 210, 40), 1.4)
+		popNumber(hitPosition, `{damage}!`, Color3.fromRGB(255, 150, 40), 1.4)
 	else
 		popNumber(hitPosition, tostring(damage), Color3.new(1, 1, 1), 1)
 	end
@@ -196,49 +333,20 @@ local function playImpact(mob: Model?, damage: number, isCrit: boolean, kind: st
 	end
 end
 
--- 화살이 날아간다 (도착하면 onArrive)
-local function shootArrow(from: Vector3, to: Vector3, tier: number, onArrive: () -> ())
-	local effect = Config.Combat.TierEffects[tier]
-	local arrow = Instance.new("Part")
-	arrow.Size = Vector3.new(0.12, 0.12, 2)
-	arrow.Material = if tier >= 4 then Enum.Material.Neon else Enum.Material.Wood
-	arrow.Color = if tier >= 2 and effect then effect.Color else Color3.fromRGB(150, 110, 70)
-	arrow.Anchored = true
-	arrow.CanCollide = false
-	arrow.CanQuery = false
-	arrow.CanTouch = false
-	arrow.CastShadow = false
-	arrow.CFrame = CFrame.lookAt(from, to)
-	arrow.Parent = effectsFolder
-	local a0 = Instance.new("Attachment")
-	a0.Position = Vector3.new(0, 0.1, 1)
-	a0.Parent = arrow
-	local a1 = Instance.new("Attachment")
-	a1.Position = Vector3.new(0, -0.1, 1)
-	a1.Parent = arrow
-	local trail = Instance.new("Trail")
-	trail.Attachment0 = a0
-	trail.Attachment1 = a1
-	trail.Color = ColorSequence.new(if effect then effect.Color else Color3.new(1, 1, 1))
-	trail.Transparency = NumberSequence.new(0.3, 1)
-	trail.Lifetime = 0.15
-	trail.LightEmission = 0.7
-	trail.Parent = arrow
-	local travel = math.max((to - from).Magnitude / Config.Combat.ArrowSpeed, 0.05)
-	TweenService:Create(arrow, TweenInfo.new(travel, Enum.EasingStyle.Linear), { CFrame = CFrame.lookAt(to, to + (to - from).Unit) }):Play()
-	task.delay(travel, function()
-		arrow:Destroy()
-		onArrive()
-	end)
-end
-
 -- 서버의 CombatEffect: 누군가 몹을 때렸다
 local function onCombatEffect(mob: Model?, damage: number, isCrit: boolean, kind: string, tier: number, attackerUserId: number, from: Vector3, hitPosition: Vector3)
 	local isMine = attackerUserId == localPlayer.UserId
 	if kind == "Bow" then
-		shootArrow(from, hitPosition, tier, function()
-			playImpact(mob, damage, isCrit, kind, tier, isMine, hitPosition)
-		end)
+		if isMine then
+			-- 내 화살은 쏠 때 이미 그렸다. 도착할 즈음 맞은 연출만
+			task.delay(math.max((hitPosition - from).Magnitude / Config.Combat.ArrowSpeed - 0.05, 0), function()
+				playImpact(mob, damage, isCrit, kind, tier, isMine, hitPosition)
+			end)
+		else
+			shootArrow(from, hitPosition, tier, function()
+				playImpact(mob, damage, isCrit, kind, tier, isMine, hitPosition)
+			end)
+		end
 	else
 		playImpact(mob, damage, isCrit, kind, tier, isMine, hitPosition)
 	end

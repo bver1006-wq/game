@@ -1,5 +1,5 @@
 --!strict
--- 소모품 쓰기 (빠른 호출 칸에서 누름). 지금은 귀환 주문서만 있다.
+-- 소모품 쓰기 (빠른 호출 칸에서 누름). 귀환 주문서와 음식(체력·마나 회복, Config.Foods).
 -- 귀환 주문서: CastTime초 동안 캐릭터 주변에 빛이 돌고, 끝나면 1장을 쓰고 마을(태그 TownArrival)로 옮긴다.
 -- 그사이 움직이거나 다시 누르면 취소된다. 주문서는 다 쓴 다음에만 줄어든다.
 
@@ -13,6 +13,7 @@ local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local FeverService = require(script.Parent.FeverService)
 local InventoryService = require(script.Parent.InventoryService)
+local ManaService = require(script.Parent.ManaService)
 local NotifyService = require(script.Parent.NotifyService)
 
 local TOWN_TAG = "TownArrival"
@@ -21,6 +22,41 @@ local ItemUseService = {}
 
 local casting: { [Player]: number } = {} -- 플레이어 → 진행 중인 귀환의 번호 (취소 판별용)
 local castCounter = 0
+local lastEat: { [Player]: number } = {}
+
+-- 음식 먹기: 체력·마나를 채운다. 둘 다 가득이면 먹지 않는다
+local function eat(player: Player, itemId: string)
+	local food = Config.Foods[itemId]
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not food or not humanoid or humanoid.Health <= 0 then
+		return
+	end
+	local now = os.clock()
+	if now - (lastEat[player] or -math.huge) < Config.FoodCooldown then
+		return
+	end
+	local needsHp = (food.Hp or 0) > 0 and humanoid.Health < humanoid.MaxHealth
+	local needsMana = (food.Mana or 0) > 0 and not ManaService.isFull(player)
+	if not needsHp and not needsMana then
+		NotifyService.send(player, "체력과 마나가 이미 가득해요.", "info")
+		return
+	end
+	if not InventoryService.remove(player, itemId, 1) then
+		return
+	end
+	lastEat[player] = now
+	local parts = {}
+	if food.Hp then
+		local before = humanoid.Health
+		humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + food.Hp)
+		table.insert(parts, `체력 +{math.floor(humanoid.Health - before + 0.5)}`)
+	end
+	if food.Mana then
+		table.insert(parts, `마나 +{math.floor(ManaService.add(player, food.Mana) + 0.5)}`)
+	end
+	NotifyService.send(player, `{ItemDefs.Items[itemId].DisplayName}: {table.concat(parts, ", ")}`, "good")
+end
 
 -- 캐릭터에 귀환 빛 효과를 붙인다 (서버에서 만들어 모두에게 보인다)
 local function attachCastEffect(root: BasePart): Attachment
@@ -120,6 +156,8 @@ local function onUseItem(player: Player, itemArg: unknown)
 	end
 	if itemArg == "ReturnScroll" then
 		task.spawn(useReturnScroll, player)
+	elseif Config.Foods[itemArg] then
+		eat(player, itemArg)
 	end
 end
 
@@ -128,6 +166,7 @@ function ItemUseService.init()
 	Remotes.get(Remotes.Names.UseItem).OnServerEvent:Connect(onUseItem)
 	Players.PlayerRemoving:Connect(function(player)
 		casting[player] = nil
+		lastEat[player] = nil
 	end)
 end
 

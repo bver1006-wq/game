@@ -171,6 +171,12 @@ function PickaxeService.init()
 		if RunService:IsStudio() and Config.Debug.GiveReturnScrolls > 0 then
 			InventoryService.add(player, "ReturnScroll", Config.Debug.GiveReturnScrolls)
 		end
+		-- 테스트용 음식 (Studio에서만)
+		if RunService:IsStudio() and Config.Debug.GiveFoods > 0 then
+			for foodId in Config.Foods do
+				InventoryService.add(player, foodId, Config.Debug.GiveFoods)
+			end
+		end
 		updateTier(player)
 	end
 	Players.PlayerAdded:Connect(onPlayerAdded)

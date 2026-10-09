@@ -2,13 +2,26 @@
 -- 바위 위 BillboardGui: 체력바, 판정 말풍선(Perfect!/Nice!), 획득량 숫자.
 -- 전부 로컬 연출이고, 값은 서버가 바위 속성(Hp/MaxHp)과 RemoteEvent로 알려준 것만 쓴다.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 local TargetController = require(script.Parent.TargetController)
+
+local WEAPON_KINDS: { [string]: boolean } = { Sword = true, Bow = true, Club = true }
+
+-- 무기를 들고 있으면 바위·나무 체력바는 띄우지 않는다 (몹 체력바만)
+local function holdingWeapon(): boolean
+	local character = Players.LocalPlayer.Character
+	local tool = character and character:FindFirstChildWhichIsA("Tool")
+	local id = tool and tool:GetAttribute("PickaxeId")
+	local def = if typeof(id) == "string" then PickaxeDefs[id] else nil
+	return def ~= nil and WEAPON_KINDS[def.Kind] == true
+end
 
 -- 판정별 말풍선 색
 local JUDGMENT_STYLE = {
@@ -104,7 +117,7 @@ end
 
 -- 매 프레임: 가장 가까운 바위로 체력바를 옮기고 HP를 반영한다
 local function updateHpBar()
-	local rock = TargetController.getNearestRock(Config.HitFeel.HpBarRange)
+	local rock = if holdingWeapon() then nil else TargetController.getNearestRock(Config.HitFeel.HpBarRange)
 	if rock ~= currentRock then
 		currentRock = rock
 		shownHp = -1

@@ -187,27 +187,36 @@ function InventoryUI.init()
 	UiKit.swatch(goldPanel, UiKit.Colors.Gold, 20, UDim2.fromOffset(12, 10))
 	goldLabel = UiKit.label(goldPanel, "0 G", UDim2.new(1, -46, 1, 0), UDim2.fromOffset(40, 0), UiKit.Colors.Gold, 18)
 
-	-- 가방 버튼 (왼쪽 위, 가방 그림 + 칸 수). Roblox 상단 메뉴 바로 아래
+	-- 가방 버튼 (왼쪽 위, 네모 테두리 없이 가방 그림만 + 아래 칸 수). Roblox 상단 메뉴 바로 아래
 	bagButton = Instance.new("TextButton")
 	bagButton.Name = "BagButton"
 	bagButton.Text = ""
 	bagButton.AutoButtonColor = false
-	bagButton.BackgroundColor3 = UiKit.Colors.Panel
-	bagButton.BackgroundTransparency = 0.15
+	bagButton.BackgroundTransparency = 1
 	bagButton.Size = UDim2.fromOffset(72, 84)
 	bagButton.Position = UDim2.fromOffset(16, 12)
 	bagButton.ZIndex = 2
 	bagButton.Parent = gui
-	UiKit.corner(bagButton, 14)
-	UiKit.stroke(bagButton)
 	local bagArt = Instance.new("Frame")
 	bagArt.BackgroundTransparency = 1
-	bagArt.Size = UDim2.fromOffset(52, 50)
-	bagArt.Position = UDim2.fromOffset(10, 6)
+	bagArt.Size = UDim2.fromOffset(64, 60)
+	bagArt.Position = UDim2.fromOffset(4, 0)
 	bagArt.Parent = bagButton
 	UiKit.bagIcon(bagArt)
-	bagCountLabel = UiKit.label(bagButton, "", UDim2.new(1, 0, 0, 22), UDim2.new(0, 0, 1, -26), Color3.new(1, 1, 1), 14)
+	bagCountLabel = UiKit.label(bagButton, "", UDim2.new(1, 0, 0, 22), UDim2.new(0, 0, 1, -24), Color3.new(1, 1, 1), 15)
 	bagCountLabel.TextXAlignment = Enum.TextXAlignment.Center
+	local countStroke = Instance.new("UIStroke") -- 테두리가 없어도 글자가 잘 보이게
+	countStroke.Thickness = 2
+	countStroke.Parent = bagCountLabel
+	-- 마우스를 올리면 살짝 커진다
+	local bagScale = Instance.new("UIScale")
+	bagScale.Parent = bagButton
+	bagButton.MouseEnter:Connect(function()
+		bagScale.Scale = 1.08
+	end)
+	bagButton.MouseLeave:Connect(function()
+		bagScale.Scale = 1
+	end)
 	bagButton.Activated:Connect(InventoryUI.toggle)
 
 	-- 가방 창 (가운데 위쪽). 화면이 작으면 높이를 줄여서 하단 빠른 칸을 가리지 않게
