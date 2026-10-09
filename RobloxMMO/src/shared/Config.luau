@@ -599,11 +599,23 @@ Config.MobileControls = {
 -- 배경음악 (2026-10-09, MusicController). 밖에서 차례로 틀고 광산에서는 줄인다
 -- TODO: 곡 Id는 팬 사이트 목록에서 고른 잔잔한 곡(Spirit LoFi "Calm Waves"·"Easy Flow", APM "Ruins of Tomorrow"). 안 나오면 Creator Store에서 찾아 바꾸기
 Config.Music = {
-	Tracks = {
-		"rbxassetid://76350635489391", -- Calm Waves
-		"rbxassetid://140319470451829", -- Easy Flow
-		"rbxassetid://111916174750874", -- Ruins of Tomorrow (APM)
+	-- 평소: 느릿하고 여유 있는 곡 (2026-10-09 사용자 요청: 박자가 빠르지 않게). APM 공식 곡은 모든 게임에서 쓸 수 있다
+	Calm = {
+		"rbxassetid://1848354536", -- Relaxed Scene (APM, 잔잔한 선율)
+		"rbxassetid://1840880603", -- Evening
+		"rbxassetid://1837070127", -- Calming Nostalgia
 	},
+	-- 전투: 몹과 싸울 때 긴박한 곡
+	Battle = {
+		"rbxassetid://1836104000", -- Determined Epic Theme (Alt 1)
+		"rbxassetid://1837779548", -- Ancient Myths (APM)
+		"rbxassetid://1836104037", -- Determined Epic Theme (Alt 2)
+	},
+	BattleHoldTime = 10, -- 마지막으로 때리거나 맞은 뒤 전투곡을 유지하는 시간(초)
+	BattleVolume = 0.3,
+	-- 새소리 같은 자연 소리 (계속 반복). TODO: Creator Store에서 "birds forest ambience"를 찾아 Id 넣기. 빈 값이면 안 틂
+	Ambience = "",
+	AmbienceVolume = 0.35,
 	Volume = 0.25, -- 밖에서 볼륨
 	MineVolume = 0, -- 광산 안 볼륨 (광산 배경음이 따로 있다)
 	FadeTime = 2, -- 볼륨이 바뀌는 시간(초)

@@ -341,7 +341,7 @@ src/
   - 보스 몹(Config.MobBoss): 생길 때 Chance(보스 자리는 SpotChance)로 1.5~3배 크기(Model:ScaleTo). 체력·공격·골드·전리품이 크기에 비례, 공격 거리도 몸만큼 늘어남, 다시 나오기는 RespawnMultiplier배 늦게. 모델 속성 Boss·BossScale → 체력바 "👑 보스 ~" 금색 이름 + 큰 체력바. 슬라임 보스도 도망만 친다
 - [x] 보스 바위·나무 (2026-10-09): 생길 때 Config.BossNodes.Chance로 1.5~3배 크기(Model:ScaleTo), 체력 크기^2배, 산출량 크기^1.5배. 속성 Boss·ExtraReach(커진 만큼 더 멀리서 침, 서버 AntiCheat 거리에도 더함). 체력바 이름 "👑 보스 ~" 금색. 나무는 HitRadius도 같이 커짐
 - [x] 광산 광석: MineScale(1.4)배로 키우고, 옆으로 광선을 쏴 벽 속에 묻힌 만큼 밀어낸 뒤 다시 땅에 맞춘다 (OreService.pushOutOfWalls)
-- [x] 배경음악 (MusicController, Config.Music): 밖에서 잔잔한 곡을 차례로, 광산에선 줄임. 곡 Id는 팬 사이트에서 찾은 값이라 안 나오면 Creator Store 곡으로 교체
+- [x] 배경음악 (MusicController, Config.Music): 평소 느릿한 곡(Calm, APM)을 차례로, 몹을 때리거나 맞으면 전투곡(Battle)으로 크로스페이드하고 마지막 전투 뒤 BattleHoldTime(10초) 유지, 광산에선 줄임. 새소리(Ambience)는 Id를 아직 못 찾아 빈 값. 곡 Id는 웹 목록에서 찾은 값이라 안 나오면 Creator Store 곡으로 교체
 - [x] 활 화살·화살통 (2026-10-09)
   - 장비 칸 8개: 무기 다음에 "방패" 칸(Slot Shield). 지금은 화살통만 들어간다 (EquipmentDefs.QuiverOrder, Order와 따로 둬서 장비 아이콘 제작 스크립트에 안 섞임). 가방 분류 "무기"
   - 나무 화살통(화살 30) / 철 화살통(화살 60). 사냥꾼 "활" 탭 아래에서 통나무 잔뜩 + 골드 조금 (Config.Quiver.Items, ShopAction "BuyQuiver"). 여러 개 살 수 있고, 안 끼고 있으면 사자마자 낀다
