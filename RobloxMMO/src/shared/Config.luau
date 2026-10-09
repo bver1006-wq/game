@@ -96,21 +96,19 @@ Config.RandomPools = {
 	Ebony = { Active = 2 },
 }
 
--- 곡괭이 데미지와 대장장이 판매 가격
+-- 곡괭이 데미지
 -- 데미지 = BaseDamage × Power × 판정 배수 (2026-10-09 결정: 1 / 1.5 / 2 / 3)
--- TODO(미정): 가격은 임시값. 기획서 목표(T2 3분, T3 17분, T4 1시간)에 맞춰 조정
--- 도끼도 같은 표에 둔다. 손잡이에 통나무가 들어간다 (2026-10-09 결정)
+-- 도끼도 같은 표에 둔다. 만드는 법(가격)은 Config.Recipes (2026-10-09 조합식으로 바뀜)
 Config.Pickaxes = {
 	StonePickaxe = { Power = 1 }, -- 시작 지급
-	CopperPickaxe = { Power = 1.5, Price = { Gold = 50, Items = { Oak = 3 } } },
-	IronPickaxe = { Power = 2, Price = { Gold = 250, Items = { CopperIngot = 5, Birch = 3 } } },
-	SteelPickaxe = { Power = 3, Price = { Gold = 1000, Items = { SteelIngot = 5, Maple = 3 } } }, -- 다이아몬드 곡괭이
+	CopperPickaxe = { Power = 1.5 },
+	IronPickaxe = { Power = 2 },
+	SteelPickaxe = { Power = 3 }, -- 다이아몬드 곡괭이
 	StoneAxe = { Power = 1 }, -- 시작 지급
-	CopperAxe = { Power = 1.5, Price = { Gold = 50, Items = { CopperIngot = 2, Pine = 3 } } },
-	IronAxe = { Power = 2, Price = { Gold = 250, Items = { IronIngot = 3, Birch = 3 } } },
+	CopperAxe = { Power = 1.5 },
+	IronAxe = { Power = 2 },
 	DiamondAxe = {
 		Power = 3,
-		Price = { Gold = 1000, Items = { SteelIngot = 5, Maple = 3 } },
 		LightningChance = 0.2, -- 나무를 칠 때 이 확률로 번개가 내려쳐 한 방에 벤다 (2026-10-09 사용자 요청)
 	},
 }
@@ -147,13 +145,7 @@ Config.Equipment = {
 	ToolAtkPerPower = 6, -- 곡괭이·도끼를 들고 있으면 공격 = Power × 이 값 (무기는 Config.Weapons의 Damage)
 	PowerWeights = { Atk = 3, Def = 4, Hp = 1, Crit = 15 },
 	BaseMaxHealth = 100,
-	-- 사냥꾼 상점 가격 (단계별, 모든 장비 공통)
-	Prices = {
-		{ Gold = 40, Items = { OldCloth = 3 } },
-		{ Gold = 150, Items = { CopperIngot = 3, Bone = 2 } },
-		{ Gold = 500, Items = { IronIngot = 4, CerberusFang = 2 } },
-		{ Gold = 1800, Items = { SteelIngot = 5, CyclopsEye = 3 } },
-	},
+	-- 만드는 법(가격)은 Config.Recipes (2026-10-09 조합식으로 바뀜)
 }
 
 -- 화살통 (2026-10-09 사용자 요청): 방패 칸에 끼우고 등에 멘다. 활은 끼운 화살통에 화살이 있어야 쏘고, 한 발에 1개씩 준다
@@ -220,22 +212,22 @@ Config.Foods = {
 }
 Config.FoodCooldown = 10 -- 같은 음식을 다시 먹으려면 기다리는 시간(초). 칸 위에 시계 방향 덮개로 보인다 (2026-10-09)
 
--- 무기: 데미지·쿨다운(초)·사거리(스터드)·대장장이 아닌 사냥꾼 판매 가격
+-- 무기: 데미지·쿨다운(초)·사거리(스터드). 만드는 법(가격)은 Config.Recipes (2026-10-09 조합식으로 바뀜)
 -- 칼은 빠르고, 방망이는 느리지만 세고 밀쳐 내고, 활은 약하지만 멀리서 쏜다
--- TODO(미정): 수치와 가격은 임시값. 플레이테스트로 조정
+-- TODO(미정): 수치는 임시값. 플레이테스트로 조정
 Config.Weapons = {
 	WoodenSword = { Damage = 8, Cooldown = 0.5, Range = 7 }, -- 시작 지급
-	CopperSword = { Damage = 13, Cooldown = 0.5, Range = 7.5, Price = { Gold = 80, Items = { CopperIngot = 3, Oak = 2 } } },
-	IronSword = { Damage = 20, Cooldown = 0.5, Range = 8, Price = { Gold = 300, Items = { IronIngot = 5, Birch = 2 } } },
-	DiamondSword = { Damage = 32, Cooldown = 0.5, Range = 9, Price = { Gold = 1200, Items = { SteelIngot = 6, Maple = 2 } } },
-	WoodenBow = { Damage = 7, Cooldown = 0.8, Range = 40, Price = { Gold = 30, Items = { Pine = 5 } } },
-	CopperBow = { Damage = 11, Cooldown = 0.8, Range = 45, Price = { Gold = 100, Items = { CopperIngot = 2, Birch = 3 } } },
-	IronBow = { Damage = 17, Cooldown = 0.8, Range = 50, Price = { Gold = 350, Items = { IronIngot = 4, Maple = 3 } } },
-	DiamondBow = { Damage = 27, Cooldown = 0.8, Range = 55, Price = { Gold = 1300, Items = { SteelIngot = 5, Ebony = 2 } } },
-	BaseballBat = { Damage = 12, Cooldown = 0.9, Range = 6.5, Knockback = 4, Price = { Gold = 30, Items = { Oak = 5 } } },
-	GoblinClub = { Damage = 20, Cooldown = 0.9, Range = 6.5, Knockback = 5, Price = { Gold = 120, Items = { CopperIngot = 3, Oak = 4 } } },
-	MorningStar = { Damage = 31, Cooldown = 0.9, Range = 7, Knockback = 6, Price = { Gold = 400, Items = { IronIngot = 6, Bone = 5 } } },
-	DiamondMace = { Damage = 48, Cooldown = 0.9, Range = 7.5, Knockback = 8, Price = { Gold = 1500, Items = { SteelIngot = 7, CyclopsEye = 3 } } },
+	CopperSword = { Damage = 13, Cooldown = 0.5, Range = 7.5 },
+	IronSword = { Damage = 20, Cooldown = 0.5, Range = 8 },
+	DiamondSword = { Damage = 32, Cooldown = 0.5, Range = 9 },
+	WoodenBow = { Damage = 7, Cooldown = 0.8, Range = 40 },
+	CopperBow = { Damage = 11, Cooldown = 0.8, Range = 45 },
+	IronBow = { Damage = 17, Cooldown = 0.8, Range = 50 },
+	DiamondBow = { Damage = 27, Cooldown = 0.8, Range = 55 },
+	BaseballBat = { Damage = 12, Cooldown = 0.9, Range = 6.5, Knockback = 4 },
+	GoblinClub = { Damage = 20, Cooldown = 0.9, Range = 6.5, Knockback = 5 },
+	MorningStar = { Damage = 31, Cooldown = 0.9, Range = 7, Knockback = 6 },
+	DiamondMace = { Damage = 48, Cooldown = 0.9, Range = 7.5, Knockback = 8 },
 }
 
 -- 전투 공통 수치
@@ -273,22 +265,30 @@ Config.Mobs = {
 	Cyclops = { Hp = 160, Damage = 18, AttackInterval = 1.8, AttackRange = 6.5, Speed = 9, Aggro = 26, Gold = { 25, 40 }, Loot = { 1, 3 }, Respawn = 45, Scale = 1.4 },
 }
 
--- 몹 구역 (2026-10-09): 구역마다 한 종류의 몹이 모여 산다. 마을에서 멀수록 센 몹
--- Distance 마을 중심(TownArrival)에서 구역 가운데까지 거리 범위, Radius 구역 반경, Count 생성 자리 수
--- BossSpots 구역마다 보스가 잘 나오는 자리 수 (Config.MobBoss.SpotChance)
--- 제작 스크립트(studio/BuildWeaponsAndMobs)가 게임 시작 때 구역 가운데와 생성 자리를 고른다
+-- 몹 구역 (2026-10-09, 같은 날 넓게 펼침): 마을에서 가까우면 슬라임, 조금 멀면 스켈레톤·좀비, 꽤 멀면 케르베로스·사이클롭스
+-- 구역 = 마을을 둘러싼 고리의 한 조각(부채꼴). Distance 생성 자리가 놓일 마을(TownArrival) 거리 범위(스터드),
+--   Arc 구역이 차지하는 방향 폭(도). 띠끼리 거리가 조금 겹쳐서 경계가 딱 끊기지 않는다
+-- Count 생성 자리 수, BossSpots 보스가 잘 나오는 자리 수 (Config.MobBoss.SpotChance)
+-- Mix 자리마다 이웃 단계 몹이 대신 설 확률 (나머지는 MobType). 예: { Skeleton = 0.04 } = 4%는 스켈레톤
+-- 맵이 Config.WorldTiers.MapRadius보다 좁으면 거리를 그 비율로 줄인다
+-- 제작 스크립트(studio/BuildWeaponsAndMobs)가 게임 시작 때 구역 방향과 생성 자리를 고른다
 Config.MobZones = {
-	{ Name = "슬라임 들판", MobType = "Slime", Count = 16, Distance = { 75, 115 }, Radius = 30, BossSpots = 1 },
-	{ Name = "슬라임 언덕", MobType = "Slime", Count = 14, Distance = { 80, 125 }, Radius = 26, BossSpots = 1 },
-	{ Name = "스켈레톤 무덤", MobType = "Skeleton", Count = 7, Distance = { 125, 175 }, Radius = 24, BossSpots = 1 },
-	{ Name = "좀비 숲", MobType = "Zombie", Count = 7, Distance = { 125, 175 }, Radius = 24, BossSpots = 1 },
-	{ Name = "케르베로스 굴", MobType = "Cerberus", Count = 4, Distance = { 180, 230 }, Radius = 22, BossSpots = 1 },
-	{ Name = "사이클롭스 골짜기", MobType = "Cyclops", Count = 3, Distance = { 215, 270 }, Radius = 24, BossSpots = 1 },
+	-- 가까운 띠: 슬라임 (아주 가끔 스켈레톤·좀비)
+	{ Name = "슬라임 들판", MobType = "Slime", Count = 11, Distance = { 80, 150 }, Arc = 70, BossSpots = 1, Mix = { Skeleton = 0.04 } },
+	{ Name = "슬라임 언덕", MobType = "Slime", Count = 10, Distance = { 80, 150 }, Arc = 65, BossSpots = 1, Mix = { Zombie = 0.04 } },
+	{ Name = "슬라임 연못", MobType = "Slime", Count = 9, Distance = { 85, 155 }, Arc = 60, BossSpots = 1, Mix = { Skeleton = 0.04 } },
+	-- 중간 띠: 스켈레톤·좀비 (가끔 슬라임, 아주 가끔 케르베로스)
+	{ Name = "스켈레톤 무덤", MobType = "Skeleton", Count = 9, Distance = { 135, 210 }, Arc = 60, BossSpots = 1, Mix = { Zombie = 0.15, Slime = 0.08, Cerberus = 0.04 } },
+	{ Name = "좀비 숲", MobType = "Zombie", Count = 9, Distance = { 135, 210 }, Arc = 60, BossSpots = 1, Mix = { Skeleton = 0.15, Slime = 0.08, Cerberus = 0.04 } },
+	-- 먼 띠: 케르베로스·사이클롭스 (가끔 스켈레톤·좀비)
+	{ Name = "케르베로스 굴", MobType = "Cerberus", Count = 5, Distance = { 195, 280 }, Arc = 55, BossSpots = 1, Mix = { Skeleton = 0.08, Zombie = 0.08, Cyclops = 0.06 } },
+	{ Name = "사이클롭스 골짜기", MobType = "Cyclops", Count = 4, Distance = { 215, 300 }, Arc = 55, BossSpots = 1, Mix = { Cerberus = 0.2 } },
 }
 Config.MobZoneLayout = {
-	ZoneGap = 70, -- 구역 가운데끼리 최소 거리 (서로 섞이지 않게)
-	SpawnGap = 7, -- 생성 자리끼리 최소 거리
+	ArcGap = 12, -- 같은 띠 구역끼리 방향 사이 여유(도). 서로 안 겹치게
+	SpawnGap = 14, -- 생성 자리끼리 최소 거리 (2026-10-09: 7 → 14, 몹이 너무 붙어 있어서)
 	ObstacleGap = 25, -- 광산 입구 같은 시설에서 떨어질 거리
+	NodeGap = 5, -- 나무·바위 생성 자리에서 떨어질 거리
 }
 
 -- 보스 몹 (2026-10-09): 생성(다시 생성 포함)될 때마다 Chance 확률로 보스가 된다. 보스 자리는 SpotChance
@@ -401,6 +401,83 @@ Config.Smelting = {
 		IronIngot = { Inputs = { IronOre = 2, Coal = 1 }, Fee = 4 },
 		SteelIngot = { Inputs = { IronIngot = 2, Coal = 2 }, Fee = 10 },
 	},
+}
+
+-- 조합식 (2026-10-09 사용자 요청): 도구·무기·장비 만드는 법. 키 = 만들어지는 아이템 Id
+-- 1단계(From 없음): 골드 + 재료 조금으로 산다 (여러 개 살 수 있다)
+-- 2~4단계: 같은 종류(칸) 바로 아래 단계 From.Count(3)개 + 재료 Items + 골드 Gold → 1개. 실패 확률 없음
+-- 단계가 높을수록 재료 종류·개수가 늘어난다 (2단계 1~2종, 3단계 3종, 4단계 4종)
+-- 재료는 그 단계 직전 도구로 구할 수 있는 것만 (예: 구리 곡괭이에 구리괴를 넣으면 구리를 캘 수 없어 막힌다)
+-- 대장장이가 곡괭이·도끼, 사냥꾼이 칼·활·방망이·장비를 만든다. 화살통은 Config.Quiver
+-- TODO(미정): 숫자는 임시값. 플레이테스트로 조정
+export type Recipe = { From: { Id: string, Count: number }?, Items: { [string]: number }, Gold: number }
+local RECIPES: { [string]: Recipe } = {
+	-- 곡괭이 (돌 → 구리 → 철 → 다이아몬드)
+	StonePickaxe = { Gold = 5, Items = { Stone = 3, Pine = 2 } },
+	CopperPickaxe = { From = { Id = "StonePickaxe", Count = 3 }, Gold = 30, Items = { Stone = 10, Oak = 4 } },
+	IronPickaxe = { From = { Id = "CopperPickaxe", Count = 3 }, Gold = 150, Items = { CopperIngot = 6, Coal = 8, Birch = 4 } },
+	SteelPickaxe = { From = { Id = "IronPickaxe", Count = 3 }, Gold = 600, Items = { SteelIngot = 5, IronIngot = 8, Coal = 15, Maple = 6 } },
+	-- 도끼
+	StoneAxe = { Gold = 5, Items = { Pine = 3, Stone = 2 } },
+	CopperAxe = { From = { Id = "StoneAxe", Count = 3 }, Gold = 30, Items = { CopperIngot = 2, Oak = 6 } },
+	IronAxe = { From = { Id = "CopperAxe", Count = 3 }, Gold = 150, Items = { IronIngot = 4, Birch = 8, Coal = 5 } },
+	DiamondAxe = { From = { Id = "IronAxe", Count = 3 }, Gold = 600, Items = { SteelIngot = 5, IronIngot = 6, Maple = 10, Birch = 10 } },
+	-- 칼
+	WoodenSword = { Gold = 5, Items = { Pine = 4 } },
+	CopperSword = { From = { Id = "WoodenSword", Count = 3 }, Gold = 40, Items = { CopperIngot = 3, SlimeJelly = 5 } },
+	IronSword = { From = { Id = "CopperSword", Count = 3 }, Gold = 180, Items = { IronIngot = 5, Bone = 6, Birch = 4 } },
+	DiamondSword = { From = { Id = "IronSword", Count = 3 }, Gold = 700, Items = { SteelIngot = 6, IronIngot = 6, CerberusFang = 4, CyclopsEye = 2 } },
+	-- 활
+	WoodenBow = { Gold = 5, Items = { Pine = 5 } },
+	CopperBow = { From = { Id = "WoodenBow", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, SlimeJelly = 5 } },
+	IronBow = { From = { Id = "CopperBow", Count = 3 }, Gold = 180, Items = { IronIngot = 4, Birch = 6, OldCloth = 5 } },
+	DiamondBow = { From = { Id = "IronBow", Count = 3 }, Gold = 700, Items = { SteelIngot = 5, Maple = 8, Ebony = 2, CerberusFang = 4 } },
+	-- 방망이
+	BaseballBat = { Gold = 5, Items = { Oak = 4 } },
+	GoblinClub = { From = { Id = "BaseballBat", Count = 3 }, Gold = 40, Items = { CopperIngot = 3, Oak = 5 } },
+	MorningStar = { From = { Id = "GoblinClub", Count = 3 }, Gold = 180, Items = { IronIngot = 6, Bone = 5, Oak = 10 } },
+	DiamondMace = { From = { Id = "MorningStar", Count = 3 }, Gold = 700, Items = { SteelIngot = 7, IronIngot = 5, CyclopsEye = 3, Maple = 6 } },
+	-- 헬멧
+	LeatherHelmet = { Gold = 8, Items = { SlimeJelly = 2 } },
+	CopperHelmet = { From = { Id = "LeatherHelmet", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, SlimeJelly = 4 } },
+	IronHelmet = { From = { Id = "CopperHelmet", Count = 3 }, Gold = 180, Items = { IronIngot = 4, CopperIngot = 3, Bone = 4 } },
+	DiamondHelmet = { From = { Id = "IronHelmet", Count = 3 }, Gold = 700, Items = { SteelIngot = 4, IronIngot = 5, CerberusFang = 3, CyclopsEye = 2 } },
+	-- 갑옷
+	LeatherArmor = { Gold = 12, Items = { SlimeJelly = 3, Pine = 3 } },
+	CopperArmor = { From = { Id = "LeatherArmor", Count = 3 }, Gold = 50, Items = { CopperIngot = 3, SlimeJelly = 5 } },
+	IronArmor = { From = { Id = "CopperArmor", Count = 3 }, Gold = 220, Items = { IronIngot = 6, OldCloth = 5, Bone = 3 } },
+	DiamondArmor = { From = { Id = "IronArmor", Count = 3 }, Gold = 850, Items = { SteelIngot = 6, IronIngot = 6, CerberusFang = 4, CyclopsEye = 3 } },
+	-- 신발
+	LeatherBoots = { Gold = 8, Items = { SlimeJelly = 2, Oak = 2 } },
+	CopperBoots = { From = { Id = "LeatherBoots", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, Oak = 5 } },
+	IronBoots = { From = { Id = "CopperBoots", Count = 3 }, Gold = 180, Items = { IronIngot = 4, OldCloth = 4, Birch = 4 } },
+	DiamondBoots = { From = { Id = "IronBoots", Count = 3 }, Gold = 700, Items = { SteelIngot = 4, IronIngot = 4, Maple = 6, CerberusFang = 3 } },
+	-- 장갑
+	LeatherGloves = { Gold = 8, Items = { SlimeJelly = 2 } },
+	CopperGloves = { From = { Id = "LeatherGloves", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, SlimeJelly = 4 } },
+	IronGloves = { From = { Id = "CopperGloves", Count = 3 }, Gold = 180, Items = { IronIngot = 4, OldCloth = 4, Bone = 3 } },
+	DiamondGloves = { From = { Id = "IronGloves", Count = 3 }, Gold = 700, Items = { SteelIngot = 4, IronIngot = 4, CerberusFang = 3, CyclopsEye = 2 } },
+	-- 목걸이
+	BoneNecklace = { Gold = 8, Items = { SlimeJelly = 2, Stone = 3 } },
+	CopperNecklace = { From = { Id = "BoneNecklace", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, Bone = 2 } },
+	IronNecklace = { From = { Id = "CopperNecklace", Count = 3 }, Gold = 180, Items = { IronIngot = 3, CopperIngot = 3, Bone = 6 } },
+	DiamondNecklace = { From = { Id = "IronNecklace", Count = 3 }, Gold = 700, Items = { SteelIngot = 3, IronIngot = 4, CerberusFang = 4, CyclopsEye = 3 } },
+	-- 팔찌
+	WoodBracelet = { Gold = 8, Items = { Pine = 3 } },
+	CopperBracelet = { From = { Id = "WoodBracelet", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, Birch = 3 } },
+	IronBracelet = { From = { Id = "CopperBracelet", Count = 3 }, Gold = 180, Items = { IronIngot = 3, Maple = 4, Bone = 3 } },
+	DiamondBracelet = { From = { Id = "IronBracelet", Count = 3 }, Gold = 700, Items = { SteelIngot = 3, IronIngot = 4, Ebony = 2, CyclopsEye = 2 } },
+}
+Config.Recipes = RECIPES
+Config.Crafting = {
+	MaxPerRequest = 10, -- 한 번 요청으로 만들 수 있는 최대 개수 (1단계 "3개 사기" 버튼용)
+}
+
+-- 아이템 상세 창 (가방·상점에서 아이템을 한 번 누르면 뜬다, 2026-10-09)
+Config.ItemDetail = {
+	SpinSeconds = 8, -- 한 바퀴(360°) 도는 데 걸리는 시간(초)
+	Tilt = 18, -- 위에서 내려다보는 각도(도)
+	FieldOfView = 30,
 }
 
 -- NPC 상호작용
