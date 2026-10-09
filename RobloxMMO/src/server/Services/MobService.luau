@@ -2,7 +2,10 @@
 -- 몹 생성·이동(AI)·체력·처치 보상.
 -- Workspace/MobSpawns의 생성 자리(속성 MobType)마다 몹을 하나씩 두고, 쓰러지면 Respawn초 뒤 같은 자리에 다시 만든다.
 -- 몹 모델은 고정된 뿌리 부품(Root)에 나머지가 용접돼 있어서, 서버가 PivotTo로 옮기면 통째로 따라온다.
--- 체력·기여도는 서버 메모리에 두고, 클라이언트에는 Mob 태그와 MobType·Hp·MaxHp 속성만 보인다.
+-- 체력·기여도는 서버 메모리에 두고, 클라이언트에는 Mob 태그와 MobType·Hp·MaxHp·Boss·BossScale 속성만 보인다.
+-- 마을 안전지대(TownArrival·ShopNPC 둘레 Config.MobAI.SafeZoneRadius)에는 몹이 생기지도, 들어가지도 않는다.
+-- 얌전한 몹(Config.Mobs의 Passive, 슬라임)은 먼저 공격하지 않고, 맞으면 잠깐 도망친다.
+-- 생성 때 Config.MobBoss 확률로 크고 센 보스가 된다 (Model:ScaleTo, 보상도 크기만큼).
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -34,7 +37,14 @@ export type MobState = {
 	Radius: number,
 	Hp: number,
 	MaxHp: number,
+	Boss: boolean, -- 보스인지
+	Scale: number, -- 보스 크기 배율 (보통 몹은 1)
+	Damage: number, -- 한 번에 주는 피해 (보스는 커진 만큼)
+	AttackRange: number, -- 공격 거리 (보스는 몸이 커진 만큼 더 멀리)
+	Speed: number,
 	Target: Player?,
+	FleeFrom: Player?, -- 얌전한 몹이 도망치는 상대
+	FleeUntil: number,
 	NextAttack: number,
 	WanderTarget: Vector3?,
 	WanderUntil: number,
@@ -60,6 +70,8 @@ local templatesFolder: Instance?
 local spawnsFolder: Instance?
 local attackRemote: RemoteEvent
 local diedRemote: RemoteEvent
+
+local safePoints: { Vector3 } = {} -- 안전지대 가운데들 (마을 도착점·NPC)
 
 local groundParams = RaycastParams.new()
 groundParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -113,6 +125,48 @@ local function groundY(position: Vector3, fallbackY: number): number
 	return if result then result.Position.Y else fallbackY
 end
 
+-- 안전지대 가운데 목록을 새로 읽는다 (마을 도착점 + 상점 NPC)
+local function refreshSafePoints()
+	local list: { Vector3 } = {}
+	for _, tag in { "TownArrival", "ShopNPC" } do
+		for _, instance in CollectionService:GetTagged(tag) do
+			if instance:IsA("Model") then
+				table.insert(list, instance:GetPivot().Position)
+			elseif instance:IsA("BasePart") then
+				table.insert(list, instance.Position)
+			end
+		end
+	end
+	safePoints = list
+end
+
+-- 위치가 안전지대 안으로 얼마나 깊이 들어가 있는지 (0이면 바깥). 높이는 무시한다
+local function safeDepth(position: Vector3): number
+	local radius = Config.MobAI.SafeZoneRadius
+	local depth = 0
+	for _, point in safePoints do
+		local flat = Vector3.new(position.X - point.X, 0, position.Z - point.Z).Magnitude
+		depth = math.max(depth, radius - flat)
+	end
+	return depth
+end
+
+-- from에서 to로 가면 안전지대에 (더 깊이) 들어가는지. 안에 갇힌 몹이 밖으로 나가는 건 막지 않는다
+local function entersSafeZone(from: Vector3, to: Vector3): boolean
+	local depth = safeDepth(to)
+	return depth > 0 and depth >= safeDepth(from)
+end
+
+-- 이번 생성이 보스인지 정하고 크기 배율을 돌려준다 (보스가 아니면 nil)
+local function rollBoss(spawnPart: BasePart): number?
+	local boss = Config.MobBoss
+	local chance = if spawnPart:GetAttribute("BossSpot") == true then boss.SpotChance else boss.Chance
+	if random:NextNumber() >= chance then
+		return nil
+	end
+	return random:NextNumber(boss.Scale[1], boss.Scale[2])
+end
+
 -- 생성 자리에 몹을 하나 만든다
 local function spawnMob(spawnPart: BasePart)
 	local mobType = spawnPart:GetAttribute("MobType")
@@ -126,17 +180,40 @@ local function spawnMob(spawnPart: BasePart)
 		return
 	end
 
+	if safeDepth(spawnPart.Position) > 0 then
+		warn(`[MobService] {spawnPart:GetFullName()}은(는) 마을 안전지대 안이라 몹을 만들지 않아요`)
+		return
+	end
+
 	local model = template:Clone()
 	model.Name = mobType
+	-- 보스: 기준점(발밑)을 중심으로 키운다. 템플릿이 이미 Config.Mobs.Scale만큼 커져 있으니 거기에 곱한다
+	local bossScale = rollBoss(spawnPart)
+	local scale = bossScale or 1
+	if bossScale then
+		model:ScaleTo(model:GetScale() * bossScale)
+	end
 	local home = Vector3.new(spawnPart.Position.X, groundY(spawnPart.Position, spawnPart.Position.Y - 1), spawnPart.Position.Z)
 	local facing = Vector3.new(random:NextNumber(-1, 1), 0, random:NextNumber(-1, 1))
 	facing = if facing.Magnitude > 0.01 then facing.Unit else Vector3.zAxis
 	model:PivotTo(CFrame.lookAt(home, home + facing))
 	local size = model:GetExtentsSize()
+	local radius = math.max(size.X, size.Z) / 2
+
+	local bossConfig = Config.MobBoss
+	local maxHp = if bossScale then math.floor(config.Hp * bossConfig.HpPerScale * scale + 0.5) else config.Hp
+	local damage = if bossScale then config.Damage * bossConfig.DamagePerScale * scale else config.Damage
+	local speed = if bossScale then config.Speed * bossConfig.SpeedMultiplier else config.Speed
+	-- 커진 몸만큼 공격 거리를 늘린다 (원래 반지름 = 지금 반지름 / 배율)
+	local attackRange = config.AttackRange + radius * (1 - 1 / scale)
 
 	model:SetAttribute("MobType", mobType)
-	model:SetAttribute("MaxHp", config.Hp)
-	model:SetAttribute("Hp", config.Hp)
+	model:SetAttribute("MaxHp", maxHp)
+	model:SetAttribute("Hp", maxHp)
+	if bossScale then
+		model:SetAttribute("Boss", true)
+		model:SetAttribute("BossScale", math.floor(bossScale * 100 + 0.5) / 100)
+	end
 	CollectionService:AddTag(model, MOB_TAG)
 	model.Parent = mobsFolder
 
@@ -148,10 +225,17 @@ local function spawnMob(spawnPart: BasePart)
 		Position = home,
 		Facing = facing,
 		Height = size.Y,
-		Radius = math.max(size.X, size.Z) / 2,
-		Hp = config.Hp,
-		MaxHp = config.Hp,
+		Radius = radius,
+		Hp = maxHp,
+		MaxHp = maxHp,
+		Boss = bossScale ~= nil,
+		Scale = scale,
+		Damage = damage,
+		AttackRange = attackRange,
+		Speed = speed,
 		Target = nil,
+		FleeFrom = nil,
+		FleeUntil = 0,
 		NextAttack = 0,
 		WanderTarget = nil,
 		WanderUntil = os.clock() + random:NextNumber(0, 3),
@@ -171,23 +255,34 @@ local function stepMob(state: MobState, dt: number, now: number)
 	local config = Config.Mobs[state.Type]
 	local ai = Config.MobAI
 	local def = MobDefs[state.Type]
+	local passive = config.Passive == true
 
-	-- 쫓던 대상이 사라졌거나 너무 멀어졌으면 포기한다
+	-- 쫓던 대상이 사라졌거나, 너무 멀어졌거나, 마을 안전지대로 들어갔으면 포기한다
 	local target = state.Target
 	if target then
 		local root = aliveRoot(target)
-		if not root or (state.Position - state.Home).Magnitude > ai.Leash or (root.Position - state.Position).Magnitude > config.Aggro * 2 then
+		if
+			not root
+			or passive
+			or (state.Position - state.Home).Magnitude > ai.Leash
+			or (root.Position - state.Position).Magnitude > config.Aggro * 2
+			or safeDepth(root.Position) > 0
+		then
 			state.Target = nil
 		end
 	end
-	-- 가까이 온 플레이어를 알아챈다 (집 근처에 있을 때만). 주인이 있으면 주인만 노린다 (남은 반격을 못 하니까)
+	-- 얌전한 몹의 도망은 FleeTime이 지나면 진정한다
+	if state.FleeFrom and now >= state.FleeUntil then
+		state.FleeFrom = nil
+	end
+	-- 가까이 온 플레이어를 알아챈다 (집 근처에 있을 때만, 얌전한 몹은 안 함). 주인이 있으면 주인만 노린다 (남은 반격을 못 하니까)
 	OwnershipService.expire(state, state.Model, now)
 	local owner = OwnershipService.ownerOf(state)
-	if not state.Target and (state.Position - state.Home).Magnitude < ai.Leash * 0.6 then
+	if not passive and not state.Target and (state.Position - state.Home).Magnitude < ai.Leash * 0.6 then
 		local best, bestDistance = nil, config.Aggro
 		for _, player in Players:GetPlayers() do
 			local root = aliveRoot(player)
-			if root and (owner == nil or owner == player.UserId) then
+			if root and (owner == nil or owner == player.UserId) and safeDepth(root.Position) <= 0 then
 				local distance = (root.Position - state.Position).Magnitude
 				if distance < bestDistance then
 					best, bestDistance = player, distance
@@ -198,10 +293,24 @@ local function stepMob(state: MobState, dt: number, now: number)
 	end
 
 	local goal: Vector3? = nil
-	local speed = config.Speed
+	local speed = state.Speed
+	local fleeing = false
 	if now < state.KnockbackUntil then
-		-- 맞아서 밀려나는 중
-		state.Position += state.Knockback * dt
+		-- 맞아서 밀려나는 중 (안전지대 안으로는 안 밀린다)
+		local nextPosition = state.Position + state.Knockback * dt
+		if entersSafeZone(state.Position, nextPosition) then
+			state.KnockbackUntil = 0
+		else
+			state.Position = nextPosition
+		end
+	elseif state.FleeFrom then
+		-- 도망: 때린 사람 반대쪽으로 빠르게
+		fleeing = true
+		local root = aliveRoot(state.FleeFrom)
+		local away = if root then (state.Position - root.Position) * Vector3.new(1, 0, 1) else state.Facing
+		away = if away.Magnitude > 0.05 then away.Unit else state.Facing
+		goal = state.Position + away * 6
+		speed *= config.FleeSpeed or 1.5
 	elseif state.Target then
 		local root, humanoid = aliveRoot(state.Target)
 		if root and humanoid then
@@ -209,15 +318,15 @@ local function stepMob(state: MobState, dt: number, now: number)
 			if flat.Magnitude > 0.05 then
 				state.Facing = flat.Unit
 			end
-			if flat.Magnitude > config.AttackRange * 0.8 then
+			if flat.Magnitude > state.AttackRange * 0.8 then
 				goal = root.Position
-			elseif now >= state.NextAttack then
+			elseif now >= state.NextAttack and state.Damage > 0 then
 				-- 공격: 앞으로 살짝 들이받고 피해를 준다 (피버 중인 플레이어는 무적)
 				state.NextAttack = now + config.AttackInterval
 				state.LungeUntil = now + 0.15
 				local player = state.Target :: Player
 				if not FeverService.isActive(player) then
-					local damage = EquipmentService.reduceDamage(player, config.Damage) -- 방어구로 줄인다
+					local damage = EquipmentService.reduceDamage(player, state.Damage) -- 방어구로 줄인다
 					humanoid:TakeDamage(damage)
 					fireNearby(attackRemote, state.Position, state.Model, player.UserId, damage)
 				end
@@ -230,14 +339,19 @@ local function stepMob(state: MobState, dt: number, now: number)
 		elseif not state.WanderTarget and now >= state.WanderUntil then
 			local angle = random:NextNumber(0, math.pi * 2)
 			local r = random:NextNumber(2, ai.WanderRadius)
-			state.WanderTarget = state.Home + Vector3.new(math.cos(angle) * r, 0, math.sin(angle) * r)
+			local wander = state.Home + Vector3.new(math.cos(angle) * r, 0, math.sin(angle) * r)
+			if safeDepth(wander) > 0 then
+				state.WanderUntil = now + random:NextNumber(ai.WanderPause[1], ai.WanderPause[2]) -- 마을 쪽이면 이번엔 쉰다
+			else
+				state.WanderTarget = wander
+			end
 		end
 		goal = state.WanderTarget
 		speed *= 0.45
 	end
 
-	-- 자연 회복: 쫓는 대상이 없고 한동안 안 맞았으면 천천히 찬다
-	if not state.Target and state.Hp < state.MaxHp and now - state.LastHit >= Config.Regen.Delay then
+	-- 자연 회복: 쫓거나 도망치는 중이 아니고 한동안 안 맞았으면 천천히 찬다
+	if not state.Target and not fleeing and state.Hp < state.MaxHp and now - state.LastHit >= Config.Regen.Delay then
 		state.Hp = math.min(state.MaxHp, state.Hp + state.MaxHp * Config.Regen.MobPercentPerSecond * dt)
 		state.Model:SetAttribute("Hp", math.floor(state.Hp * 10 + 0.5) / 10)
 	end
@@ -252,9 +366,29 @@ local function stepMob(state: MobState, dt: number, now: number)
 				state.WanderUntil = now + random:NextNumber(ai.WanderPause[1], ai.WanderPause[2])
 			end
 		else
-			state.Facing = flat.Unit
-			state.Position += flat.Unit * math.min(speed * dt, distance)
-			moving = true
+			-- 안전지대 쪽이면 돌아간다: 도망은 옆으로 비켜 보고, 쫓기는 포기하고 집으로
+			local step = math.min(speed * dt, distance)
+			local direction: Vector3? = flat.Unit
+			if entersSafeZone(state.Position, state.Position + flat.Unit * step) then
+				direction = nil
+				if fleeing then
+					for _, angle in { 70, -70, 120, -120 } do
+						local side = CFrame.Angles(0, math.rad(angle), 0):VectorToWorldSpace(flat.Unit)
+						if not entersSafeZone(state.Position, state.Position + side * step) then
+							direction = side
+							break
+						end
+					end
+				else
+					state.Target = nil
+					state.WanderTarget = state.Home
+				end
+			end
+			if direction then
+				state.Facing = direction
+				state.Position += direction * step
+				moving = true
+			end
 		end
 	end
 	moving = moving or now < state.KnockbackUntil
@@ -262,40 +396,50 @@ local function stepMob(state: MobState, dt: number, now: number)
 	-- 땅에 붙인다
 	state.Position = Vector3.new(state.Position.X, groundY(state.Position, state.Position.Y), state.Position.Z)
 
-	-- 흔들림: 슬라임은 통통 튀고, 나머지는 걸을 때 살짝 위아래로
+	-- 흔들림: 슬라임은 통통 튀고, 나머지는 걸을 때 살짝 위아래로 (보스는 크기만큼)
 	local bob = 0
 	if moving then
-		state.Phase += dt * (if def.Hop then 7 else 10)
-		bob = math.abs(math.sin(state.Phase)) * (if def.Hop then ai.HopHeight else ai.WalkBob)
+		state.Phase += dt * (if def.Hop then 7 else 10) / math.sqrt(state.Scale)
+		bob = math.abs(math.sin(state.Phase)) * (if def.Hop then ai.HopHeight else ai.WalkBob) * state.Scale
 	elseif def.Hop then
 		state.Phase += dt * 3
-		bob = math.abs(math.sin(state.Phase)) * 0.15 -- 제자리에서 말랑말랑
+		bob = math.abs(math.sin(state.Phase)) * 0.15 * state.Scale -- 제자리에서 말랑말랑
 	end
-	local lunge = if now < state.LungeUntil then ai.LungeDistance else 0
+	local lunge = if now < state.LungeUntil then ai.LungeDistance * state.Scale else 0
 	local base = state.Position + Vector3.new(0, bob, 0) + state.Facing * lunge
 	state.Model:PivotTo(CFrame.lookAt(base, base + state.Facing))
 end
 
--- 몹을 쓰러뜨린다: 보상 → 연출 알림 → 제거 → 다시 생성 예약
+-- 몹을 쓰러뜨린다: 보상(보스는 크기만큼 더) → 연출 알림 → 제거 → 다시 생성 예약
 local function die(state: MobState, killer: Player)
 	state.Dead = true
 	states[state.Model] = nil
 	local config = Config.Mobs[state.Type]
 	local def = MobDefs[state.Type]
+	local boss = Config.MobBoss
 
 	local gold = random:NextInteger(config.Gold[1], config.Gold[2])
 	local lootCount = random:NextInteger(config.Loot[1], config.Loot[2])
+	if state.Boss then
+		gold = math.floor(gold * boss.GoldPerScale * state.Scale + 0.5)
+		lootCount = math.max(lootCount, math.floor(lootCount * boss.LootPerScale * state.Scale + 0.5))
+	end
 	InventoryService.addGold(killer, gold)
 	local added = InventoryService.add(killer, def.LootId, lootCount)
 	if added < lootCount then
 		NotifyService.send(killer, "가방이 가득 찼어요! 마을 상인에게 팔고 오세요.", "bad")
 	end
+	if state.Boss then
+		NotifyService.send(killer, `{boss.NamePrefix}{def.DisplayName}을(를) 물리쳤어요! +{gold}G`, "good")
+	end
 	fireNearby(diedRemote, state.Position, state.Position, state.Type, killer.UserId, gold, def.LootId, added)
-	print(`[MobService] {killer.Name}이(가) {def.DisplayName} 처치: {gold}G, {ItemDefs.Items[def.LootId].DisplayName} {added}개`)
+	local label = if state.Boss then boss.NamePrefix .. def.DisplayName else def.DisplayName
+	print(`[MobService] {killer.Name}이(가) {label} 처치: {gold}G, {ItemDefs.Items[def.LootId].DisplayName} {added}개`)
 
 	state.Model:Destroy()
 	local spawnPart = state.SpawnPart
-	task.delay(config.Respawn, function()
+	local delay = if state.Boss then config.Respawn * boss.RespawnMultiplier else config.Respawn
+	task.delay(delay, function()
 		if spawnPart.Parent then
 			spawnMob(spawnPart)
 		end
@@ -318,7 +462,18 @@ function MobService.damage(mob: Model, player: Player, amount: number, direction
 	if not state or state.Dead then
 		return false
 	end
-	state.Target = player -- 때린 사람을 쫓는다 (데미지가 안 들어가도 화는 난다)
+	-- 맞으면: 얌전한 몹(슬라임)은 때린 사람에게서 도망치고, 나머지는 때린 사람을 쫓는다 (데미지가 안 들어가도 화는 난다)
+	local config = Config.Mobs[state.Type]
+	local function react()
+		if config.Passive then
+			state.FleeFrom = player
+			state.FleeUntil = os.clock() + (config.FleeTime or 4)
+			state.Target = nil
+		else
+			state.Target = player
+		end
+	end
+	react()
 	state.LastHit = os.clock()
 	if amount <= 0 then
 		return false
@@ -326,7 +481,6 @@ function MobService.damage(mob: Model, player: Player, amount: number, direction
 	state.Hp = math.max(state.Hp - amount, 0)
 	mob:SetAttribute("Hp", state.Hp)
 	OwnershipService.claim(state, mob, player) -- 데미지를 준 사람이 주인 (흠집도 못 내면 주인이 안 된다)
-	state.Target = player -- 때린 사람을 쫓는다
 	if knockback and knockback > 0 then
 		local time = Config.MobAI.KnockbackTime
 		state.Knockback = direction * (knockback / time)
@@ -361,6 +515,7 @@ function MobService.init()
 	end
 
 	refreshGroundFilter()
+	refreshSafePoints()
 	local count = 0
 	for _, child in spawnsFolder:GetChildren() do
 		if child:IsA("BasePart") then
@@ -385,6 +540,7 @@ function MobService.init()
 		if filterTimer > 1 then
 			filterTimer = 0
 			refreshGroundFilter()
+			refreshSafePoints()
 		end
 		local now = os.clock()
 		local roots = {}

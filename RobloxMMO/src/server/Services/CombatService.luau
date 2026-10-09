@@ -1,6 +1,7 @@
 --!strict
 -- 무기로 몹 공격: 요청 검증, 데미지(치명타 포함), 연출 알림. 사냥꾼 상점의 무기 구매도 여기서 받는다.
 -- 클라이언트는 "이 몹을 공격했다"만 보낸다. 들고 있는 무기·거리·쿨다운·데미지는 전부 서버가 정한다.
+-- 활은 끼운 화살통의 화살을 한 발에 1개 쓴다 (EquipmentService.useArrow). 빗나간 화살(몹 없이 쏨)은 몹 없이 AttackRequest(nil)로 와서 화살만 쓴다.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -46,10 +47,36 @@ local function fireNearby(position: Vector3, ...: any)
 	end
 end
 
+-- 활을 몹 없이 쏨 (빗나간 화살): 활을 들고 쿨다운이 지났으면 화살 1개만 쓴다
+local function shootAtNothing(player: Player)
+	if FeverService.isActive(player) then
+		return
+	end
+	local weapon = PickaxeService.getEquipped(player)
+	if not weapon or weapon.Kind ~= "Bow" then
+		return
+	end
+	local config = Config.Weapons[weapon.Id]
+	if not config then
+		return
+	end
+	local now = os.clock()
+	if now - (lastAttack[player] or -math.huge) < config.Cooldown - Config.Combat.CooldownTolerance then
+		return
+	end
+	if EquipmentService.useArrow(player) then
+		lastAttack[player] = now
+	end
+end
+
 -- AttackRequest 처리. 인자는 전부 의심하고 검사한다
 local function onAttack(player: Player, mobArg: unknown)
 	-- 모은 정도는 요청이 오면 무조건 꺼낸다 (거절돼도 느린 걸음이 남지 않게)
 	local charge, held = ChargeService.consume(player)
+	if mobArg == nil then
+		shootAtNothing(player)
+		return
+	end
 	if typeof(mobArg) ~= "Instance" or not (mobArg :: Instance):IsA("Model") then
 		return
 	end
@@ -103,6 +130,10 @@ local function onAttack(player: Player, mobArg: unknown)
 	if flat.Magnitude > range + state.Radius + Config.Combat.RangeTolerance then
 		return
 	end
+	-- 활: 화살이 있어야 쏜다 (한 발에 1개)
+	if weapon.Kind == "Bow" and not EquipmentService.useArrow(player) then
+		return
+	end
 	lastAttack[player] = now
 	if weapon.Kind ~= "Bow" and charge >= 1 and ManaService.spend(player, chargeConfig.ManaCost) then
 		chargeMultiplier = chargeConfig.Multiplier
@@ -153,8 +184,8 @@ end
 -- 사냥꾼 상점: 장비 구매 (같은 장비는 하나만)
 local function buyEquipment(player: Player, itemId: string)
 	local def = EquipmentDefs.Items[itemId]
-	if not def then
-		return
+	if not def or def.Slot == "Shield" then
+		return -- 화살통은 BuyQuiver로
 	end
 	if InventoryService.count(player, itemId) > 0 then
 		NotifyService.send(player, "이미 가지고 있는 장비예요.", "info")
@@ -183,9 +214,53 @@ local function buyEquipment(player: Player, itemId: string)
 	NotifyService.send(player, `{def.DisplayName} 구매 완료! 가방에서 더블클릭하면 착용해요.`, "good")
 end
 
+-- 사냥꾼 상점: 화살통 구매 (여러 개 가질 수 있다. 가격은 Config.Quiver.Items)
+local function buyQuiver(player: Player, itemId: string)
+	local def = EquipmentDefs.Items[itemId]
+	local quiver = (Config.Quiver.Items :: any)[itemId]
+	if not def or def.Slot ~= "Shield" or not quiver then
+		return
+	end
+	local price = quiver.Price
+	if InventoryService.getGold(player) < price.Gold then
+		NotifyService.send(player, `골드가 모자라요. ({price.Gold}G 필요)`, "bad")
+		return
+	end
+	if not InventoryService.hasAll(player, price.Items) then
+		local parts = {}
+		for id, amount in price.Items do
+			table.insert(parts, `{ItemDefs.Items[id].DisplayName} {amount}`)
+		end
+		NotifyService.send(player, `재료가 모자라요. (필요: {table.concat(parts, ", ")})`, "bad")
+		return
+	end
+	if InventoryService.freeSlots(player) < 1 then
+		NotifyService.send(player, "가방에 빈 칸이 없어요.", "bad")
+		return
+	end
+	InventoryService.removeAll(player, price.Items)
+	InventoryService.spendGold(player, price.Gold)
+	InventoryService.add(player, itemId, 1)
+	local worn = player:GetAttribute("Equip_Shield")
+	if worn == nil or worn == "" then
+		-- 화살통을 안 끼고 있으면 바로 끼워 준다
+		EquipmentService.equip(player, itemId)
+	else
+		NotifyService.send(player, `{def.DisplayName} 구매 완료! (화살 {quiver.Arrows}개) 지금 화살통을 다 쓰면 저절로 바꿔 껴요.`, "good")
+	end
+end
+
 -- 사냥꾼 상점: 무기·장비 구매
 local function onShopAction(player: Player, shopId: unknown, action: unknown, idArg: unknown)
 	if shopId ~= SHOP_ID or typeof(idArg) ~= "string" then
+		return
+	end
+	if action == "BuyQuiver" then
+		if NpcService.isNear(player, SHOP_ID) then
+			buyQuiver(player, idArg)
+		else
+			NotifyService.send(player, "사냥꾼에게 더 가까이 가세요.", "bad")
+		end
 		return
 	end
 	if action == "BuyEquipment" then

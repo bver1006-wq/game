@@ -284,10 +284,10 @@ src/
   - 연출: "퍽" 소리(Sounds.WoodChop), 나뭇조각·떨어지는 잎(OreDefs.LeafColor), 덜 흔들림. 잔상은 줄기 둘레 고리가 줄어든다. 다 베면 Sounds.TreeBreak와 함께 친 사람 반대쪽으로 쓰러진다(클라 복제본). 체력바·말풍선은 타격 높이 위 (Config.HitFeel.Tree)
   - Studio 제작: Rojo가 `studio/`를 ServerStorage/StudioTools로 넣는다. 템플릿이 없으면 게임 시작 때 서버가 자동 실행한다(저장 안 됨). 편집 상태 명령 모음에서 `require(game.ServerStorage.StudioTools.BuildTreesAndAxes:Clone())` 실행하면 도끼 Tool(같은 티어 곡괭이 손잡이 재사용)·나무 템플릿 5종x3모양·아이콘·스폰 자리를 만든다. 다시 실행하면 새로 만든다
 - [x] 사냥과 전투 (2026-10-09 사용자 결정으로 7장 제외 항목에서 앞당김)
-  - 몹 5종: 귀여운 슬라임·스켈레톤·좀비·케르베로스·버그베어 (MobDefs, 수치 Config.Mobs). 마을에서 멀수록 센 몹
+  - 몹 5종: 귀여운 슬라임·스켈레톤·좀비·케르베로스·사이클롭스 (MobDefs, 수치 Config.Mobs). 마을에서 멀수록 센 몹
     - 모델은 제작 스크립트 `studio/BuildWeaponsAndMobs.luau`가 부품으로 짓는다 (Templates/Mobs, 고정 Root + 용접, 앞 = -Z, 기준점 = 발밑). 생성 자리는 Workspace/MobSpawns (속성 MobType)
     - 서버 MobService가 TickRate번/초로 생각·이동(PivotTo): 어슬렁 → 가까운 플레이어 쫓기 → 공격(Humanoid:TakeDamage), 집에서 Leash 넘게 멀어지면 포기. 슬라임은 통통 튐. 피버 중 플레이어는 무적
-    - 처치하면 처치한 사람에게 골드 + 전리품(슬라임 젤리·뼈다귀·낡은 천·케르베로스 송곳니·버그베어 털, 상인에게 판매). Respawn초 뒤 같은 자리에 다시
+    - 처치하면 처치한 사람에게 골드 + 전리품(슬라임 젤리·뼈다귀·낡은 천·케르베로스 송곳니·사이클롭스 눈알, 상인에게 판매). Respawn초 뒤 같은 자리에 다시
   - 무기 12종 = 칼(나무 검·구리 검·철 장검·다이아몬드 대검) / 활(나무·구리·철 장궁·다이아몬드) / 방망이(야구방망이·도깨비방망이·모닝스타·다이아몬드 철퇴)
     - PickaxeDefs에 Kind Sword/Bow/Club으로 넣어 곡괭이와 같은 Tool·가방·빠른 칸·단계 구매를 쓴다. 가방 분류는 "무기". 플레이어 속성 SwordTier·BowTier·ClubTier
     - 수치는 Config.Weapons (칼 빠름 / 방망이 느리지만 세고 밀쳐 냄 / 활 약하지만 멀리). 치명타·흔들림은 Config.Combat
@@ -333,6 +333,12 @@ src/
   - 빠른 칸: 클라가 SaveHotbar로 보냄 → 들어올 때 플레이어 속성 SavedHotbar(쉼표로 이은 Id)
   - Studio는 StudioStoreName 저장소를 쓰고, 테스트 지급(Config.Debug의 주문서·음식·장비)은 처음 들어올 때만. Studio 저장은 게임 게시 + Game Settings → Security → Enable Studio Access to API Services 필요
 - [x] 줍는 조각 크기 키움 (Config.HitFeel.PickupSizeMin·Max, 2026-10-09)
+- [x] 몹 구역·안전지대·사이클롭스·보스 몹 (2026-10-09)
+  - 몹 구역(Config.MobZones): 구역마다 한 종류만 모여 산다 (슬라임 들판·슬라임 언덕·스켈레톤 무덤·좀비 숲·케르베로스 굴·사이클롭스 골짜기). 마을에서 멀수록 센 몹. 제작 스크립트가 시작 때 구역 가운데(서로 ZoneGap 이상)와 생성 자리(속성 MobType·Zone·BossSpot)를 고른다
+  - 마을 안전지대: TownArrival·ShopNPC 둘레 Config.MobAI.SafeZoneRadius 안에는 몹이 안 생기고(생성 자리는 SafeZoneSpawnMargin 더 바깥), 몹이 들어가려 하면 쫓기를 포기하고 집으로 돌아간다. 안전지대 안 플레이어는 노리지 않는다
+  - 슬라임(Config.Mobs.Slime.Passive): 먼저 공격 안 함, 피해 0. 맞으면 FleeTime초 동안 때린 사람 반대쪽으로 FleeSpeed배 빠르게 도망친 뒤 진정. 구역 두 곳에 30마리
+  - 버그베어 → 사이클롭스(큰 눈 하나·짧은 뿔·나무 몽둥이, 플레이어 키의 약 1.9배). 전리품 "사이클롭스 눈알"(CyclopsEye)로 바뀌어 다이아몬드 장비·철퇴 재료도 이것. 예전 저장의 버그베어 털은 Unknown에 보관됨
+  - 보스 몹(Config.MobBoss): 생길 때 Chance(보스 자리는 SpotChance)로 1.5~3배 크기(Model:ScaleTo). 체력·공격·골드·전리품이 크기에 비례, 공격 거리도 몸만큼 늘어남, 다시 나오기는 RespawnMultiplier배 늦게. 모델 속성 Boss·BossScale → 체력바 "👑 보스 ~" 금색 이름 + 큰 체력바. 슬라임 보스도 도망만 친다
 - [x] 보스 바위·나무 (2026-10-09): 생길 때 Config.BossNodes.Chance로 1.5~3배 크기(Model:ScaleTo), 체력 크기^2배, 산출량 크기^1.5배. 속성 Boss·ExtraReach(커진 만큼 더 멀리서 침, 서버 AntiCheat 거리에도 더함). 체력바 이름 "👑 보스 ~" 금색. 나무는 HitRadius도 같이 커짐
 - [x] 광산 광석: MineScale(1.4)배로 키우고, 옆으로 광선을 쏴 벽 속에 묻힌 만큼 밀어낸 뒤 다시 땅에 맞춘다 (OreService.pushOutOfWalls)
 - [x] 배경음악 (MusicController, Config.Music): 밖에서 잔잔한 곡을 차례로, 광산에선 줄임. 곡 Id는 팬 사이트에서 찾은 값이라 안 나오면 Creator Store 곡으로 교체

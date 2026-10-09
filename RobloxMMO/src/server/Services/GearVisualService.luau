@@ -1,5 +1,5 @@
 --!strict
--- 장비 겉모습: 끼운 헬멧·갑옷·신발·장갑·목걸이·팔찌를 캐릭터 몸에 부품으로 붙여 모두에게 보이게 한다.
+-- 장비 겉모습: 끼운 헬멧·갑옷·신발·장갑·목걸이·팔찌·화살통(방패 칸, 등에 멘다)을 캐릭터 몸에 부품으로 붙여 모두에게 보이게 한다.
 -- 서버가 캐릭터 안 "GearVisuals" 폴더에 부품을 만들고 몸 부위에 Weld로 붙인다 (물리·애니메이션에 영향 없음).
 -- 크기·위치는 전부 몸 부위 Size에 대한 비율로 정한다 (아바타 크기가 달라도 맞게). 앞 = -Z, 위 = +Y.
 -- R15가 기본이고 R6는 간단한 배치로 지원한다. 조정할 수치는 Config.GearVisual.
@@ -16,7 +16,7 @@ local GearVisualService = {}
 
 local FOLDER_NAME = "GearVisuals"
 local ORIG_ATTR = "GearOrigTransparency" -- 숨긴 머리카락·모자의 원래 투명도
-local VISUAL_SLOTS = { "Helmet", "Armor", "Boots", "Gloves", "Necklace", "Bracelet" }
+local VISUAL_SLOTS = { "Helmet", "Armor", "Boots", "Gloves", "Necklace", "Bracelet", "Shield" }
 
 local C = Color3.fromRGB
 local BLOCK = Enum.PartType.Block
@@ -42,6 +42,7 @@ type Ctx = {
 	Character: Model,
 	R15: boolean,
 	ArmorTier: number, -- 갑옷을 입었으면 단계, 아니면 0 (목걸이 앞쪽 띄우기용)
+	Arrows: number, -- 화살통에 꽂혀 보이는 화살 수
 }
 
 type CharState = {
@@ -568,6 +569,116 @@ local function buildBracelet(ctx: Ctx, def: EquipmentDef)
 	end
 end
 
+---------------------------------------------------------------- 화살통 (방패 칸)
+-- 몸통 XY 평면 위 두 점을 잇는 띠 조각 (z 고정). 어깨끈·가슴끈용
+local function strapSegment(ctx: Ctx, body: BasePart, name: string, a: Vector3, b: Vector3, width: number, thick: number, color: Color3, material: Enum.Material): Part
+	local dir = b - a
+	local angle = math.atan2(-dir.X, dir.Y)
+	return piece(ctx, body, name, BLOCK, Vector3.new(width, dir.Magnitude + width * 0.5, thick), CFrame.new((a + b) / 2) * CFrame.Angles(0, 0, angle), color, material)
+end
+
+-- 화살 하나 (frame = 화살통 입구 안쪽의 화살 밑동, 위 = +Y). 나무 화살대 + 두 겹 깃 + 오늬
+local function buildArrow(ctx: Ctx, body: BasePart, frame: CFrame, length: number, thick: number, vane: Color3, vane2: Color3)
+	piece(ctx, body, "ArrowShaft", CYLINDER, Vector3.new(length, thick, thick), frame * CFrame.new(0, length / 2, 0) * AXIS_Y, C(214, 178, 128), Enum.Material.Wood)
+	local fh = length * 0.3
+	local fw = thick * 3.2
+	local fy = length - fh / 2 - length * 0.06
+	piece(ctx, body, "ArrowVane", BLOCK, Vector3.new(fw, fh, thick * 0.3), frame * CFrame.new(0, fy, 0), vane, Enum.Material.Fabric)
+	piece(ctx, body, "ArrowVane", BLOCK, Vector3.new(fw, fh, thick * 0.3), frame * CFrame.new(0, fy, 0) * CFrame.Angles(0, math.pi / 2, 0), vane2, Enum.Material.Fabric)
+	-- 깃 아래 묶은 실과 끝 오늬
+	piece(ctx, body, "ArrowWrap", CYLINDER, Vector3.new(thick * 1.2, thick * 1.35, thick * 1.35), frame * CFrame.new(0, fy - fh / 2, 0) * AXIS_Y, C(60, 40, 30), Enum.Material.Fabric)
+	piece(ctx, body, "ArrowNock", CYLINDER, Vector3.new(thick * 1.1, thick * 1.3, thick * 1.3), frame * CFrame.new(0, length + thick * 0.4, 0) * AXIS_Y, C(45, 35, 30), Enum.Material.SmoothPlastic)
+end
+
+-- 등에 비스듬히 멘 가죽 화살통 (입구는 오른쪽 어깨 위) + 가슴을 가로지르는 어깨끈·버클 + 꽂힌 화살 ctx.Arrows개
+-- 1단계 나무 화살통: 밝은 가죽 + 황동 테 / 3단계 철 화살통: 짙은 가죽 + 철 테·징
+local function buildQuiver(ctx: Ctx, def: EquipmentDef)
+	local torso = bodyPart(ctx.Character, if ctx.R15 then "UpperTorso" else "Torso")
+	if not torso then
+		return
+	end
+	local tier = def.Tier
+	local t = torso.Size
+	local tx, ty, tz = t.X, t.Y, t.Z
+	local armored = ctx.ArmorTier > 0
+	local backZ = if armored then tz * gv().ArmorDepth / 2 else tz / 2
+	local frontZ = if armored then armorFrontDepth(tz, ctx.ArmorTier) else tz / 2
+
+	local rimColor = if tier >= 3 then C(170, 176, 188) else C(205, 160, 75)
+	local rimMat = Enum.Material.Metal
+	local leather = def.Color
+	local dark = leather:Lerp(Color3.new(0, 0, 0), 0.35)
+	local strapColor = C(78, 48, 30)
+
+	-- 화살통 자리: 등 뒤에 띄우고 위쪽이 오른쪽(+X) 어깨로 가게 기울인다
+	local len = ty * (if ctx.R15 then 1.2 else 0.95)
+	local dia = tx * 0.3
+	local tilt = math.rad(Config.Quiver.Tilt)
+	local q = CFrame.new(-tx * 0.05, ty * 0.08, backZ + dia * 0.5 + tz * 0.04) * CFrame.Angles(0, 0, -tilt)
+
+	-- 몸통(가죽 원통)과 바닥 덮개, 위 입구 테, 가운데·아래 띠
+	piece(ctx, torso, "QuiverBody", CYLINDER, Vector3.new(len, dia, dia), q * AXIS_Y, leather, Enum.Material.Leather)
+	piece(ctx, torso, "QuiverBottom", CYLINDER, Vector3.new(len * 0.08, dia * 1.06, dia * 1.06), q * CFrame.new(0, -len / 2 + len * 0.03, 0) * AXIS_Y, dark, Enum.Material.Leather)
+	piece(ctx, torso, "QuiverRim", CYLINDER, Vector3.new(len * 0.07, dia * 1.14, dia * 1.14), q * CFrame.new(0, len / 2 - len * 0.03, 0) * AXIS_Y, rimColor, rimMat)
+	for _, y in { 0.12, -0.3 } do
+		piece(ctx, torso, "QuiverBand", CYLINDER, Vector3.new(len * 0.035, dia * 1.07, dia * 1.07), q * CFrame.new(0, len * y, 0) * AXIS_Y, if tier >= 3 then rimColor else dark, if tier >= 3 then rimMat else Enum.Material.Leather)
+	end
+	-- 바깥쪽(뒤, +Z) 바느질 줄과 장식
+	local outZ = dia / 2
+	piece(ctx, torso, "QuiverStitch", BLOCK, Vector3.new(dia * 0.1, len * 0.78, dia * 0.06), q * CFrame.new(0, -len * 0.04, outZ), C(232, 205, 150), Enum.Material.Fabric)
+	if tier >= 3 then
+		-- 철 화살통: 띠마다 징 + 가운데 철 문장
+		for _, y in { 0.12, -0.3 } do
+			local s = dia * 0.14
+			piece(ctx, torso, "QuiverStud", BALL, Vector3.new(s, s, s), q * CFrame.new(0, len * y, outZ + dia * 0.03), C(225, 228, 236), rimMat)
+		end
+		piece(ctx, torso, "QuiverCrest", BLOCK, Vector3.new(dia * 0.38, dia * 0.38, dia * 0.08), q * CFrame.new(0, -len * 0.09, outZ + dia * 0.03) * CFrame.Angles(0, 0, math.pi / 4), rimColor, rimMat)
+	else
+		-- 나무 화살통: 가운데 금색 잎사귀 장식
+		piece(ctx, torso, "QuiverLeaf", BLOCK, Vector3.new(dia * 0.28, dia * 0.42, dia * 0.06), q * CFrame.new(0, -len * 0.09, outZ + dia * 0.03) * CFrame.Angles(0, 0, math.pi / 4), C(225, 185, 95), Enum.Material.SmoothPlastic)
+	end
+
+	-- 꽂힌 화살 (입구 둘레에 고르게, 바깥으로 살짝 벌어지게)
+	local count = math.clamp(math.floor(ctx.Arrows), 0, Config.Quiver.VisibleArrows)
+	local arrowLen = len * 0.5
+	local thick = dia * 0.08
+	local vaneA = if tier >= 3 then C(70, 130, 230) else C(215, 60, 55)
+	local vaneB = C(248, 246, 238)
+	local baseY = len / 2 - len * 0.2
+	for i = 1, count do
+		local px, pz = 0, 0
+		if count > 1 then
+			local angle = (i - 1) / count * math.pi * 2 + 0.3
+			local r = dia * (if i % 2 == 0 then 0.24 else 0.3)
+			px, pz = math.cos(angle) * r, math.sin(angle) * r
+		end
+		local splay = 0.14
+		local radius = math.max(math.sqrt(px * px + pz * pz), 1e-3)
+		local frame = q * CFrame.new(px, baseY + (i % 3) * len * 0.025, pz) * CFrame.Angles(pz / radius * splay, 0, -px / radius * splay)
+		buildArrow(ctx, torso, frame, arrowLen, thick, if i % 2 == 1 then vaneA else vaneB, if i % 2 == 1 then vaneB else vaneA)
+	end
+
+	-- 어깨끈: 오른쪽 어깨 위로 넘어와 가슴을 가로질러 왼쪽 옆구리로 (앞뒤 모두)
+	local strapW = tx * 0.11
+	local strapT = tz * 0.06
+	local shoulder = Vector3.new(tx * 0.26, ty * 0.5, 0)
+	local hip = Vector3.new(-tx * 0.42, -ty * 0.42, 0)
+	local fz = -frontZ - strapT / 2
+	local bz = backZ + strapT / 2
+	strapSegment(ctx, torso, "QuiverStrap", Vector3.new(shoulder.X, shoulder.Y, fz), Vector3.new(hip.X, hip.Y, fz), strapW, strapT, strapColor, Enum.Material.Leather)
+	strapSegment(ctx, torso, "QuiverStrap", Vector3.new(shoulder.X, shoulder.Y, bz), Vector3.new(hip.X, hip.Y, bz), strapW, strapT, strapColor, Enum.Material.Leather)
+	piece(ctx, torso, "QuiverStrapTop", BLOCK, Vector3.new(strapW, strapT, frontZ + backZ + strapT * 2), CFrame.new(shoulder.X, shoulder.Y + strapT / 2, (backZ - frontZ) / 2), strapColor, Enum.Material.Leather)
+	-- 가슴 버클 (금속 테 + 가운데 가죽)
+	local mid = Vector3.new(shoulder.X, shoulder.Y, 0):Lerp(Vector3.new(hip.X, hip.Y, 0), 0.4)
+	local angle = math.atan2(-(hip.X - shoulder.X), hip.Y - shoulder.Y)
+	local buckle = CFrame.new(mid.X, mid.Y, fz - strapT) * CFrame.Angles(0, 0, angle)
+	piece(ctx, torso, "QuiverBuckle", BLOCK, Vector3.new(strapW * 1.6, strapW * 1.3, strapT), buckle, rimColor, rimMat)
+	piece(ctx, torso, "QuiverBuckleIn", BLOCK, Vector3.new(strapW * 0.9, strapW * 0.6, strapT * 1.2), buckle, strapColor, Enum.Material.Leather)
+	-- 끈 끝 고리 (어깨 쪽 앞)
+	local ring = strapW * 0.55
+	piece(ctx, torso, "QuiverStrapRing", BALL, Vector3.new(ring, ring, ring), CFrame.new(shoulder.X - strapW * 0.1, shoulder.Y - ty * 0.12, fz - strapT * 0.5), rimColor, rimMat)
+end
+
 local BUILDERS: { [string]: (Ctx, EquipmentDef) -> () } = {
 	Helmet = buildHelmet,
 	Armor = buildArmor,
@@ -575,6 +686,7 @@ local BUILDERS: { [string]: (Ctx, EquipmentDef) -> () } = {
 	Gloves = buildGloves,
 	Necklace = buildNecklace,
 	Bracelet = buildBracelet,
+	Shield = buildQuiver,
 }
 
 ---------------------------------------------------------------- 머리카락·모자 숨기기
@@ -623,12 +735,16 @@ end
 
 ---------------------------------------------------------------- 공개 함수
 -- 겉모습에 쓰는 칸만 모아 비교용 문자열로 (무기 칸·모르는 아이템은 뺀다)
-local function makeKey(slots: { [string]: string }): string
+-- 화살통을 메고 있으면 보이는 화살 수도 넣는다 (화살이 줄면 다시 짓게)
+local function makeKey(slots: { [string]: string }, arrows: number): string
 	local parts = {}
 	for _, slot in VISUAL_SLOTS do
 		local itemId = slots[slot]
 		local def = if itemId then EquipmentDefs.Items[itemId] else nil
 		table.insert(parts, if def and def.Slot == slot then itemId else "")
+	end
+	if slots.Shield then
+		table.insert(parts, tostring(arrows))
 	end
 	return table.concat(parts, ";")
 end
@@ -663,13 +779,15 @@ function GearVisualService.invalidate(character: Model)
 	end
 end
 
--- 착용 장비 모양을 캐릭터에 입힌다 (slots: 칸 Id → 아이템 Id). 이전 모양은 지우고 다시 만든다. 캐릭터가 없으면 아무것도 안 한다
-function GearVisualService.apply(player: Player, slots: { [string]: string })
+-- 착용 장비 모양을 캐릭터에 입힌다 (slots: 칸 Id → 아이템 Id, arrows: 화살통에 꽂혀 보이는 화살 수).
+-- 이전 모양은 지우고 다시 만든다. 캐릭터가 없으면 아무것도 안 한다
+function GearVisualService.apply(player: Player, slots: { [string]: string }, arrows: number?)
 	local character = player.Character
 	if not character then
 		return
 	end
-	local key = makeKey(slots)
+	local arrowCount = arrows or 0
+	local key = makeKey(slots, arrowCount)
 	local st = getState(character)
 	if st.Key == key and st.Folder and st.Folder.Parent == character then
 		return -- 같은 장비: 할 일 없음
@@ -695,6 +813,7 @@ function GearVisualService.apply(player: Player, slots: { [string]: string })
 		Character = character,
 		R15 = r15,
 		ArmorTier = if armorDef and armorDef.Slot == "Armor" then armorDef.Tier else 0,
+		Arrows = arrowCount,
 	}
 
 	local helmetWorn = false

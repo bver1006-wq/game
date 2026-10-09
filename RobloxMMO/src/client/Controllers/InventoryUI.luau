@@ -180,6 +180,11 @@ local function refreshEquipment()
 		if typeof(itemId) == "string" and itemId ~= "" and ItemDefs.Items[itemId] then
 			ItemIcon.create(row.Icon, itemId)
 			row.Name.Text = ItemDefs.Items[itemId].DisplayName
+			if slotId == "Shield" then
+				-- 화살통: 남은 화살 수 (서버가 센 속성 Arrows)
+				local arrows = localPlayer:GetAttribute("Arrows")
+				row.Name.Text ..= `  🏹{if typeof(arrows) == "number" then arrows else 0}`
+			end
 		else
 			row.Name.Text = "-"
 		end
@@ -334,9 +339,13 @@ function InventoryUI.init()
 
 	infoLabel = UiKit.label(bagPanel, "", UDim2.new(1, -24, 0, 36), UDim2.new(0, 12, 1, -42), UiKit.Colors.SubText, 13)
 
-	-- 장비 창 (가방 창 왼쪽): 칸 7개, 전투력, 능력치. 장비 칸을 더블클릭하면 뺀다
+	-- 장비 창 (가방 창 왼쪽): 칸 8개(EquipmentDefs.Slots), 전투력, 능력치. 장비 칸을 더블클릭하면 뺀다
+	-- 칸 수에 맞춰 높이를 정한다 (8칸이면 한 칸 42px 간격)
 	local bagWidth = 5 * (CELL_SIZE + 6) + 34
-	equipPanel = UiKit.panel(gui, UDim2.fromOffset(200, 430), UDim2.new(0.5, -bagWidth / 2 - 8, 0, 56), Vector2.new(1, 0))
+	local ROW_STEP = 42
+	local ROW_HEIGHT = 39
+	local slotCount = #EquipmentDefs.Slots
+	equipPanel = UiKit.panel(gui, UDim2.fromOffset(200, 58 + slotCount * ROW_STEP + 42), UDim2.new(0.5, -bagWidth / 2 - 8, 0, 56), Vector2.new(1, 0))
 	equipPanel.ZIndex = 1
 	equipPanel.Visible = false
 	UiKit.label(equipPanel, "장비", UDim2.new(1, -20, 0, 26), UDim2.fromOffset(12, 6), UiKit.Colors.Gold, 18)
@@ -345,21 +354,21 @@ function InventoryUI.init()
 		local row = Instance.new("TextButton")
 		row.Text = ""
 		row.AutoButtonColor = false
-		row.Size = UDim2.new(1, -16, 0, 44)
-		row.Position = UDim2.fromOffset(8, 58 + (index - 1) * 48)
+		row.Size = UDim2.new(1, -16, 0, ROW_HEIGHT)
+		row.Position = UDim2.fromOffset(8, 58 + (index - 1) * ROW_STEP)
 		row.BackgroundColor3 = UiKit.Colors.PanelLight
 		row.BorderSizePixel = 0
 		row.Parent = equipPanel
 		UiKit.corner(row, 8)
 		local icon = Instance.new("Frame")
-		icon.Size = UDim2.fromOffset(38, 38)
+		icon.Size = UDim2.fromOffset(ROW_HEIGHT - 6, ROW_HEIGHT - 6)
 		icon.Position = UDim2.fromOffset(3, 3)
 		icon.BackgroundColor3 = UiKit.Colors.Panel
 		icon.BorderSizePixel = 0
 		icon.Parent = row
 		UiKit.corner(icon, 6)
-		UiKit.label(row, slot.Title, UDim2.new(1, -50, 0, 16), UDim2.fromOffset(46, 3), UiKit.Colors.SubText, 11)
-		local name = UiKit.label(row, "-", UDim2.new(1, -50, 0, 20), UDim2.fromOffset(46, 19), UiKit.Colors.Text, 13)
+		UiKit.label(row, slot.Title, UDim2.new(1, -46, 0, 15), UDim2.fromOffset(42, 2), UiKit.Colors.SubText, 11)
+		local name = UiKit.label(row, "-", UDim2.new(1, -46, 0, 19), UDim2.fromOffset(42, 17), UiKit.Colors.Text, 13)
 		name.TextScaled = true
 		local nameSize = Instance.new("UITextSizeConstraint")
 		nameSize.MaxTextSize = 13
@@ -385,7 +394,7 @@ function InventoryUI.init()
 		if string.sub(name, 1, 6) == "Equip_" then
 			refreshEquipment()
 			InventoryUI.refresh()
-		elseif string.sub(name, 1, 4) == "Stat" or name == "CombatPower" then
+		elseif string.sub(name, 1, 4) == "Stat" or name == "CombatPower" or name == "Arrows" then
 			refreshEquipment()
 		end
 	end)

@@ -156,6 +156,19 @@ Config.Equipment = {
 	},
 }
 
+-- 화살통 (2026-10-09 사용자 요청): 방패 칸에 끼우고 등에 멘다. 활은 끼운 화살통에 화살이 있어야 쏘고, 한 발에 1개씩 준다
+-- 화살이 0이 되면 화살통이 가방에서 사라지고, 가방에 다른 화살통이 있으면 저절로 바꿔 낀다. 능력치는 없음
+-- 사냥꾼 "활" 탭에서 통나무를 잔뜩 + 골드 조금 (만들기는 조금 귀찮게, 사냥은 조금 편하게). TODO(미정): 임시값
+Config.Quiver = {
+	Items = {
+		WoodQuiver = { Arrows = 30, Price = { Gold = 10, Items = { Pine = 20 } } },
+		IronQuiver = { Arrows = 60, Price = { Gold = 40, Items = { Oak = 30, IronIngot = 2 } } },
+	},
+	VisibleArrows = 7, -- 등의 화살통에 꽂혀 보이는 화살 수 (남은 화살이 이보다 적으면 그만큼만)
+	NoticeInterval = 1.5, -- "화살이 없어요" 알림을 다시 띄우기까지(초)
+	Tilt = 25, -- 등에 비스듬히 메는 각도(도). 화살 끝이 오른쪽 어깨 위로 나온다
+}
+
 -- 장비 겉모습 (GearVisualService): 끼운 장비가 캐릭터 몸에 보인다. 크기는 전부 몸 부위 크기에 대한 배율
 Config.GearVisual = {
 	Padding = 1.1, -- 손·발·몸통을 덮는 조각은 부위보다 이 배율만큼 크게
@@ -256,7 +269,7 @@ Config.Mobs = {
 	Skeleton = { Hp = 40, Damage = 8, AttackInterval = 1.4, AttackRange = 4, Speed = 9, Aggro = 22, Gold = { 5, 9 }, Loot = { 1, 2 }, Respawn = 18, Scale = 1 },
 	Zombie = { Hp = 55, Damage = 10, AttackInterval = 1.6, AttackRange = 4, Speed = 6, Aggro = 20, Gold = { 7, 12 }, Loot = { 1, 2 }, Respawn = 18, Scale = 1 },
 	Cerberus = { Hp = 90, Damage = 14, AttackInterval = 1.2, AttackRange = 4.5, Speed = 13, Aggro = 26, Gold = { 14, 24 }, Loot = { 1, 2 }, Respawn = 30, Scale = 1.1 },
-	-- 사이클롭스: 플레이어 키의 약 1.8배 (모델 높이 약 6.6 × Scale 1.4)
+	-- 사이클롭스: 플레이어 키의 약 1.9배 (모델 높이 약 7.2 × Scale 1.4 ≈ 10스터드)
 	Cyclops = { Hp = 160, Damage = 18, AttackInterval = 1.8, AttackRange = 6.5, Speed = 9, Aggro = 26, Gold = { 25, 40 }, Loot = { 1, 3 }, Respawn = 45, Scale = 1.4 },
 }
 
@@ -341,6 +354,7 @@ Config.Debug = {
 	StartSlots = 60, -- Studio 테스트 때 가방 칸 수 (도구·무기·장비를 전부 받으면 45칸이 넘는다)
 	GiveAllEquipment = true, -- Studio에서 들어오면 장비 24종을 전부 지급 (테스트용)
 	GiveFoods = 5, -- Studio에서 들어오면 음식을 종류마다 이만큼 지급. 테스트 끝나면 0
+	GiveQuivers = 1, -- Studio에서 처음 들어오면 화살통을 종류마다 이만큼 지급. 테스트 끝나면 0
 }
 
 -- 귀환 주문서: 쓰면 CastTime초 뒤 마을(태그 TownArrival)로 돌아간다. 그사이 움직이면 취소

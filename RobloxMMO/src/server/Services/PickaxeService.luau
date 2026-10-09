@@ -194,6 +194,12 @@ function PickaxeService.init()
 				InventoryService.add(player, equipmentId, 1)
 			end
 		end
+		-- 테스트용 화살통 (Studio에서만)
+		if firstTime and RunService:IsStudio() and Config.Debug.GiveQuivers > 0 then
+			for _, quiverId in EquipmentDefs.QuiverOrder do
+				InventoryService.add(player, quiverId, Config.Debug.GiveQuivers)
+			end
+		end
 		-- 테스트용 음식 (Studio에서만)
 		if firstTime and RunService:IsStudio() and Config.Debug.GiveFoods > 0 then
 			for foodId in Config.Foods do

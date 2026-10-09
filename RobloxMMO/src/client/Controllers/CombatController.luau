@@ -15,6 +15,7 @@ local MobDefs = require(ReplicatedStorage.Shared.MobDefs)
 local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local HitFeelController = require(script.Parent.HitFeelController)
+local NotifyController = require(script.Parent.NotifyController)
 local PickupFeed = require(script.Parent.PickupFeed)
 local RockHUD = require(script.Parent.RockHUD)
 local SwingAnimation = require(script.Parent.SwingAnimation)
@@ -31,7 +32,8 @@ local attackRemote: RemoteEvent
 local effectsFolder: Folder
 local hudFolder: Folder
 local lastAttackClock = -math.huge
-local hpBars: { [Model]: { Gui: BillboardGui, Fill: Frame } } = {}
+local lastArrowNotice = -math.huge
+local hpBars: { [Model]: { Gui: BillboardGui, Fill: Frame, Range: number } } = {}
 local hurtFrame: Frame
 
 -- 이 도구가 무기인지
@@ -157,9 +159,22 @@ function CombatController.attack(def: PickaxeDefs.PickaxeDef, charge: number, he
 	if now - lastAttackClock < config.Cooldown then
 		return false
 	end
+	if def.Kind == "Bow" then
+		-- 활: 끼운 화살통에 화살이 있어야 쏜다 (서버가 센 속성 Arrows. 실제로 빼는 건 서버)
+		local arrows = localPlayer:GetAttribute("Arrows")
+		if typeof(arrows) ~= "number" or arrows <= 0 then
+			if now - lastArrowNotice >= Config.Quiver.NoticeInterval then
+				lastArrowNotice = now
+				local worn = localPlayer:GetAttribute("Equip_Shield")
+				local hasQuiver = typeof(worn) == "string" and worn ~= ""
+				NotifyController.show(if hasQuiver then "화살이 없어요!" else "화살통이 필요해요! 사냥꾼에게 사서 방패 칸에 끼우세요.", "bad")
+			end
+			return false
+		end
+	end
 	lastAttackClock = now
 	if def.Kind == "Bow" then
-		-- 활: 화살 없이 언제든 쏜다. 짧게 쏘면 사거리가 짧고, 다 모으면 원래 사거리
+		-- 활: 짧게 쏘면 사거리가 짧고, 다 모으면 원래 사거리. 몹이 없으면 앞으로 쏘고 서버에 nil로 알려 화살만 쓴다
 		local chargeConfig = Config.Charge
 		local range = config.Range * (chargeConfig.BowTapRange + (1 - chargeConfig.BowTapRange) * charge)
 		local mob = bowTarget(range)
@@ -180,12 +195,13 @@ function CombatController.attack(def: PickaxeDefs.PickaxeDef, charge: number, he
 			look = if look.Magnitude > 0.01 then look.Unit else root.CFrame.LookVector
 			face(root.Position + look)
 			to = from + look * range
+			attackRemote:FireServer(nil) -- 빗나간 화살도 화살 1개를 쓴다
 		end
 		-- 추가 차징(마나)까지 다 모았으면 가장 밝은 화살
 		local over = (held or 0) >= chargeConfig.Time + chargeConfig.BowOverTime
 		HitFeelController.playSound(Config.Sounds.BowShoot, from, if charge >= 1 then 0.9 else 1.15, if charge >= 1 then 0.9 else 0.6) -- "휘익"
 		shootArrow(from, to, if over then 4 elseif charge >= 1 then math.max(def.Tier, 3) else def.Tier, function() end) -- 내 화살은 바로 보여 준다 (서버 연출에서는 다시 그리지 않는다)
-		return mob ~= nil
+		return true -- 몹이 없어도 요청을 보냈다 (서버가 모으기 기록을 꺼낸다)
 	end
 	local mob = nearestMob(config.Range)
 	if mob then
@@ -434,12 +450,17 @@ local function addHpBar(mob: Instance)
 	end
 	task.wait() -- 나머지 몸 부품도 들어올 틈
 	local def = mobDef(mob)
+	-- 보스(속성 Boss)는 "👑 보스" 금색 이름 + 더 큰 체력바, 더 멀리서도 보인다
+	local boss = mob:GetAttribute("Boss") == true
+	local bossConfig = Config.MobBoss
+	local barScale = if boss then bossConfig.HpBarScale else 1
+	local range = Config.Combat.HpBarRange * (if boss then bossConfig.HpBarRangeMultiplier else 1)
 	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.new(4.5, 0, 1.1, 0)
-	billboard.StudsOffsetWorldSpace = Vector3.new(0, math.max(mob:GetExtentsSize().Y, 2) + 0.8, 0)
+	billboard.Size = UDim2.new(4.5 * barScale, 0, 1.1 * barScale, 0)
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, math.max(mob:GetExtentsSize().Y, 2) + 0.8 * barScale, 0)
 	billboard.AlwaysOnTop = true
 	billboard.LightInfluence = 0
-	billboard.MaxDistance = Config.Combat.HpBarRange
+	billboard.MaxDistance = range
 	billboard.Enabled = false
 	billboard.Adornee = root
 	billboard.Parent = hudFolder
@@ -448,9 +469,9 @@ local function addHpBar(mob: Instance)
 	name.Size = UDim2.fromScale(1, 0.5)
 	name.BackgroundTransparency = 1
 	name.Font = Enum.Font.FredokaOne
-	name.Text = if def then def.DisplayName else ""
+	name.Text = if def then (if boss then bossConfig.NamePrefix .. def.DisplayName else def.DisplayName) else ""
 	name.TextScaled = true
-	name.TextColor3 = Color3.new(1, 1, 1)
+	name.TextColor3 = if boss then bossConfig.NameColor else Color3.new(1, 1, 1)
 	name.Parent = billboard
 	local nameStroke = Instance.new("UIStroke")
 	nameStroke.Thickness = 1.5
@@ -474,7 +495,15 @@ local function addHpBar(mob: Instance)
 	fillCorner.CornerRadius = UDim.new(0.5, 0)
 	fillCorner.Parent = fill
 
-	hpBars[mob] = { Gui = billboard, Fill = fill }
+	if boss then
+		fill.BackgroundColor3 = Color3.fromRGB(200, 40, 40)
+		local backStroke = Instance.new("UIStroke")
+		backStroke.Color = bossConfig.NameColor
+		backStroke.Thickness = 2
+		backStroke.Parent = back
+	end
+
+	hpBars[mob] = { Gui = billboard, Fill = fill, Range = range }
 end
 
 local function removeHpBar(mob: Instance)
@@ -501,7 +530,7 @@ local function updateHpBars()
 		end
 		local hp = mob:GetAttribute("Hp")
 		local maxHp = mob:GetAttribute("MaxHp")
-		local near = rootPosition ~= nil and (mob:GetPivot().Position - rootPosition).Magnitude <= Config.Combat.HpBarRange
+		local near = rootPosition ~= nil and (mob:GetPivot().Position - rootPosition).Magnitude <= bar.Range
 		bar.Gui.Enabled = near
 		if near and typeof(hp) == "number" and typeof(maxHp) == "number" and maxHp > 0 then
 			bar.Fill.Size = UDim2.fromScale(math.clamp(hp / maxHp, 0, 1), 1)
