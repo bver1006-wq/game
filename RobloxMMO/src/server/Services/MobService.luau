@@ -6,6 +6,9 @@
 -- 마을 안전지대(TownArrival·ShopNPC 둘레 Config.MobAI.SafeZoneRadius)에는 몹이 생기지도, 들어가지도 않는다.
 -- 얌전한 몹(Config.Mobs의 Passive, 슬라임)은 먼저 공격하지 않고, 맞으면 잠깐 도망친다.
 -- 생성 때 Config.MobBoss 확률로 크고 센 보스가 된다 (Model:ScaleTo, 보상도 크기만큼).
+-- 바다 생물(Config.Mobs의 Swim, 2026-10-09)은 stepSwimmer가 따로 움직인다: 지형 물 속에서 수면 아래·바닥 위로 3D로 헤엄치고,
+--   물에 들어온 플레이어만 노리며, 대상이 물 밖으로 나가면 포기한다. 물고기 떼(생성 자리 속성 School)는 목적지를 같이 쓴다.
+--   복어는 맞으면 부풀어 가까이서 때린 사람을 찌르고(Prick), 낙지는 먹물을 뿜는다(Ink → MobSpecial), 해파리는 닿으면 쏜다(Drift).
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -57,6 +60,15 @@ export type MobState = {
 	Owner: number?, -- 주인 UserId (OwnershipService)
 	OwnerAt: number,
 	Dead: boolean,
+	-- 바다 생물 (2026-10-09). 땅 몹은 Swim = false, 나머지는 안 쓴다
+	Swim: boolean, -- 물 속을 헤엄치는지 (Config.Mobs Swim)
+	School: string?, -- 물고기 떼 이름 (같은 떼는 목적지를 같이 쓴다)
+	SchoolOffset: Vector3, -- 떼 목적지에서 내 자리까지
+	BaseScale: number, -- 원래 크기 (복어가 부풀었다가 돌아올 크기)
+	PuffUntil: number, -- 복어: 이 시각까지 부풀어 있다 (0이면 원래 크기)
+	NextPrick: number, -- 복어: 다음에 찌를 수 있는 시각
+	NextInk: number, -- 낙지: 다음에 먹물을 뿜을 수 있는 시각
+	Pitch: number, -- 위아래로 기운 각도(라디안, + = 머리 위로)
 }
 
 local MOB_TAG = "Mob"
@@ -71,8 +83,13 @@ local templatesFolder: Instance?
 local spawnsFolder: Instance?
 local attackRemote: RemoteEvent
 local diedRemote: RemoteEvent
+local specialRemote: RemoteEvent -- 바다 생물 특수 연출 (MobSpecial)
 
 local safePoints: { Vector3 } = {} -- 안전지대 가운데들 (마을 도착점·NPC)
+
+-- 물고기 떼 (School 이름 → 같이 쓰는 목적지). Target이 없거나 Until이 지나면 떼 집 둘레에서 새로 고른다
+type School = { Home: Vector3, Target: Vector3?, Until: number }
+local schools: { [string]: School } = {}
 
 -- 플레이어가 몹 피해를 덜 받는 시간 (구르기 무적·방패 막기). 출처마다 { 줄이는 비율, 끝 시각 }
 type Guard = { Reduction: number, Until: number }
@@ -147,6 +164,73 @@ local function groundY(position: Vector3, fallbackY: number): number
 	return if result then result.Position.Y else fallbackY
 end
 
+---------------------------------------------------------------- 물 (바다 생물, 2026-10-09)
+-- 물 기둥: 지형만 보는 광선으로 수면(물 무시 안 함)과 바닥(물 무시)을 잰다. 물이 안 바뀌니 칸마다 한 번만 재서 기억한다
+local waterParams = RaycastParams.new()
+waterParams.FilterType = Enum.RaycastFilterType.Include
+waterParams.FilterDescendantsInstances = { Workspace.Terrain }
+waterParams.IgnoreWater = false
+local floorParams = RaycastParams.new()
+floorParams.FilterType = Enum.RaycastFilterType.Include
+floorParams.FilterDescendantsInstances = { Workspace.Terrain }
+floorParams.IgnoreWater = true
+
+type WaterColumn = { Surface: number?, Floor: number } -- Surface가 nil이면 물이 아니다
+local columns: { [string]: WaterColumn } = {}
+
+-- (x, z) 칸의 물 기둥
+local function waterColumn(x: number, z: number): WaterColumn
+	local sea = Config.SeaAI
+	local cell = sea.ColumnCell
+	local cx, cz = math.floor(x / cell), math.floor(z / cell)
+	local key = `{cx},{cz}`
+	local cached = columns[key]
+	if cached then
+		return cached
+	end
+	local top = Vector3.new((cx + 0.5) * cell, sea.ScanTop, (cz + 0.5) * cell)
+	local column: WaterColumn = { Surface = nil, Floor = -math.huge }
+	local hit = Workspace:Raycast(top, Vector3.new(0, -sea.ScanLength, 0), waterParams)
+	if hit and hit.Material == Enum.Material.Water then
+		local floorHit = Workspace:Raycast(hit.Position, Vector3.new(0, -sea.ScanLength, 0), floorParams)
+		column = { Surface = hit.Position.Y, Floor = if floorHit then floorHit.Position.Y else hit.Position.Y - sea.ScanLength }
+	end
+	columns[key] = column
+	return column
+end
+
+-- 키가 height인 몸이 (x, z)에서 있을 수 있는 높이 범위 (발밑 기준). 물이 없거나 너무 얕으면 nil
+local function swimBand(x: number, z: number, height: number): (number?, number?)
+	local column = waterColumn(x, z)
+	if not column.Surface then
+		return nil, nil
+	end
+	local sea = Config.SeaAI
+	local low = column.Floor + sea.FloorMargin
+	local high = column.Surface - sea.SurfaceMargin - height
+	if high < low then
+		return nil, nil
+	end
+	return low, high
+end
+
+-- 위치를 물 속 범위로 맞춘다 (높이만 고침). 거기가 물이 아니면 nil
+local function clampSwim(position: Vector3, height: number): Vector3?
+	local low, high = swimBand(position.X, position.Z, height)
+	if not low or not high then
+		return nil
+	end
+	return Vector3.new(position.X, math.clamp(position.Y, low, high), position.Z)
+end
+
+-- 플레이어(뿌리 위치)가 물 속(수면에서 헤엄치는 중 포함)에 있는지
+local function inWater(position: Vector3): boolean
+	local column = waterColumn(position.X, position.Z)
+	return column.Surface ~= nil
+		and position.Y <= column.Surface + Config.SeaAI.PlayerWaterAbove
+		and position.Y >= column.Floor - 2
+end
+
 -- 안전지대 가운데 목록을 새로 읽는다 (마을 도착점 + 상점 NPC)
 local function refreshSafePoints()
 	local list: { Vector3 } = {}
@@ -177,6 +261,23 @@ end
 local function entersSafeZone(from: Vector3, to: Vector3): boolean
 	local depth = safeDepth(to)
 	return depth > 0 and depth >= safeDepth(from)
+end
+
+-- 몹이 플레이어 하나를 때린다: 피버 중이면 무적, 방어구로 줄이고, 구르기 무적·방패 막기면 더 줄인다 (1이면 0)
+-- 연출은 MobAttack (guarded = true면 클라가 "피함!"·"막음!")
+local function hurtPlayer(state: MobState, player: Player, humanoid: Humanoid, amount: number, now: number)
+	if FeverService.isActive(player) then
+		return
+	end
+	local damage = EquipmentService.reduceDamage(player, amount) -- 방어구로 줄인다
+	local reduction = guardReduction(player, now)
+	if reduction > 0 then
+		damage = if reduction >= 1 then 0 else damage * (1 - reduction)
+	end
+	if damage > 0 then
+		humanoid:TakeDamage(damage)
+	end
+	fireNearby(attackRemote, state.Position, state.Model, player.UserId, math.round(damage * 10) / 10, reduction > 0)
 end
 
 -- 이번 생성이 보스인지 정하고 크기 배율을 돌려준다 (보스가 아니면 nil)
@@ -215,7 +316,15 @@ local function spawnMob(spawnPart: BasePart)
 	if bossScale then
 		model:ScaleTo(model:GetScale() * bossScale)
 	end
-	local home = Vector3.new(spawnPart.Position.X, groundY(spawnPart.Position, spawnPart.Position.Y - 1), spawnPart.Position.Z)
+	-- 바다 생물은 생성 자리(물 속) 높이 그대로 두되 수면 아래·바닥 위로 맞추고, 땅 몹은 땅에 붙인다
+	local swim = (config :: any).Swim == true
+	local home: Vector3
+	if swim then
+		local height = model:GetExtentsSize().Y
+		home = clampSwim(spawnPart.Position - Vector3.new(0, height / 2, 0), height) or spawnPart.Position
+	else
+		home = Vector3.new(spawnPart.Position.X, groundY(spawnPart.Position, spawnPart.Position.Y - 1), spawnPart.Position.Z)
+	end
 	local facing = Vector3.new(random:NextNumber(-1, 1), 0, random:NextNumber(-1, 1))
 	facing = if facing.Magnitude > 0.01 then facing.Unit else Vector3.zAxis
 	model:PivotTo(CFrame.lookAt(home, home + facing))
@@ -238,6 +347,20 @@ local function spawnMob(spawnPart: BasePart)
 	end
 	CollectionService:AddTag(model, MOB_TAG)
 	model.Parent = mobsFolder
+
+	-- 물고기 떼: 같은 School 이름끼리 목적지를 같이 쓴다. 떼 집 = 처음 생긴 물고기의 집
+	local schoolAttribute = spawnPart:GetAttribute("School")
+	local school: string? = if swim and typeof(schoolAttribute) == "string" and schoolAttribute ~= "" then schoolAttribute else nil
+	local schoolOffset = Vector3.zero
+	if school then
+		if not schools[school] then
+			schools[school] = { Home = home, Target = nil, Until = 0 }
+		end
+		schoolOffset = home - schools[school].Home
+		if schoolOffset.Magnitude > Config.SeaSpawn.SchoolSpread * 2 then
+			schoolOffset = schoolOffset.Unit * Config.SeaSpawn.SchoolSpread * 2
+		end
+	end
 
 	states[model] = {
 		Model = model,
@@ -270,6 +393,14 @@ local function spawnMob(spawnPart: BasePart)
 		Owner = nil,
 		OwnerAt = 0,
 		Dead = false,
+		Swim = swim,
+		School = school,
+		SchoolOffset = schoolOffset,
+		BaseScale = model:GetScale(),
+		PuffUntil = 0,
+		NextPrick = 0,
+		NextInk = 0,
+		Pitch = 0,
 	}
 end
 
@@ -351,18 +482,7 @@ local function stepMob(state: MobState, dt: number, now: number)
 				-- 구르기 무적·방패 막기 중이면 피해를 줄인다 (1이면 0, guarded = true로 알려 클라가 "피함!"·"막음!")
 				state.NextAttack = now + config.AttackInterval
 				state.LungeUntil = now + 0.15
-				local player = state.Target :: Player
-				if not FeverService.isActive(player) then
-					local damage = EquipmentService.reduceDamage(player, state.Damage) -- 방어구로 줄인다
-					local reduction = guardReduction(player, now)
-					if reduction > 0 then
-						damage = if reduction >= 1 then 0 else damage * (1 - reduction)
-					end
-					if damage > 0 then
-						humanoid:TakeDamage(damage)
-					end
-					fireNearby(attackRemote, state.Position, state.Model, player.UserId, math.round(damage * 10) / 10, reduction > 0)
-				end
+				hurtPlayer(state, state.Target :: Player, humanoid, state.Damage, now)
 			end
 		end
 	else
@@ -441,6 +561,250 @@ local function stepMob(state: MobState, dt: number, now: number)
 	local lunge = if now < state.LungeUntil then ai.LungeDistance * state.Scale else 0
 	local base = state.Position + Vector3.new(0, bob, 0) + state.Facing * lunge
 	state.Model:PivotTo(CFrame.lookAt(base, base + state.Facing))
+end
+
+-- 물 속 무작위 목적지: center 둘레 radius 안 (위아래도 무작위). 물이 아니거나 너무 얕거나 안전지대면 nil
+local function randomSwimPoint(center: Vector3, radius: number, height: number): Vector3?
+	local angle = random:NextNumber(0, math.pi * 2)
+	local r = random:NextNumber(2, math.max(radius, 2.5))
+	local x, z = center.X + math.cos(angle) * r, center.Z + math.sin(angle) * r
+	local low, high = swimBand(x, z, height)
+	if not low or not high then
+		return nil
+	end
+	local point = Vector3.new(x, random:NextNumber(low, high), z)
+	if safeDepth(point) > 0 then
+		return nil
+	end
+	return point
+end
+
+-- 바다 생물 하나의 생각·헤엄 (dt초만큼, 2026-10-09). 땅 몹(stepMob)과 순서는 같지만 3D로 움직이고 물 밖으로는 안 나간다
+-- 물고기·복어·황금 물고기(Passive): 맞으면 도망 / 낙지(Retaliate): 맞으면 쫓아와 때림 / 해파리(Drift): 둥둥, 닿으면 쏨 / 상어: 물에 들어온 사람에게 돌진
+local function stepSwimmer(state: MobState, dt: number, now: number)
+	local config = Config.Mobs[state.Type] :: any
+	local sea = Config.SeaAI
+	local def = MobDefs[state.Type]
+	local passive = config.Passive == true
+	local drift = config.Drift == true
+	local hunter = not passive and not drift and config.Retaliate ~= true -- 먼저 덤비는 몹 (상어)
+
+	-- 복어: 부푼 시간이 끝나면 원래 크기로
+	if state.PuffUntil > 0 and now >= state.PuffUntil then
+		state.PuffUntil = 0
+		state.Model:ScaleTo(state.BaseScale)
+	end
+
+	-- 쫓던 대상 포기: 사라짐·너무 멂·집에서 멂·안전지대·물 밖으로 나감
+	local chaseRange = math.max(config.Aggro, sea.MinChaseRange) * 2
+	local target = state.Target
+	if target then
+		local root = aliveRoot(target)
+		if
+			not root
+			or passive
+			or drift
+			or (state.Position - state.Home).Magnitude > sea.Leash
+			or (root.Position - state.Position).Magnitude > chaseRange
+			or safeDepth(root.Position) > 0
+			or not inWater(root.Position)
+		then
+			state.Target = nil
+		end
+	end
+	if state.FleeFrom and now >= state.FleeUntil then
+		state.FleeFrom = nil
+	end
+	OwnershipService.expire(state, state.Model, now)
+	local owner = OwnershipService.ownerOf(state)
+	-- 상어: 물에 들어온 가까운 플레이어를 알아챈다 (주인이 있으면 주인만)
+	if hunter and not state.Target and (state.Position - state.Home).Magnitude < sea.Leash * 0.6 then
+		local best: Player? = nil
+		local bestDistance = config.Aggro
+		for _, player in Players:GetPlayers() do
+			local root = aliveRoot(player)
+			if root and (owner == nil or owner == player.UserId) and safeDepth(root.Position) <= 0 and inWater(root.Position) then
+				local distance = (root.Position - state.Position).Magnitude
+				if distance < bestDistance then
+					best, bestDistance = player, distance
+				end
+			end
+		end
+		state.Target = best
+	end
+
+	local center = state.Position + Vector3.new(0, state.Height / 2, 0)
+	-- 해파리: 몸에 닿은 사람(가장 가까운 한 명)을 AttackInterval마다 쏜다
+	if drift and state.Damage > 0 and now >= state.NextAttack and now >= state.StunUntil then
+		local bestPlayer: Player? = nil
+		local bestHumanoid: Humanoid? = nil
+		local bestDistance = state.AttackRange + state.Radius
+		for _, player in Players:GetPlayers() do
+			local root, humanoid = aliveRoot(player)
+			if root and humanoid and (owner == nil or owner == player.UserId) and safeDepth(root.Position) <= 0 then
+				local distance = (root.Position - center).Magnitude
+				if distance < bestDistance then
+					bestPlayer, bestHumanoid, bestDistance = player, humanoid, distance
+				end
+			end
+		end
+		if bestPlayer and bestHumanoid then
+			state.NextAttack = now + config.AttackInterval
+			state.LungeUntil = now + 0.15
+			hurtPlayer(state, bestPlayer, bestHumanoid, state.Damage, now)
+		end
+	end
+
+	local goal: Vector3? = nil
+	local speed = state.Speed
+	local fleeing = false
+	local chasing = false
+	if now < state.KnockbackUntil then
+		-- 맞아서 밀려나는 중 (물 밖·안전지대로는 안 밀린다)
+		local nextPosition = clampSwim(state.Position + state.Knockback * dt, state.Height)
+		if not nextPosition or entersSafeZone(state.Position, nextPosition) then
+			state.KnockbackUntil = 0
+		else
+			state.Position = nextPosition
+		end
+	elseif now < state.StunUntil then
+		goal = nil -- 기절: 제자리
+	elseif state.FleeFrom then
+		-- 도망: 때린 사람 반대쪽으로 (위아래는 조금만)
+		fleeing = true
+		local root = aliveRoot(state.FleeFrom)
+		local away = if root then state.Position - root.Position else state.Facing
+		away = Vector3.new(away.X, away.Y * 0.5, away.Z)
+		away = if away.Magnitude > 0.05 then away.Unit else state.Facing
+		goal = state.Position + away * 6
+		speed *= config.FleeSpeed or 1.5
+	elseif state.Target then
+		local root, humanoid = aliveRoot(state.Target)
+		if root and humanoid then
+			local offset = root.Position - center
+			local flat = offset * Vector3.new(1, 0, 1)
+			if flat.Magnitude > 0.05 then
+				state.Facing = flat.Unit
+			end
+			if offset.Magnitude > state.AttackRange * 0.8 then
+				goal = root.Position - Vector3.new(0, state.Height / 2, 0) -- 몸 가운데가 상대 몸통 높이로 (수면 위면 수면 바로 아래까지)
+				chasing = true
+				if config.ChargeSpeed and offset.Magnitude < (config.ChargeRange or 0) then
+					speed *= config.ChargeSpeed -- 상어 돌진
+				end
+			elseif now >= state.NextAttack and state.Damage > 0 then
+				state.NextAttack = now + config.AttackInterval
+				state.LungeUntil = now + 0.15
+				hurtPlayer(state, state.Target :: Player, humanoid, state.Damage, now)
+			end
+		end
+	else
+		-- 한가할 때: 집 둘레를 헤엄치다 잠깐 쉰다. 물고기 떼는 떼 목적지 + 내 자리
+		local schoolName = state.School
+		local school = if schoolName then schools[schoolName] else nil
+		if (state.Position - state.Home).Magnitude > sea.WanderRadius * 1.5 then
+			state.WanderTarget = state.Home
+		elseif school then
+			if not school.Target or now >= school.Until then
+				school.Target = randomSwimPoint(school.Home, sea.WanderRadius, state.Height) or school.Home
+				school.Until = now + random:NextNumber(sea.SchoolRetarget[1], sea.SchoolRetarget[2])
+			end
+			local schoolTarget = school.Target or school.Home
+			state.WanderTarget = clampSwim(schoolTarget + state.SchoolOffset, state.Height) or schoolTarget
+		elseif not state.WanderTarget and now >= state.WanderUntil then
+			local wander = randomSwimPoint(state.Home, sea.WanderRadius, state.Height)
+			if wander then
+				state.WanderTarget = wander
+			else
+				state.WanderUntil = now + random:NextNumber(sea.WanderPause[1], sea.WanderPause[2])
+			end
+		end
+		goal = state.WanderTarget
+		speed *= if drift then 1 else 0.5
+	end
+
+	-- 자연 회복 (땅 몹과 같음)
+	if not state.Target and not fleeing and state.Hp < state.MaxHp and now - state.LastHit >= Config.Regen.Delay then
+		state.Hp = math.min(state.MaxHp, state.Hp + state.MaxHp * Config.Regen.MobPercentPerSecond * dt)
+		state.Model:SetAttribute("Hp", math.floor(state.Hp * 10 + 0.5) / 10)
+	end
+
+	-- 3D로 움직인다. 다음 자리가 물이 아니거나(땅·얕은 물) 안전지대면 안 간다
+	local maxPitch = math.rad(sea.MaxPitch)
+	local moving = false
+	if goal then
+		local delta = goal - state.Position
+		local distance = delta.Magnitude
+		if distance < 0.5 then
+			if goal == state.WanderTarget then
+				state.WanderTarget = nil
+				state.WanderUntil = now + random:NextNumber(sea.WanderPause[1], sea.WanderPause[2])
+			end
+		else
+			local step = math.min(speed * dt, distance)
+			local function tryMove(direction: Vector3): Vector3?
+				local nextPosition = clampSwim(state.Position + direction * step, state.Height)
+				if not nextPosition or entersSafeZone(state.Position, nextPosition) then
+					return nil
+				end
+				return nextPosition
+			end
+			local nextPosition = tryMove(delta.Unit)
+			if not nextPosition and fleeing then
+				-- 도망은 옆으로 비켜 본다
+				for _, angle in { 70, -70, 120, -120 } do
+					nextPosition = tryMove(CFrame.Angles(0, math.rad(angle), 0):VectorToWorldSpace(delta.Unit))
+					if nextPosition then
+						break
+					end
+				end
+			end
+			if nextPosition then
+				local moved = nextPosition - state.Position
+				local flat = moved * Vector3.new(1, 0, 1)
+				if flat.Magnitude > 0.01 then
+					state.Facing = flat.Unit
+				end
+				-- 오르내릴 때 머리를 그쪽으로 살짝 기울인다
+				local pitchGoal = math.clamp(math.atan2(moved.Y, math.max(flat.Magnitude, 0.001)), -maxPitch, maxPitch)
+				state.Pitch += (pitchGoal - state.Pitch) * math.min(1, dt * 5)
+				state.Position = nextPosition
+				moving = true
+			elseif chasing then
+				-- 대상 쪽이 물 밖·안전지대라 못 간다 → 포기하고 집으로
+				state.Target = nil
+				state.WanderTarget = state.Home
+			elseif goal == state.WanderTarget then
+				-- 못 가는 목적지 → 쉬었다가 다른 곳
+				state.WanderTarget = nil
+				state.WanderUntil = now + random:NextNumber(sea.WanderPause[1], sea.WanderPause[2])
+			end
+		end
+	end
+	if not moving then
+		state.Pitch *= math.max(0, 1 - dt * 3)
+	end
+	moving = moving or now < state.KnockbackUntil
+	-- 수면 높이가 바뀌는 곳에서도 늘 물 속에
+	local clamped = clampSwim(state.Position, state.Height)
+	if clamped then
+		state.Position = clamped
+	end
+
+	-- 헤엄 모양: 물고기는 꼬리를 좌우로 살랑(몸 전체 흔들기), 낙지·해파리는 위아래로 둥실 (보스는 크기만큼 느리고 크게)
+	local bob, wiggle = 0, 0
+	if def.SwimStyle == "Pulse" then
+		state.Phase += dt * sea.PulseSpeed * (if moving then 1.6 else 1) / math.sqrt(state.Scale)
+		bob = math.sin(state.Phase) * sea.PulseBob * state.Scale
+	else
+		local rate = (if moving then 1 else 0.35) * (if fleeing or chasing then 1.6 else 1)
+		state.Phase += dt * sea.WiggleSpeed * rate / math.sqrt(state.Scale)
+		wiggle = math.sin(state.Phase) * math.rad(sea.WiggleAngle) * (if moving then 1 else 0.4)
+		bob = math.sin(state.Phase * 0.3) * 0.12 * state.Scale
+	end
+	local lunge = if now < state.LungeUntil then Config.MobAI.LungeDistance * state.Scale else 0
+	local base = state.Position + Vector3.new(0, bob, 0) + state.Facing * lunge
+	state.Model:PivotTo(CFrame.lookAt(base, base + state.Facing) * CFrame.Angles(state.Pitch, wiggle, 0))
 end
 
 -- 몹을 쓰러뜨린다: 보상(보스는 크기만큼 더) → 연출 알림 → 제거 → 다시 생성 예약
@@ -536,12 +900,34 @@ function MobService.damage(mob: Model, player: Player, amount: number, direction
 			state.FleeFrom = player
 			state.FleeUntil = os.clock() + (config.FleeTime or 4)
 			state.Target = nil
-		else
+		elseif not (config :: any).Drift then -- 해파리는 맞아도 둥둥 (쫓지 않는다)
 			state.Target = player
 		end
 	end
 	react()
 	state.LastHit = os.clock()
+	-- 바다 생물 특수 반응 (2026-10-09): 복어는 부풀어 가까이서 때린 사람을 찌르고, 낙지는 가끔 먹물을 뿜는다
+	local now = os.clock()
+	local special = config :: any
+	local center = state.Position + Vector3.new(0, state.Height / 2, 0)
+	local prick = special.Prick
+	if prick then
+		if state.PuffUntil <= 0 then
+			mob:ScaleTo(state.BaseScale * prick.PuffScale)
+			fireNearby(specialRemote, state.Position, mob, "Puff", player.UserId, center, prick.PuffTime)
+		end
+		state.PuffUntil = now + prick.PuffTime
+		local root, humanoid = aliveRoot(player)
+		if root and humanoid and now >= state.NextPrick and (root.Position - center).Magnitude <= prick.Range + state.Radius then
+			state.NextPrick = now + prick.Cooldown
+			hurtPlayer(state, player, humanoid, prick.Damage * (if state.Boss then state.Scale else 1), now)
+		end
+	end
+	local ink = special.Ink
+	if ink and now >= state.NextInk and random:NextNumber() < ink.Chance then
+		state.NextInk = now + ink.Cooldown
+		fireNearby(specialRemote, state.Position, mob, "Ink", player.UserId, center, ink.Blind)
+	end
 	if amount <= 0 then
 		return false
 	end
@@ -598,6 +984,7 @@ function MobService.init()
 	end)
 	attackRemote = Remotes.get(Remotes.Names.MobAttack)
 	diedRemote = Remotes.get(Remotes.Names.MobDied)
+	specialRemote = Remotes.get(Remotes.Names.MobSpecial)
 
 	local templates = ServerStorage:FindFirstChild("Templates")
 	templatesFolder = templates and templates:FindFirstChild("Mobs")
@@ -660,7 +1047,11 @@ function MobService.init()
 				end
 			end
 			if awake and not state.Dead then
-				stepMob(state, step, now)
+				if state.Swim then
+					stepSwimmer(state, step, now) -- 바다 생물 (2026-10-09)
+				else
+					stepMob(state, step, now)
+				end
 			end
 		end
 	end)

@@ -36,6 +36,7 @@ local lastAttackClock = -math.huge
 local lastArrowNotice = -math.huge
 local hpBars: { [Model]: { Gui: BillboardGui, Fill: Frame, Range: number } } = {}
 local hurtFrame: Frame
+local inkFrame: Frame -- 낙지 먹물을 맞으면 화면이 잠깐 어두워진다 (2026-10-09)
 
 -- 이 도구가 무기인지
 function CombatController.isWeapon(def: PickaxeDefs.PickaxeDef): boolean
@@ -61,9 +62,13 @@ local function nearestMob(range: number): Model?
 		local hp = mob:GetAttribute("Hp")
 		if mob:IsA("Model") and mob:IsDescendantOf(Workspace) and typeof(hp) == "number" and hp > 0 and not TargetController.isOthers(mob) then
 			local size = mob:GetExtentsSize()
-			local flat = (mob:GetPivot().Position - root.Position) * Vector3.new(1, 0, 1)
+			local offset = mob:GetPivot().Position - root.Position
+			local flat = offset * Vector3.new(1, 0, 1)
 			local distance = flat.Magnitude - math.max(size.X, size.Z) / 2
-			if distance <= range and distance < bestDistance then
+			-- 물 속 몹은 위아래로 너무 멀면 못 친다 (서버 CombatService와 같은 기준, 2026-10-09)
+			local def = mobDef(mob)
+			local reachable = not (def and def.Habitat == "Water") or math.abs(offset.Y + size.Y / 2) <= range + size.Y / 2
+			if reachable and distance <= range and distance < bestDistance then
 				best, bestDistance = mob, distance
 			end
 		end
@@ -442,6 +447,65 @@ local function onMobAttack(_mob: Model?, targetUserId: number, damage: number, g
 	end
 end
 
+-- 서버의 MobSpecial: 바다 생물 특수 연출 (2026-10-09)
+-- "Ink": 낙지가 먹물을 뿜었다 → 그 자리에 검은 먹물 구름, 맞은 사람(나)이면 화면이 data초 동안 어두워졌다 밝아짐
+-- "Puff": 복어가 부풀었다 → "뿅" 소리와 가시 조각 (크기는 서버가 Model:ScaleTo로 바꾼다)
+local function onMobSpecial(mob: Model?, kind: string, targetUserId: number, position: Vector3, data: number?)
+	if typeof(position) ~= "Vector3" then
+		return
+	end
+	local sea = Config.SeaEffects
+	if kind == "Ink" then
+		local cloud = Instance.new("Part")
+		cloud.Name = "InkCloud"
+		cloud.Size = Vector3.new(1, 1, 1)
+		cloud.Transparency = 1
+		cloud.Anchored = true
+		cloud.CanCollide = false
+		cloud.CanQuery = false
+		cloud.CanTouch = false
+		cloud.CFrame = CFrame.new(position)
+		cloud.Parent = effectsFolder
+		local emitter = Instance.new("ParticleEmitter")
+		emitter.Color = ColorSequence.new(sea.InkColor)
+		emitter.LightEmission = 0
+		emitter.LightInfluence = 0.2
+		emitter.Size = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, sea.InkCloudSize * 0.4),
+			NumberSequenceKeypoint.new(0.4, sea.InkCloudSize),
+			NumberSequenceKeypoint.new(1, sea.InkCloudSize * 1.3),
+		})
+		emitter.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.15),
+			NumberSequenceKeypoint.new(0.6, 0.35),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		emitter.Lifetime = NumberRange.new(sea.InkCloudTime * 0.6, sea.InkCloudTime)
+		emitter.Speed = NumberRange.new(2, 7)
+		emitter.SpreadAngle = Vector2.new(180, 180)
+		emitter.Drag = 3
+		emitter.Rotation = NumberRange.new(0, 360)
+		emitter.RotSpeed = NumberRange.new(-40, 40)
+		emitter.Rate = 0
+		emitter.Parent = cloud
+		emitter:Emit(30)
+		task.delay(sea.InkCloudTime + 0.5, function()
+			cloud:Destroy()
+		end)
+		HitFeelController.playSound(sea.PuffSound, position, 0.55, 0.7) -- "뿌직"
+		if targetUserId == localPlayer.UserId then
+			local blind = if typeof(data) == "number" then data else 1.5
+			inkFrame.BackgroundTransparency = sea.InkScreen
+			TweenService:Create(inkFrame, TweenInfo.new(blind, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+			NotifyController.show("앗, 먹물!", "info")
+		end
+	elseif kind == "Puff" then
+		HitFeelController.playSound(sea.PuffSound, position, sea.PuffPitch, 0.8)
+		local def = if mob then mobDef(mob) else nil
+		HitFeelController.emitDebris(position, if def then def.Color else Color3.new(1, 1, 1), 10, 0.6)
+	end
+end
+
 -- 서버의 MobDied: 몹이 쓰러졌다. 펑 하고 사라지고, 내가 잡았으면 보상 표시
 -- extras: 주 전리품 말고 더 받은 전리품 목록 { {Id, Count} } (두 번째 전리품·보스 전리품, 2026-10-09)
 local function onMobDied(position: Vector3, mobType: string, killerUserId: number, gold: number, lootId: string, lootCount: number, extras: { any }?)
@@ -612,6 +676,13 @@ function CombatController.init()
 	hurtFrame.BackgroundTransparency = 1
 	hurtFrame.BorderSizePixel = 0
 	hurtFrame.Parent = gui
+	inkFrame = Instance.new("Frame")
+	inkFrame.Name = "Ink"
+	inkFrame.Size = UDim2.fromScale(1, 1)
+	inkFrame.BackgroundColor3 = Config.SeaEffects.InkColor
+	inkFrame.BackgroundTransparency = 1
+	inkFrame.BorderSizePixel = 0
+	inkFrame.Parent = gui
 
 	for _, mob in CollectionService:GetTagged(MOB_TAG) do
 		task.spawn(addHpBar, mob)
@@ -625,6 +696,7 @@ function CombatController.init()
 	Remotes.get(Remotes.Names.CombatEffect).OnClientEvent:Connect(onCombatEffect)
 	Remotes.get(Remotes.Names.MobAttack).OnClientEvent:Connect(onMobAttack)
 	Remotes.get(Remotes.Names.MobDied).OnClientEvent:Connect(onMobDied)
+	Remotes.get(Remotes.Names.MobSpecial).OnClientEvent:Connect(onMobSpecial)
 end
 
 return CombatController

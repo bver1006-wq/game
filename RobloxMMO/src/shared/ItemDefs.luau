@@ -52,10 +52,20 @@ local ItemDefs: { [string]: ItemDef } = {
 	CerberusHide = { Id = "CerberusHide", DisplayName = "케르베로스 털가죽", Category = "Etc", Stackable = true, Icon = "CerberusHide", Color = Color3.fromRGB(85, 65, 72) },
 	CyclopsHide = { Id = "CyclopsHide", DisplayName = "사이클롭스 가죽", Category = "Etc", Stackable = true, Icon = "CyclopsHide", Color = Color3.fromRGB(165, 170, 115) },
 	BossToken = { Id = "BossToken", DisplayName = "보스의 증표", Category = "Etc", Stackable = true, Icon = "BossToken", Color = Color3.fromRGB(255, 205, 60) },
+	-- 바다 생물 전리품 (2026-10-09). 아이콘은 studio/BuildWeaponsAndMobs. 생선·낙지 다리는 먹을 수도 있다 (Config.Foods)
+	PufferSpine = { Id = "PufferSpine", DisplayName = "복어 가시", Category = "Etc", Stackable = true, Icon = "PufferSpine", Color = Color3.fromRGB(240, 210, 110) },
+	GoldenScale = { Id = "GoldenScale", DisplayName = "황금 비늘", Category = "Etc", Stackable = true, Icon = "GoldenScale", Color = Color3.fromRGB(255, 205, 60) },
+	InkSac = { Id = "InkSac", DisplayName = "먹물 주머니", Category = "Etc", Stackable = true, Icon = "InkSac", Color = Color3.fromRGB(45, 40, 60) },
+	JellyfishJelly = { Id = "JellyfishJelly", DisplayName = "해파리 젤리", Category = "Etc", Stackable = true, Icon = "JellyfishJelly", Color = Color3.fromRGB(200, 170, 255) },
+	SharkTooth = { Id = "SharkTooth", DisplayName = "상어 이빨", Category = "Etc", Stackable = true, Icon = "SharkTooth", Color = Color3.fromRGB(250, 248, 235) },
+	SharkSkin = { Id = "SharkSkin", DisplayName = "상어 가죽", Category = "Etc", Stackable = true, Icon = "SharkSkin", Color = Color3.fromRGB(120, 140, 165) },
 	-- 도구: 음식 (먹으면 체력·마나를 채운다, 수치는 Config.Foods)
 	Bread = { Id = "Bread", DisplayName = "빵", Category = "Tool", Stackable = true, Usable = true, Icon = "Bread", Color = Color3.fromRGB(210, 160, 90) },
 	ManaBerry = { Id = "ManaBerry", DisplayName = "마나 베리", Category = "Tool", Stackable = true, Usable = true, Icon = "ManaBerry", Color = Color3.fromRGB(90, 130, 255) },
 	LunchBox = { Id = "LunchBox", DisplayName = "모험가 도시락", Category = "Tool", Stackable = true, Usable = true, Icon = "LunchBox", Color = Color3.fromRGB(220, 70, 70) },
+	-- 바다에서 잡는 음식 (2026-10-09): 생선(물고기), 낙지 다리(낙지, 재료로도 쓴다)
+	FishMeat = { Id = "FishMeat", DisplayName = "생선", Category = "Tool", Stackable = true, Usable = true, Icon = "FishMeat", Color = Color3.fromRGB(240, 150, 130) },
+	OctopusLeg = { Id = "OctopusLeg", DisplayName = "낙지 다리", Category = "Tool", Stackable = true, Usable = true, Icon = "OctopusLeg", Color = Color3.fromRGB(230, 110, 120) },
 	-- 도구: 소모품
 	-- 도구: 곡괭이 (실제 Tool은 PickaxeService가 가방에 넣는다)
 	StonePickaxe = { Id = "StonePickaxe", DisplayName = "돌 곡괭이", Category = "Tool", Stackable = false, Icon = "StonePickaxe", Color = Color3.fromRGB(150, 145, 140) },
@@ -99,10 +109,11 @@ local ORDER = {
 	"WoodenBow", "CopperBow", "IronBow", "DiamondBow", "MithrilBow", "OrichalcumBow",
 	"BaseballBat", "GoblinClub", "MorningStar", "DiamondMace", "MithrilHammer", "OrichalcumHammer",
 	"StonePickaxe", "CopperPickaxe", "IronPickaxe", "SteelPickaxe", "MithrilPickaxe", "OrichalcumPickaxe",
-	"StoneAxe", "CopperAxe", "IronAxe", "DiamondAxe", "MithrilAxe", "OrichalcumAxe", "Bread", "ManaBerry", "LunchBox",
+	"StoneAxe", "CopperAxe", "IronAxe", "DiamondAxe", "MithrilAxe", "OrichalcumAxe", "Bread", "ManaBerry", "LunchBox", "FishMeat", "OctopusLeg",
 	"Stone", "Coal", "CopperOre", "IronOre", "Mithril", "Orichalcum", "CopperIngot", "IronIngot", "SteelIngot", "MithrilIngot", "OrichalcumIngot",
 	"Pine", "Oak", "Birch", "Maple", "Ebony",
 	"SlimeJelly", "Bone", "OldCloth", "CerberusFang", "CerberusHide", "CyclopsEye", "CyclopsHide", "BossToken",
+	"PufferSpine", "GoldenScale", "InkSac", "JellyfishJelly", "SharkTooth", "SharkSkin",
 }
 
 -- 장비 아이템을 더한다 (마지막 무기 다음 순서. 무기 수를 세지 않고 찾으니 단계가 늘어도 그대로 된다)

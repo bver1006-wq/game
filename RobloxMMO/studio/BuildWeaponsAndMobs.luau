@@ -1,5 +1,6 @@
 --!nocheck
--- Studio 제작 스크립트 2: 무기 18종(5·6단계 미스릴·오리하르콘 포함, 2026-10-09)·몹 5종 모델(슬라임·스켈레톤·좀비·케르베로스·사이클롭스), 아이콘, 몹 구역·생성 자리.
+-- Studio 제작 스크립트 2: 무기 18종(5·6단계 미스릴·오리하르콘 포함, 2026-10-09)·몹 5종 모델(슬라임·스켈레톤·좀비·케르베로스·사이클롭스),
+-- 바다 생물 6종(물고기·복어·황금 물고기·낙지·해파리·상어, 2026-10-09), 아이콘, 몹 구역·생성 자리.
 -- Rojo가 ServerStorage/StudioTools/BuildWeaponsAndMobs(ModuleScript)로 넣고, 서버(Main.server)가 게임을 시작할 때마다 실행한다.
 -- 편집 상태에서 직접 실행하려면 명령 모음에: require(game.ServerStorage.StudioTools.BuildWeaponsAndMobs:Clone())
 --
@@ -7,11 +8,13 @@
 --   1. 무기 Tool 18종 → ServerStorage/Templates/Pickaxes/<무기 Id> (곡괭이·도끼와 같은 폴더, PickaxeService가 지급)
 --      돌 곡괭이 Tool의 쥐는 각도(Grip)를 그대로 쓰고 모양은 숨긴 뒤, 부품으로 칼·활·방망이를 짓는다.
 --      좌표: x = 앞(곡괭이 머리 방향), y = 자루를 따라 위, 원점 = 손이 쥐는 점
---   2. 몹 모델 5종 → ServerStorage/Templates/Mobs/<몹> (고정된 Root 부품 + 용접된 몸, 앞 = -Z, 기준점 = 발밑)
---   3. 아이콘 → ReplicatedStorage/ItemIcons (무기 18종 + 전리품 8종 + 미스릴·오리하르콘괴 + 음식 3종 + 장비 36종)
+--   2. 몹 모델 5종 + 바다 생물 6종 → ServerStorage/Templates/Mobs/<몹> (고정된 Root 부품 + 용접된 몸, 앞 = -Z, 기준점 = 발밑)
+--   3. 아이콘 → ReplicatedStorage/ItemIcons (무기 18종 + 전리품 8종 + 바다 전리품·음식 8종 + 미스릴·오리하르콘괴 + 음식 3종 + 장비 36종)
 --   4. 몹 생성 자리 → Workspace/MobSpawns (속성 MobType·Zone·BossSpot). Config.MobZones의 구역(마을 둘레 부채꼴)마다
 --      주인 몹 + Mix 확률로 이웃 단계 몹. 마을에서 멀수록 센 몹, 띠끼리 거리가 조금 겹친다.
 --      마을 안전지대(TownArrival·ShopNPC 둘레 Config.MobAI.SafeZoneRadius) 바깥에만 둔다
+--   5. 바다 생물 생성 자리 → Workspace/MobSpawns (속성 MobType·Zone·SwimDepth·Habitat, 물고기 떼는 School). 지형 물을 광선으로 찾아
+--      Config.SeaZones 구역(얕은 바다·낙지 바위·깊은 바다)마다 둔다. 물이 없으면 Output에 경고
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -834,6 +837,149 @@ MOBS.Cyclops = function(k)
 	end
 end
 
+-- 바다 생물 (2026-10-09): 기준점 = 몸 아래, 앞 = -Z. 서버 MobService가 물 속에서 헤엄치게 옮긴다
+-- 물고기 몸 (고등어·황금 물고기 공통): 타원 몸 + 밝은 배 + 줄무늬 + 갈래 꼬리 + 지느러미 + 옆 눈
+local function fishBody(k, body: Color3, belly: Color3, fin: Color3, stripe: Color3, length: number, height: number, finMaterial: Enum.Material?)
+	local y = height / 2 + 0.05
+	k.blob("Body", Vector3.new(height * 0.75, height, length), Vector3.new(0, y, 0), body)
+	k.blob("Belly", Vector3.new(height * 0.62, height * 0.5, length * 0.75), Vector3.new(0, y - height * 0.22, -length * 0.05), belly)
+	for _, z in { 0.08, 0.24 } do
+		k.blob("Stripe", Vector3.new(height * 0.77, height * 0.82, 0.12), Vector3.new(0, y + height * 0.04, z * length), stripe)
+	end
+	for _, side in { 1, -1 } do
+		-- 갈래 꼬리 (위·아래로 벌어진 두 장)
+		k.blob("Tail", Vector3.new(0.1, height * 0.75, height * 0.5), Vector3.new(0, y + side * height * 0.2, length * 0.56), fin, finMaterial, nil, CFrame.Angles(math.rad(-35 * side), 0, 0))
+		-- 옆 지느러미
+		k.blob("Fin", Vector3.new(0.08, height * 0.28, height * 0.45), Vector3.new(side * height * 0.38, y - height * 0.12, -length * 0.08), fin, finMaterial, nil, CFrame.Angles(0, 0, math.rad(35 * side)))
+	end
+	k.blob("DorsalFin", Vector3.new(0.1, height * 0.42, length * 0.36), Vector3.new(0, y + height * 0.48, length * 0.05), fin, finMaterial)
+	k.eyes(height * 0.3, y + height * 0.12, -length * 0.32, height * 0.28)
+	k.blob("Mouth", Vector3.new(0.2, 0.08, 0.06), Vector3.new(0, y - height * 0.06, -length * 0.5), C(60, 40, 50))
+end
+
+MOBS.Fish = function(k)
+	fishBody(k, C(95, 160, 225), C(230, 242, 250), C(70, 120, 200), C(45, 85, 150), 2.0, 1.0)
+end
+
+-- 황금 물고기: 작고 빠른 금빛 물고기, 빛나는 지느러미 + 반짝이
+MOBS.GoldenFish = function(k)
+	fishBody(k, C(255, 200, 60), C(255, 240, 170), C(255, 170, 40), C(220, 140, 30), 1.7, 0.85, NEON)
+	local body = k.Model:FindFirstChild("Body")
+	if body then
+		Instance.new("Sparkles", body).SparkleColor = C(255, 230, 120)
+		body.Material = METAL
+	end
+end
+
+-- 복어: 동그란 노란 공 + 둘레 가시 + 큰 눈 + 동그란 입 (맞으면 서버가 부풀린다)
+MOBS.Pufferfish = function(k)
+	local yellow = C(245, 205, 95)
+	local center = Vector3.new(0, 1.0, 0)
+	k.ball("Body", 1.8, center, yellow)
+	k.blob("Belly", Vector3.new(1.4, 0.9, 1.4), center - Vector3.new(0, 0.45, 0.05), C(255, 242, 205))
+	-- 가시: 구 둘레에 고르게 (황금각 나선)
+	for i = 1, 22 do
+		local t = (i - 0.5) / 22
+		local yDir = 1 - 2 * t
+		local r = math.sqrt(1 - yDir * yDir)
+		local angle = i * 2.39996
+		local dir = Vector3.new(math.cos(angle) * r, yDir, math.sin(angle) * r)
+		if dir.Z > -0.55 or math.abs(dir.Y) > 0.5 then -- 얼굴(앞 가운데)은 비운다
+			k.box("Spike", Vector3.new(0.12, 0.12, 0.42), CFrame.lookAt(center + dir * 0.92, center + dir * 2), C(200, 150, 60))
+		end
+	end
+	for _, spot in { Vector3.new(0.5, 1.6, 0.3), Vector3.new(-0.45, 1.55, 0.4), Vector3.new(0, 1.85, 0.1) } do
+		k.blob("Spot", Vector3.new(0.3, 0.3, 0.3), spot, C(185, 140, 60))
+	end
+	k.eyes(0.38, 1.25, -0.8, 0.42)
+	k.blush(0.62, 0.9, -0.66, 0.3)
+	k.ball("Mouth", 0.28, Vector3.new(0, 0.82, -0.86), C(70, 40, 50))
+	k.ball("Lips", 0.16, Vector3.new(0, 0.82, -0.97), C(255, 130, 140))
+	k.blob("Tail", Vector3.new(0.1, 0.6, 0.5), Vector3.new(0, 1.0, 1.05), C(230, 180, 70))
+	for _, side in { 1, -1 } do
+		k.blob("Fin", Vector3.new(0.08, 0.3, 0.45), Vector3.new(side * 0.92, 0.95, -0.1), C(230, 180, 70), nil, nil, CFrame.Angles(0, 0, math.rad(35 * side)))
+	end
+end
+
+-- 낙지: 분홍 둥근 머리 + 꼬불꼬불 다리 8개(빨판) + 큰 눈 + 쭉 내민 입
+MOBS.Octopus = function(k)
+	local pink = C(230, 110, 120)
+	local light = C(255, 190, 195)
+	k.blob("Head", Vector3.new(1.7, 1.9, 1.7), Vector3.new(0, 2.15, 0.15), pink, nil, nil, CFrame.Angles(math.rad(-12), 0, 0))
+	k.blob("Shine", Vector3.new(0.4, 0.25, 0.1), Vector3.new(-0.35, 2.75, -0.62), C(255, 230, 230), nil, 0.2, CFrame.Angles(math.rad(-30), 0, math.rad(25)))
+	k.eyes(0.36, 1.85, -0.72, 0.42)
+	k.blush(0.62, 1.55, -0.7, 0.3)
+	k.limb("Mouth", Vector3.new(0, 1.45, -0.6), Vector3.new(0, 1.4, -0.95), 0.3, C(210, 90, 100))
+	k.ball("MouthHole", 0.18, Vector3.new(0, 1.4, -1.05), C(90, 30, 40))
+	for i = 0, 7 do
+		local a = i / 8 * math.pi * 2 + math.pi / 8
+		local function at(r: number, y: number, twist: number): Vector3
+			return Vector3.new(math.cos(a + twist) * r, y, math.sin(a + twist) * r)
+		end
+		local points = { at(0.45, 1.35, 0), at(0.95, 0.75, 0.1), at(1.35, 0.3, 0.25), at(1.65, 0.4, 0.55), at(1.6, 0.7, 0.85) }
+		for j = 1, #points - 1 do
+			k.limb("Leg", points[j], points[j + 1], 0.42 - j * 0.07, pink)
+		end
+		for j = 2, 3 do
+			k.ball("Sucker", 0.14, points[j] - Vector3.new(0, 0.12, 0), light)
+		end
+	end
+end
+
+-- 해파리: 반투명 보라 갓 + 속 빛 + 둘레 주름 + 늘어진 실 + 작은 눈
+MOBS.Jellyfish = function(k)
+	local lilac = C(205, 175, 255)
+	k.blob("Bell", Vector3.new(2.0, 1.3, 2.0), Vector3.new(0, 2.3, 0), lilac, GLASS, 0.3)
+	k.blob("Core", Vector3.new(1.1, 0.7, 1.1), Vector3.new(0, 2.35, 0), C(240, 170, 230), NEON, 0.4)
+	for i = 0, 9 do
+		local a = i / 10 * math.pi * 2
+		k.ball("Frill", 0.35, Vector3.new(math.cos(a) * 0.9, 1.75, math.sin(a) * 0.9), C(185, 150, 245))
+	end
+	for i = 0, 5 do
+		local a = i / 6 * math.pi * 2 + 0.3
+		local top = Vector3.new(math.cos(a) * 0.55, 1.7, math.sin(a) * 0.55)
+		local mid = Vector3.new(math.cos(a + 0.4) * 0.65, 0.95, math.sin(a + 0.4) * 0.65)
+		local bottom = Vector3.new(math.cos(a) * 0.5, 0.2, math.sin(a) * 0.5)
+		k.limb("Tentacle", top, mid, 0.09, C(220, 190, 255), NEON)
+		k.limb("Tentacle", mid, bottom, 0.07, C(220, 190, 255), NEON)
+	end
+	k.eyes(0.3, 2.15, -0.93, 0.26)
+	k.blob("Mouth", Vector3.new(0.22, 0.08, 0.06), Vector3.new(0, 1.93, -0.97), C(110, 70, 140))
+	local light = Instance.new("PointLight")
+	light.Color = C(220, 180, 255)
+	light.Range = 8
+	light.Brightness = 0.6
+	light.Parent = k.Model:FindFirstChild("Core")
+end
+
+-- 상어: 회색 몸 + 흰 배 + 세모 등지느러미·꼬리 + 이빨 줄 + 화난 눈썹 (조금 무섭게, Config.Mobs.Shark.Scale배)
+MOBS.Shark = function(k)
+	local grey = C(120, 140, 165)
+	local dark = C(80, 95, 120)
+	local white = C(240, 242, 245)
+	local y = 0.95
+	k.blob("Body", Vector3.new(1.35, 1.5, 4.4), Vector3.new(0, y, 0), grey)
+	k.blob("Belly", Vector3.new(1.1, 0.8, 3.4), Vector3.new(0, y - 0.38, -0.3), white)
+	k.blob("Snout", Vector3.new(1.0, 0.9, 1.2), Vector3.new(0, y + 0.1, -1.85), grey)
+	-- 지느러미·꼬리 (세모 판)
+	triangle(k.Model, Vector3.new(0, y + 0.6, 0.45), Vector3.new(0, y + 0.6, -0.55), Vector3.new(0, y + 1.75, 0.6), 0.16, grey, Enum.Material.SmoothPlastic, k.Root)
+	triangle(k.Model, Vector3.new(0, y + 0.1, 1.9), Vector3.new(0, y - 0.15, 2.2), Vector3.new(0, y + 1.25, 3.0), 0.14, dark, Enum.Material.SmoothPlastic, k.Root)
+	triangle(k.Model, Vector3.new(0, y - 0.05, 1.9), Vector3.new(0, y + 0.15, 2.2), Vector3.new(0, y - 0.85, 2.75), 0.14, dark, Enum.Material.SmoothPlastic, k.Root)
+	for _, side in { 1, -1 } do
+		triangle(k.Model, Vector3.new(side * 0.5, y - 0.35, -0.7), Vector3.new(side * 0.5, y - 0.35, 0.1), Vector3.new(side * 1.35, y - 0.75, 0.35), 0.12, grey, Enum.Material.SmoothPlastic, k.Root)
+		for i = 0, 2 do
+			k.box("Gill", Vector3.new(0.05, 0.45, 0.06), CFrame.new(side * 0.64, y + 0.05, -0.95 + i * 0.18), dark)
+		end
+		k.box("Brow", Vector3.new(0.12, 0.08, 0.4), CFrame.new(side * 0.42, y + 0.55, -1.7) * CFrame.Angles(math.rad(-25), 0, 0), C(40, 45, 60))
+	end
+	k.eyes(0.42, y + 0.35, -1.7, 0.3)
+	-- 입 + 이빨 줄
+	k.blob("Mouth", Vector3.new(0.8, 0.22, 0.5), Vector3.new(0, y - 0.22, -2.1), C(80, 30, 40))
+	for i = -3, 3 do
+		k.box("Tooth", Vector3.new(0.09, 0.14, 0.06), CFrame.new(i * 0.1, y - 0.12, -2.33 + math.abs(i) * 0.04) * CFrame.Angles(0, 0, math.rad(45)), C(255, 255, 250))
+	end
+end
+
 -- 예전 버그베어 템플릿·아이콘은 사이클롭스로 바뀌어서 지운다
 for _, stale in { mobFolder:FindFirstChild("Bugbear"), iconFolder:FindFirstChild("BugbearFur") } do
 	if stale then
@@ -875,6 +1021,59 @@ local function ingotIcon(m: Model, color: Color3, stamp: Color3, round: boolean)
 end
 
 local LOOT_ICONS = {
+	-- 바다 생물 전리품·음식 (2026-10-09)
+	FishMeat = function(m) -- 생선: 분홍 살 + 하얀 줄 + 은빛 껍질
+		part({ Name = "Skin", Size = Vector3.new(1.7, 0.3, 0.95), CFrame = CFrame.new(0, -0.12, 0), Color = C(150, 175, 200), Material = METAL }, m)
+		part({ Name = "Flesh", Size = Vector3.new(1.6, 0.3, 0.85), CFrame = CFrame.new(0, 0.12, 0), Color = C(240, 150, 130) }, m)
+		for i = -2, 2 do
+			part({ Name = "Line", Size = Vector3.new(0.06, 0.04, 0.8), CFrame = CFrame.new(i * 0.3, 0.28, 0) * CFrame.Angles(0, math.rad(20), 0), Color = C(255, 230, 220) }, m)
+		end
+	end,
+	OctopusLeg = function(m) -- 낙지 다리: 돌돌 말린 분홍 다리 + 빨판
+		for i = 0, 6 do
+			local a = i * 0.8
+			local r = 0.75 - i * 0.08
+			local position = Vector3.new(math.cos(a) * r, i * 0.06, math.sin(a) * r)
+			part({ Name = "Leg", Shape = Enum.PartType.Ball, Size = Vector3.one * (0.55 - i * 0.05), CFrame = CFrame.new(position), Color = C(230, 110, 120) }, m)
+			part({ Name = "Sucker", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.16, CFrame = CFrame.new(position + Vector3.new(0, -0.2, 0)), Color = C(255, 195, 200) }, m)
+		end
+	end,
+	PufferSpine = function(m) -- 복어 가시: 노란 가시 세 개 묶음
+		for i, angle in { -25, 0, 25 } do
+			triangle(m, Vector3.new(-0.15 + (i - 2) * 0.25, 0, 0), Vector3.new(0.15 + (i - 2) * 0.25, 0, 0), Vector3.new((i - 2) * 0.25 + math.sin(math.rad(angle)) * 1.1, math.cos(math.rad(angle)) * 1.1, 0), 0.18, C(240, 210, 110), Enum.Material.SmoothPlastic, nil, true)
+		end
+		part({ Name = "Band", Size = Vector3.new(0.9, 0.2, 0.25), CFrame = CFrame.new(0, 0.05, 0), Color = C(150, 100, 60), Material = Enum.Material.Fabric }, m)
+	end,
+	GoldenScale = function(m) -- 황금 비늘: 반짝이는 금빛 비늘 판 + 결
+		local face = CFrame.Angles(0, math.rad(90), 0)
+		part({ Name = "Scale", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.12, 1.3, 1.3), CFrame = face, Color = C(255, 200, 60), Material = METAL }, m)
+		part({ Name = "Shine", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.16, 0.7, 0.7), CFrame = CFrame.new(-0.15, 0.15, 0) * face, Color = C(255, 240, 160), Material = NEON }, m)
+		for i = -1, 1 do
+			part({ Name = "Ridge", Size = Vector3.new(0.05, 0.9 - math.abs(i) * 0.3, 0.06), CFrame = CFrame.new(i * 0.3, 0, -0.08), Color = C(220, 150, 30), Material = METAL }, m)
+		end
+	end,
+	InkSac = function(m) -- 먹물 주머니: 검보라 주머니 + 묶은 끈 + 먹물 방울
+		local sac = part({ Name = "Sac", Size = Vector3.new(1.1, 1.3, 1.1), Color = C(45, 40, 60), Material = Enum.Material.SmoothPlastic }, m)
+		Instance.new("SpecialMesh", sac).MeshType = Enum.MeshType.Sphere
+		part({ Name = "Neck", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.35, 0.4, 0.4), CFrame = CFrame.new(0, 0.75, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = C(45, 40, 60) }, m)
+		part({ Name = "Tie", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.1, 0.5, 0.5), CFrame = CFrame.new(0, 0.7, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = C(230, 110, 120) }, m)
+		part({ Name = "Drop", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.3, CFrame = CFrame.new(0.5, -0.65, -0.2), Color = C(25, 20, 35), Material = GLASS }, m)
+		part({ Name = "Shine", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.18, CFrame = CFrame.new(-0.25, 0.3, -0.48), Color = C(200, 190, 230), Material = NEON }, m)
+	end,
+	JellyfishJelly = function(m) -- 해파리 젤리: 반투명 보라 젤리
+		local jelly = part({ Name = "Jelly", Size = Vector3.new(1.3, 0.8, 1.3), Color = C(205, 175, 255), Material = GLASS, Transparency = 0.25 }, m)
+		Instance.new("SpecialMesh", jelly).MeshType = Enum.MeshType.Sphere
+		part({ Name = "Core", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.45, Color = C(240, 170, 230), Material = NEON }, m)
+	end,
+	SharkTooth = function(m) -- 상어 이빨: 하얀 세모 이빨 + 톱니
+		triangle(m, Vector3.new(-0.5, 0, 0), Vector3.new(0.5, 0, 0), Vector3.new(0, 1.3, 0), 0.25, C(250, 248, 235), Enum.Material.SmoothPlastic, nil, true)
+		part({ Name = "Root", Size = Vector3.new(1.1, 0.25, 0.32), CFrame = CFrame.new(0, -0.1, 0), Color = C(220, 200, 180) }, m)
+	end,
+	SharkSkin = function(m) -- 상어 가죽: 회색 가죽 한 장(아래 흰 면) + 지느러미 조각
+		part({ Name = "Hide", Size = Vector3.new(1.7, 0.14, 1.1), CFrame = CFrame.Angles(0, 0, math.rad(6)), Color = C(120, 140, 165), Material = Enum.Material.Leather }, m)
+		part({ Name = "Under", Size = Vector3.new(1.6, 0.08, 1.0), CFrame = CFrame.new(0, -0.1, 0) * CFrame.Angles(0, 0, math.rad(6)), Color = C(235, 238, 242), Material = Enum.Material.Leather }, m)
+		triangle(m, Vector3.new(-0.2, 0.08, 0), Vector3.new(0.4, 0.1, 0), Vector3.new(0.3, 0.75, 0), 0.1, C(105, 125, 150), Enum.Material.Leather, nil, true)
+	end,
 	-- 두 번째 전리품·보스 전리품 (2026-10-09)
 	CerberusHide = function(m) -- 케르베로스 털가죽: 검붉은 털 가죽 한 장 + 꼬리 불꽃
 		local fur = C(85, 65, 72)
@@ -1340,6 +1539,221 @@ for _, band in bandOrder do
 		local range = bandRanges[band]
 		print(`[BuildWeaponsAndMobs]   {band}({math.floor(range[1])}~{math.floor(range[2])}): {total}마리 - {table.concat(parts, " / ")}`)
 	end
+end
+
+---------------------------------------------------------------- 5. 바다 생물 생성 자리 (2026-10-09)
+-- 물 찾기: 마을 둘레(Config.SeaSpawn.ScanRadius)를 ScanStep 격자로 지형만 보는 광선을 아래로 쏜다.
+--   물을 무시하지 않는 광선이 지형 물(Material Water)에 맞으면 그 높이가 수면, 물을 무시하는 두 번째 광선이 닿는 곳이 바닥.
+--   마을 안전지대·광산 구역·너무 얕은 물(MinDepth)은 뺀다.
+-- 구역(Config.SeaZones)마다 가운데를 고른다: 깊이(Depth)가 맞는 물 칸 중 둘레(Radius)에 물 칸이 가장 많고, 마을 거리(Distance) 범위에 가까운 곳.
+--   다른 바다 구역 가운데와는 ZoneGap 떨어뜨린다. 깊이가 맞는 곳이 없으면 깊이 조건을 풀고 다시.
+-- 생성 자리 = 투명 파트 (속성 MobType·Zone·SwimDepth(그 자리 물 깊이)·Habitat="Water", 물고기 떼는 School). 높이는 수면과 바닥 사이 무작위
+local seaConfig = Config.SeaSpawn
+local terrainWater = RaycastParams.new()
+terrainWater.FilterType = Enum.RaycastFilterType.Include
+terrainWater.FilterDescendantsInstances = { workspace.Terrain }
+terrainWater.IgnoreWater = false
+local terrainFloor = RaycastParams.new()
+terrainFloor.FilterType = Enum.RaycastFilterType.Include
+terrainFloor.FilterDescendantsInstances = { workspace.Terrain }
+terrainFloor.IgnoreWater = true
+
+local seaStep = seaConfig.ScanStep
+local cells = {} -- 칸 번호(cellKey) → { X, Z, Surface, Floor, Depth, Distance, GX, GZ }
+local cellList = {}
+local scanCells = math.floor(seaConfig.ScanRadius / seaStep)
+local function cellKey(gx: number, gz: number): number
+	return (gx + 4096) * 8192 + (gz + 4096)
+end
+for gx = -scanCells, scanCells do
+	for gz = -scanCells, scanCells do
+		if gx * gx + gz * gz <= scanCells * scanCells then
+			local x, z = center.X + gx * seaStep, center.Z + gz * seaStep
+			local hit = workspace:Raycast(Vector3.new(x, center.Y + seaConfig.ScanTop, z), Vector3.new(0, -seaConfig.ScanTop * 2, 0), terrainWater)
+			if hit and hit.Material == Enum.Material.Water and hit.Position.Y > Config.Minimap.SurfaceMinY then
+				local floorHit = workspace:Raycast(hit.Position, Vector3.new(0, -seaConfig.MaxDepth, 0), terrainFloor)
+				local floorY = if floorHit then floorHit.Position.Y else hit.Position.Y - seaConfig.MaxDepth
+				local depth = hit.Position.Y - floorY
+				local position = Vector3.new(x, hit.Position.Y, z)
+				if depth >= seaConfig.MinDepth and not nearTown(position, 0) and not insideMineZone(position) then
+					local cell = { X = x, Z = z, Surface = hit.Position.Y, Floor = floorY, Depth = depth, Distance = Vector3.new(gx, 0, gz).Magnitude * seaStep, GX = gx, GZ = gz }
+					cells[cellKey(gx, gz)] = cell
+					table.insert(cellList, cell)
+				end
+			end
+		end
+	end
+end
+
+-- 칸 둘레 radius 안의 물 칸 (깊이 조건 depth를 맞는 것만)
+local function cellsAround(cell, radius: number, depth): { any }
+	local list = {}
+	local reach = math.ceil(radius / seaStep)
+	for dx = -reach, reach do
+		for dz = -reach, reach do
+			if dx * dx + dz * dz <= reach * reach then
+				local other = cells[cellKey(cell.GX + dx, cell.GZ + dz)]
+				if other and other.Depth >= depth[1] and other.Depth <= depth[2] then
+					table.insert(list, other)
+				end
+			end
+		end
+	end
+	return list
+end
+
+-- 생성 자리 하나 (물 칸 cell, 그 안에서 조금 흩뜨린 x·z, 높이는 수면과 바닥 사이)
+local seaTotals = {}
+local function seaSpawn(cell, offset: Vector3, mobType: string, zone, extra: { [string]: any }?)
+	local margin = math.min(1.5, cell.Depth * 0.25)
+	local y = random:NextNumber(cell.Floor + margin, cell.Surface - margin)
+	local p = part({ Name = `{mobType}Spawn`, Size = Vector3.new(2, 1, 2), CFrame = CFrame.new(cell.X + offset.X, y, cell.Z + offset.Z), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false }, spawns)
+	p:SetAttribute("MobType", mobType)
+	p:SetAttribute("Zone", zone.Name)
+	p:SetAttribute("Habitat", "Water")
+	p:SetAttribute("SwimDepth", math.floor(cell.Depth * 10 + 0.5) / 10)
+	for key, value in extra or {} do
+		p:SetAttribute(key, value)
+	end
+	p:SetAttribute("GeneratedBy", GENERATED)
+	seaTotals[mobType] = (seaTotals[mobType] or 0) + 1
+	return p
+end
+
+local seaSummary = {}
+local seaCenters = {}
+local seaPlaced = {} -- 이미 쓴 칸 (자리끼리 SpotGap)
+if #cellList == 0 then
+	warn(`[BuildWeaponsAndMobs] 바다 생물: 마을 둘레 {seaConfig.ScanRadius}스터드 안에서 헤엄칠 만한 지형 물(깊이 {seaConfig.MinDepth} 이상)을 못 찾았어요. 물고기·낙지·상어가 안 나와요. (Terrain 물인지, 마을 안전지대 밖인지 확인)`)
+else
+	for zoneIndex, zone in Config.SeaZones do
+		-- 구역 가운데 고르기 (1: 깊이 맞음, 2: 깊이 조건 풀기)
+		-- 물 칸이 아주 많으면(넓은 바다) 후보는 무작위 MaxCandidates개만 본다
+		local candidates = cellList
+		if #cellList > seaConfig.MaxCandidates then
+			candidates = {}
+			for _ = 1, seaConfig.MaxCandidates do
+				table.insert(candidates, cellList[random:NextInteger(1, #cellList)])
+			end
+		end
+		local best, bestScore = nil, -math.huge
+		for _, depth in { zone.Depth, { seaConfig.MinDepth, math.huge } } do
+			for _, cell in candidates do
+				if cell.Depth >= depth[1] and cell.Depth <= depth[2] then
+					local far = true
+					for _, other in seaCenters do
+						if Vector3.new(other.X - cell.X, 0, other.Z - cell.Z).Magnitude < seaConfig.ZoneGap then
+							far = false
+							break
+						end
+					end
+					if far then
+						local around = #cellsAround(cell, zone.Radius, depth)
+						if around >= seaConfig.MinCells then
+							local lo, hi = zone.Distance[1], zone.Distance[2]
+							local outside = if cell.Distance < lo then lo - cell.Distance elseif cell.Distance > hi then cell.Distance - hi else 0
+							local score = math.min(around, 30) - outside / 8 + random:NextNumber(0, 2)
+							if score > bestScore then
+								best, bestScore = cell, score
+							end
+						end
+					end
+				end
+			end
+			if best then
+				break
+			end
+		end
+		if not best then
+			table.insert(seaSummary, `{zone.Name} 자리 없음`)
+			continue
+		end
+		table.insert(seaCenters, best)
+		-- 구역 안의 물 칸 (깊이 조건이 맞으면 그것만, 아니면 아무 물)
+		local pool = cellsAround(best, zone.Radius, zone.Depth)
+		if #pool < 3 then
+			pool = cellsAround(best, zone.Radius, { seaConfig.MinDepth, math.huge })
+		end
+		-- 아직 안 쓴 칸 하나 (다른 자리와 SpotGap)
+		local function freeCell()
+			for _ = 1, 40 do
+				local cell = pool[random:NextInteger(1, #pool)]
+				local ok = true
+				for _, used in seaPlaced do
+					if Vector3.new(used.X - cell.X, 0, used.Z - cell.Z).Magnitude < seaConfig.SpotGap then
+						ok = false
+						break
+					end
+				end
+				if ok then
+					table.insert(seaPlaced, cell)
+					return cell
+				end
+			end
+			return nil
+		end
+		local made = 0
+		local bosses = 0
+		-- 주인 몹: 떼(Schools)거나 한 마리씩(Count)
+		if zone.Schools then
+			for schoolIndex = 1, zone.Schools do
+				local cell = freeCell()
+				if cell then
+					local size = random:NextInteger(zone.SchoolSize[1], zone.SchoolSize[2])
+					for _ = 1, size do
+						local spread = seaConfig.SchoolSpread
+						seaSpawn(cell, Vector3.new(random:NextNumber(-spread, spread), 0, random:NextNumber(-spread, spread)), zone.MobType, zone, { School = `{zone.Name}#{schoolIndex}`, ZoneIndex = 100 + zoneIndex })
+						made += 1
+					end
+				end
+			end
+		else
+			for _ = 1, zone.Count or 0 do
+				local cell = freeCell()
+				if cell then
+					local extra = { ZoneIndex = 100 + zoneIndex }
+					if bosses < (zone.BossSpots or 0) then
+						extra.BossSpot = true -- 보스가 잘 나오는 자리 (Config.MobBoss.SpotChance)
+						bosses += 1
+					end
+					seaSpawn(cell, Vector3.zero, zone.MobType, zone, extra)
+					made += 1
+				end
+			end
+		end
+		-- 같은 구역에 따로 두는 몹 (복어·황금 물고기·해파리…)
+		local extrasText = {}
+		local extraIds = {}
+		for id in zone.Extras or {} do
+			table.insert(extraIds, id)
+		end
+		table.sort(extraIds)
+		for _, id in extraIds do
+			if MobDefs[id] and Config.Mobs[id] then
+				local count = 0
+				for _ = 1, zone.Extras[id] do
+					local cell = freeCell()
+					if cell then
+						seaSpawn(cell, Vector3.zero, id, zone, { ZoneIndex = 100 + zoneIndex })
+						count += 1
+						made += 1
+					end
+				end
+				table.insert(extrasText, `{MobDefs[id].DisplayName} {count}`)
+			end
+		end
+		local direction = math.floor(math.deg(math.atan2(best.Z - center.Z, best.X - center.X)) + 0.5) % 360
+		table.insert(seaSummary, `{zone.Name} {made}마리(+{table.concat(extrasText, "·")}) 거리 {math.floor(best.Distance)} 깊이 {math.floor(best.Depth)} 방향 {direction}°`)
+	end
+	local totalParts, total = {}, 0
+	for _, id in { "Fish", "Pufferfish", "GoldenFish", "Octopus", "Jellyfish", "Shark" } do
+		if seaTotals[id] then
+			table.insert(totalParts, `{MobDefs[id].DisplayName} {seaTotals[id]}`)
+			total += seaTotals[id]
+		end
+	end
+	print(`[BuildWeaponsAndMobs] 바다 생물 (물 칸 {#cellList}개): {table.concat(seaSummary, ", ")}`)
+	print(`[BuildWeaponsAndMobs]   바다 합계 {total}마리 - {table.concat(totalParts, " / ")}`)
 end
 
 return true
