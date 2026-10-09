@@ -121,7 +121,7 @@ function HotbarController.useItem(itemId: string)
 		Remotes.get(Remotes.Names.UseItem):FireServer(itemId)
 		return
 	end
-	if def.Category ~= "Tool" then
+	if def.Category ~= "Tool" and def.Category ~= "Weapon" then
 		NotifyController.show(`{def.DisplayName}: 아직 바로 쓸 수 없는 아이템이에요.`, "info")
 		return
 	end
@@ -164,7 +164,7 @@ local function onInventoryChanged()
 	end
 	for _, itemId in ItemDefs.Order do
 		local def = ItemDefs.Items[itemId]
-		if def.Category == "Tool" and InventoryState.count(itemId) > 0 and not knownTools[itemId] then
+		if (def.Category == "Tool" or def.Category == "Weapon") and InventoryState.count(itemId) > 0 and not knownTools[itemId] then
 			knownTools[itemId] = true
 			if not findSlot(itemId) then
 				for index = 1, #slotFrames do

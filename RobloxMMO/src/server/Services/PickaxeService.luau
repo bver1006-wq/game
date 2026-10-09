@@ -1,9 +1,9 @@
 --!strict
--- 채집 도구(곡괭이·도끼) 지급·조회.
+-- 손에 드는 도구(곡괭이·도끼·무기) 지급·조회.
 -- 도구는 가방 아이템(도구 칸)이면서 실제 Tool로도 Backpack·StarterGear에 들어간다.
 -- 산 도구는 기존 도구에 더해지고, 하단 빠른 호출 칸에서 골라 든다.
 -- 가진 도구 중 가장 높은 티어를 종류별로 플레이어 속성에 기록한다 (층 입장·상점 표시용)
---   곡괭이: "PickaxeTier", 도끼: "AxeTier"
+--   곡괭이: "PickaxeTier", 도끼: "AxeTier", 칼: "SwordTier", 활: "BowTier", 방망이: "ClubTier"
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,17 +15,26 @@ local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 
 local InventoryService = require(script.Parent.InventoryService)
 
-local STARTER_TOOLS = { "StonePickaxe", "StoneAxe" }
+local STARTER_TOOLS = { "StonePickaxe", "StoneAxe", "WoodenSword" }
 local ALL_TOOLS = {
 	"StonePickaxe", "CopperPickaxe", "IronPickaxe", "SteelPickaxe",
 	"StoneAxe", "CopperAxe", "IronAxe", "DiamondAxe",
+	"WoodenSword", "CopperSword", "IronSword", "DiamondSword",
+	"WoodenBow", "CopperBow", "IronBow", "DiamondBow",
+	"BaseballBat", "GoblinClub", "MorningStar", "DiamondMace",
 }
 
 -- 종류별 티어 속성 이름
 local TIER_ATTRIBUTE: { [string]: string } = {
 	Pickaxe = "PickaxeTier",
 	Axe = "AxeTier",
+	Sword = "SwordTier",
+	Bow = "BowTier",
+	Club = "ClubTier",
 }
+
+-- 종류 이름 (알림 문구용)
+local KIND_NAMES: { [string]: string } = { Pickaxe = "곡괭이", Axe = "도끼", Sword = "칼", Bow = "활", Club = "방망이" }
 
 local PickaxeService = {}
 
@@ -44,7 +53,10 @@ end
 
 -- 가진 도구 중 가장 높은 티어를 종류별로 속성에 기록한다
 local function updateTier(player: Player)
-	local best: { [string]: number } = { Pickaxe = 0, Axe = 0 }
+	local best: { [string]: number } = {}
+	for kind in TIER_ATTRIBUTE do
+		best[kind] = 0
+	end
 	for id, def in PickaxeDefs do
 		if InventoryService.count(player, id) > 0 then
 			best[def.Kind] = math.max(best[def.Kind], def.Tier)
@@ -116,7 +128,12 @@ function PickaxeService.nameFor(kind: PickaxeDefs.ToolKind, tier: number): strin
 			return def.DisplayName
 		end
 	end
-	return `T{tier} {if kind == "Axe" then "도끼" else "곡괭이"}`
+	return `T{tier} {KIND_NAMES[kind] or "도구"}`
+end
+
+-- 종류 이름 ("곡괭이", "칼" ...)
+function PickaxeService.kindName(kind: PickaxeDefs.ToolKind): string
+	return KIND_NAMES[kind] or "도구"
 end
 
 -- 손에 들고 있는 도구 정의. 안 들고 있으면 nil

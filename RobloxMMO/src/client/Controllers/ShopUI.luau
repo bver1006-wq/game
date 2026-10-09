@@ -22,9 +22,14 @@ local UiKit = require(script.Parent.UiKit)
 local TOOL_ORDER: { [string]: { string } } = {
 	Pickaxe = { "CopperPickaxe", "IronPickaxe", "SteelPickaxe" },
 	Axe = { "CopperAxe", "IronAxe", "DiamondAxe" },
+	Sword = { "CopperSword", "IronSword", "DiamondSword" }, -- 나무 검은 시작 지급
+	Bow = { "WoodenBow", "CopperBow", "IronBow", "DiamondBow" },
+	Club = { "BaseballBat", "GoblinClub", "MorningStar", "DiamondMace" },
 }
+-- 종류별 구매 요청 이름
+local BUY_ACTION: { [string]: string } = { Pickaxe = "BuyPickaxe", Axe = "BuyAxe", Sword = "BuyWeapon", Bow = "BuyWeapon", Club = "BuyWeapon" }
 -- 종류별 티어 속성 (서버 PickaxeService가 기록)
-local TIER_ATTRIBUTE: { [string]: string } = { Pickaxe = "PickaxeTier", Axe = "AxeTier" }
+local TIER_ATTRIBUTE: { [string]: string } = { Pickaxe = "PickaxeTier", Axe = "AxeTier", Sword = "SwordTier", Bow = "BowTier", Club = "ClubTier" }
 local CLOSE_DISTANCE_MARGIN = 4 -- 상호작용 거리보다 이만큼 멀어지면 창을 닫는다
 
 local localPlayer = Players.LocalPlayer
@@ -123,7 +128,7 @@ local function drawTools(kind: PickaxeDefs.ToolKind)
 
 	for order, pickaxeId in TOOL_ORDER[kind] do
 		local def = PickaxeDefs[pickaxeId]
-		local config = Config.Pickaxes[pickaxeId]
+		local config = Config.Pickaxes[pickaxeId] or Config.Weapons[pickaxeId]
 		local price = config.Price
 		local priceText = `{price.Gold}G`
 		if next(price.Items) then
@@ -152,9 +157,10 @@ local function drawTools(kind: PickaxeDefs.ToolKind)
 		local row = UiKit.row(content, 68, order)
 		iconBox(row, pickaxeId, 54)
 		UiKit.label(row, `T{def.Tier} {def.DisplayName}`, UDim2.new(1, -200, 0, 24), UDim2.fromOffset(70, 8), UiKit.Colors.Text, 17)
-		UiKit.label(row, `힘 x{config.Power}  ·  {priceText}`, UDim2.new(1, -200, 0, 30), UDim2.fromOffset(70, 32), UiKit.Colors.SubText, 13)
+		local statText = if config.Power then `힘 x{config.Power}` else `공격력 {config.Damage} · 사거리 {config.Range}`
+		UiKit.label(row, `{statText}  ·  {priceText}`, UDim2.new(1, -200, 0, 30), UDim2.fromOffset(70, 32), UiKit.Colors.SubText, 13)
 		UiKit.button(row, status, UDim2.fromOffset(110, 40), UDim2.new(1, -120, 0, 12), function()
-			send(if kind == "Axe" then "BuyAxe" else "BuyPickaxe", pickaxeId)
+			send(BUY_ACTION[kind], pickaxeId)
 		end, enabled)
 	end
 end
@@ -246,8 +252,8 @@ local function redraw()
 		drawSmelt()
 	elseif tabId == "Pickaxe" then
 		drawTools("Pickaxe")
-	elseif tabId == "Axe" then
-		drawTools("Axe")
+	elseif tabId == "Axe" or tabId == "Sword" or tabId == "Bow" or tabId == "Club" then
+		drawTools(tabId)
 	elseif tabId == "Sell" then
 		drawSell()
 	elseif tabId == "Bag" then
@@ -377,8 +383,9 @@ function ShopUI.init()
 		end
 	end)
 	InventoryState.Changed:Connect(redraw)
-	localPlayer:GetAttributeChangedSignal("PickaxeTier"):Connect(redraw)
-	localPlayer:GetAttributeChangedSignal("AxeTier"):Connect(redraw)
+	for _, attribute in TIER_ATTRIBUTE do
+		localPlayer:GetAttributeChangedSignal(attribute):Connect(redraw)
+	end
 	RunService.Heartbeat:Connect(checkDistance)
 end
 

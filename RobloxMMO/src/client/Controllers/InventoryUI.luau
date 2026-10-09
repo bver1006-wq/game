@@ -82,7 +82,7 @@ local function drawCell(order: number, entry: InventoryState.SlotEntry?)
 		local price = Config.SellPrices[itemId]
 		infoLabel.Text = `{def.DisplayName}  x{InventoryState.count(itemId)}` .. (if price then `  ·  개당 {price}G` else "")
 		-- 곡괭이는 누르면 바로 든다 (소모품은 실수로 쓰지 않게 빠른 칸에서만 쓴다)
-		if def.Category == "Tool" and not def.Usable then
+		if (def.Category == "Tool" or def.Category == "Weapon") and not def.Usable then
 			HotbarController.useItem(itemId)
 		end
 	end, function(position, draggedId)

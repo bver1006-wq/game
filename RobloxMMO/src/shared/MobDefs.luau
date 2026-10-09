@@ -1,0 +1,25 @@
+--!strict
+-- 몹 정의. 이름·전리품·모델 이름·색 같은 고정 정보만 둔다.
+-- 체력·공격력·속도·보상 같은 밸런스 수치는 Config.Mobs에 있다.
+-- 모델은 ServerStorage/Templates/Mobs/<TemplateName> (제작 스크립트가 부품으로 만든다).
+-- 생성 위치는 Workspace/MobSpawns의 투명 파트 (속성 MobType).
+
+export type MobDef = {
+	Id: string,
+	DisplayName: string,
+	TemplateName: string,
+	LootId: string, -- 쓰러뜨리면 떨어뜨리는 전리품 아이템 Id (ItemDefs)
+	Color: Color3, -- 맞을 때 튀는 파편·쓰러질 때 연기 색
+	Hop: boolean?, -- true면 통통 튀며 움직인다 (슬라임)
+}
+
+-- 마을에서 가까운 순서: 슬라임 → 스켈레톤·좀비 → 케르베로스 → 버그베어
+local MobDefs: { [string]: MobDef } = {
+	Slime = { Id = "Slime", DisplayName = "귀여운 슬라임", TemplateName = "Slime", LootId = "SlimeJelly", Color = Color3.fromRGB(110, 225, 160), Hop = true },
+	Skeleton = { Id = "Skeleton", DisplayName = "귀여운 스켈레톤", TemplateName = "Skeleton", LootId = "Bone", Color = Color3.fromRGB(240, 235, 220) },
+	Zombie = { Id = "Zombie", DisplayName = "귀여운 좀비", TemplateName = "Zombie", LootId = "OldCloth", Color = Color3.fromRGB(140, 200, 120) },
+	Cerberus = { Id = "Cerberus", DisplayName = "귀여운 케르베로스", TemplateName = "Cerberus", LootId = "CerberusFang", Color = Color3.fromRGB(70, 55, 60) },
+	Bugbear = { Id = "Bugbear", DisplayName = "귀여운 버그베어", TemplateName = "Bugbear", LootId = "BugbearFur", Color = Color3.fromRGB(150, 100, 65) },
+}
+
+return table.freeze(MobDefs)

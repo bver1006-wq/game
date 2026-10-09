@@ -32,6 +32,12 @@ local ItemDefs: { [string]: ItemDef } = {
 	Birch = { Id = "Birch", DisplayName = "자작나무 통나무", Category = "Etc", Stackable = true, Icon = "Birch", Color = Color3.fromRGB(230, 225, 210) },
 	Maple = { Id = "Maple", DisplayName = "단풍나무 통나무", Category = "Etc", Stackable = true, Icon = "Maple", Color = Color3.fromRGB(175, 80, 45) },
 	Ebony = { Id = "Ebony", DisplayName = "흑단나무 통나무", Category = "Etc", Stackable = true, Icon = "Ebony", Color = Color3.fromRGB(55, 35, 55) },
+	-- 기타: 몹 전리품
+	SlimeJelly = { Id = "SlimeJelly", DisplayName = "슬라임 젤리", Category = "Etc", Stackable = true, Icon = "SlimeJelly", Color = Color3.fromRGB(110, 225, 160) },
+	Bone = { Id = "Bone", DisplayName = "뼈다귀", Category = "Etc", Stackable = true, Icon = "Bone", Color = Color3.fromRGB(240, 235, 220) },
+	OldCloth = { Id = "OldCloth", DisplayName = "낡은 천", Category = "Etc", Stackable = true, Icon = "OldCloth", Color = Color3.fromRGB(90, 110, 150) },
+	CerberusFang = { Id = "CerberusFang", DisplayName = "케르베로스 송곳니", Category = "Etc", Stackable = true, Icon = "CerberusFang", Color = Color3.fromRGB(250, 245, 230) },
+	BugbearFur = { Id = "BugbearFur", DisplayName = "버그베어 털", Category = "Etc", Stackable = true, Icon = "BugbearFur", Color = Color3.fromRGB(140, 95, 60) },
 	-- 도구: 소모품
 	ReturnScroll = { Id = "ReturnScroll", DisplayName = "귀환 주문서", Category = "Tool", Stackable = true, Usable = true, Icon = "ReturnScroll", Color = Color3.fromRGB(235, 215, 160) },
 	-- 도구: 곡괭이 (실제 Tool은 PickaxeService가 가방에 넣는다)
@@ -44,14 +50,31 @@ local ItemDefs: { [string]: ItemDef } = {
 	CopperAxe = { Id = "CopperAxe", DisplayName = "구리 도끼", Category = "Tool", Stackable = false, Icon = "CopperAxe", Color = Color3.fromRGB(205, 115, 60) },
 	IronAxe = { Id = "IronAxe", DisplayName = "철 도끼", Category = "Tool", Stackable = false, Icon = "IronAxe", Color = Color3.fromRGB(170, 170, 175) },
 	DiamondAxe = { Id = "DiamondAxe", DisplayName = "다이아몬드 도끼", Category = "Tool", Stackable = false, Icon = "DiamondAxe", Color = Color3.fromRGB(110, 220, 255) },
+	-- 무기 (실제 Tool은 PickaxeService가 가방에 넣는다)
+	WoodenSword = { Id = "WoodenSword", DisplayName = "나무 검", Category = "Weapon", Stackable = false, Icon = "WoodenSword", Color = Color3.fromRGB(160, 115, 70) },
+	CopperSword = { Id = "CopperSword", DisplayName = "구리 검", Category = "Weapon", Stackable = false, Icon = "CopperSword", Color = Color3.fromRGB(205, 115, 60) },
+	IronSword = { Id = "IronSword", DisplayName = "철 장검", Category = "Weapon", Stackable = false, Icon = "IronSword", Color = Color3.fromRGB(170, 170, 175) },
+	DiamondSword = { Id = "DiamondSword", DisplayName = "다이아몬드 대검", Category = "Weapon", Stackable = false, Icon = "DiamondSword", Color = Color3.fromRGB(110, 220, 255) },
+	WoodenBow = { Id = "WoodenBow", DisplayName = "나무 활", Category = "Weapon", Stackable = false, Icon = "WoodenBow", Color = Color3.fromRGB(160, 115, 70) },
+	CopperBow = { Id = "CopperBow", DisplayName = "구리 활", Category = "Weapon", Stackable = false, Icon = "CopperBow", Color = Color3.fromRGB(205, 115, 60) },
+	IronBow = { Id = "IronBow", DisplayName = "철 장궁", Category = "Weapon", Stackable = false, Icon = "IronBow", Color = Color3.fromRGB(170, 170, 175) },
+	DiamondBow = { Id = "DiamondBow", DisplayName = "다이아몬드 활", Category = "Weapon", Stackable = false, Icon = "DiamondBow", Color = Color3.fromRGB(110, 220, 255) },
+	BaseballBat = { Id = "BaseballBat", DisplayName = "야구방망이", Category = "Weapon", Stackable = false, Icon = "BaseballBat", Color = Color3.fromRGB(215, 180, 130) },
+	GoblinClub = { Id = "GoblinClub", DisplayName = "도깨비방망이", Category = "Weapon", Stackable = false, Icon = "GoblinClub", Color = Color3.fromRGB(120, 75, 45) },
+	MorningStar = { Id = "MorningStar", DisplayName = "모닝스타", Category = "Weapon", Stackable = false, Icon = "MorningStar", Color = Color3.fromRGB(170, 170, 175) },
+	DiamondMace = { Id = "DiamondMace", DisplayName = "다이아몬드 철퇴", Category = "Weapon", Stackable = false, Icon = "DiamondMace", Color = Color3.fromRGB(110, 220, 255) },
 }
 
--- UI에 보여줄 순서 (도구 → 기타)
+-- UI에 보여줄 순서 (무기 → 도구 → 기타)
 local ORDER = {
+	"WoodenSword", "CopperSword", "IronSword", "DiamondSword",
+	"WoodenBow", "CopperBow", "IronBow", "DiamondBow",
+	"BaseballBat", "GoblinClub", "MorningStar", "DiamondMace",
 	"StonePickaxe", "CopperPickaxe", "IronPickaxe", "SteelPickaxe",
 	"StoneAxe", "CopperAxe", "IronAxe", "DiamondAxe", "ReturnScroll",
 	"Stone", "Coal", "CopperOre", "IronOre", "CopperIngot", "IronIngot", "SteelIngot",
 	"Pine", "Oak", "Birch", "Maple", "Ebony",
+	"SlimeJelly", "Bone", "OldCloth", "CerberusFang", "BugbearFur",
 }
 
 -- 가방 분류 탭 (순서대로 표시). Category가 nil이면 전체
