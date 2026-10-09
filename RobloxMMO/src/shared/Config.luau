@@ -258,6 +258,7 @@ Config.HitFeel = {
 	CameraShake = { Magnitude = 0.15, Duration = 0.12, PerfectMultiplier = 1.8 },
 	PitchRange = { Min = 0.9, Max = 1.1 }, -- 타격음 PlaybackSpeed 랜덤 범위
 	Clang = { Volume = 0.55, PerfectVolume = 0.8, NicePitch = 1.08, PerfectPitch = 1.18 }, -- 곡괭이 "깡!" 볼륨·음높이
+	Chop = { Volume = 0.7, PerfectVolume = 0.95, NicePitch = 1.06, PerfectPitch = 1.15 }, -- 나무 찍는 도끼 "퍽" 볼륨·음높이
 	RockShake = { Amplitude = 0.12, Duration = 0.12 }, -- 바위 떨림(스터드, 초)
 	DebrisCount = { Normal = 8, Nice = 14, Perfect = 22, Break = 40 }, -- 파편 파티클 개수
 	OreChunkMax = 15, -- 깨질 때 튀어나오는 광석 조각 최대 개수 (보상이 더 많아도 이 이상은 안 그림)
@@ -265,6 +266,7 @@ Config.HitFeel = {
 	OreSuckDuration = 0.35, -- 빨려오는 시간(초)
 	JudgmentPopupDuration = 0.8, -- Perfect!/Nice! 말풍선이 떠 있는 시간(초)
 	HpBarRange = 12, -- 이 거리 안의 가장 가까운 바위에 체력바 표시(스터드)
+	TreeLabelAbove = 3, -- 나무: 체력바·판정 문구를 찍는 높이(HitHeight)에서 이만큼 위에 띄운다(스터드)
 	-- 좋은 곡괭이일수록 강한 타격 연출: 충격파 고리, 튀는 광석 조각, 카메라 흔들림
 	-- Chunks: 튀는 조각 수, Ring: 충격파 최대 크기(스터드), Shake: 카메라 흔들림 배수, Sparkle: 반짝이 가루
 	TierEffects = {

@@ -1,7 +1,7 @@
 --!strict
 -- 휘두르기 입력: PC 클릭 / 모바일 공격 버튼 / 패드 R2.
--- 곡괭이(PickaxeId 속성이 있는 Tool)를 들고 있을 때만 입력을 받고,
--- 가장 가까운 바위를 자동 조준해서 서버에 "이 바위를 이 시각에 휘둘렀다"만 보낸다.
+-- 곡괭이·도끼(PickaxeId 속성이 있는 Tool)를 들고 있을 때만 입력을 받고,
+-- 가장 가까운 바위·나무를 자동 조준해서 서버에 "이 노드를 이 시각에 휘둘렀다"만 보낸다.
 
 local ContextActionService = game:GetService("ContextActionService")
 local Players = game:GetService("Players")
@@ -84,7 +84,7 @@ local function setBound(shouldBind: boolean)
 	if shouldBind then
 		-- 세 번째 인자 true: 모바일에서 화면 공격 버튼을 만든다
 		ContextActionService:BindAction(ACTION_NAME, onAction, true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
-		ContextActionService:SetTitle(ACTION_NAME, "캐기")
+		ContextActionService:SetTitle(ACTION_NAME, if TargetController.heldNodeKind() == "Tree" then "베기" else "캐기")
 		ContextActionService:SetPosition(ACTION_NAME, UDim2.new(1, -150, 1, -150))
 	else
 		ContextActionService:UnbindAction(ACTION_NAME)
@@ -96,6 +96,8 @@ local function refresh(character: Model)
 	for _, child in character:GetChildren() do
 		if isPickaxe(child) then
 			setBound(true)
+			-- 곡괭이 ↔ 도끼로 바꿔 들면 모바일 버튼 이름도 바꾼다
+			ContextActionService:SetTitle(ACTION_NAME, if TargetController.heldNodeKind() == "Tree" then "베기" else "캐기")
 			return
 		end
 	end

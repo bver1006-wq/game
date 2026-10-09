@@ -235,7 +235,7 @@ src/
 - [x] 가방 UI(B 키 또는 왼쪽 위 가방 그림 버튼): 아이콘 칸 + 아래 이름(ReplicatedStorage/ItemIcons 3D 모델), 분류 탭 전체/무기/방어구/도구/기타, 창 바깥 누르면 닫힘. 상점 목록도 아이콘으로 표시
 - [x] 하단 빠른 호출 5칸: 가방에서 끌어다 놓기, 숫자키 1~5·클릭으로 도구 들기. Roblox 기본 도구 바는 끔
 - [x] 곡괭이는 가방 아이템(도구). 산 곡괭이는 기존 것에 더해진다. Config.Debug.GiveAllPickaxes(Studio 전용)로 테스트 때 4종 지급
-- [x] NPC 3명 (Workspace/NPCs, 태그 ShopNPC + 속성 ShopId): 대장장이(제련 + 곡괭이 판매), 상인(광석·괴 매입), 사냥꾼(준비 중)
+- [x] NPC 3명 (Workspace/NPCs, 태그 ShopNPC + 속성 ShopId): 대장장이(제련 + 곡괭이·도끼 판매), 상인(광석·괴 매입), 사냥꾼(준비 중)
   - 직업별 옷차림(부품을 WeldConstraint로 붙임)과 가판대(BlacksmithCorner / MerchantStall / HunterStall)
   - NPC 몸은 R15 기본 'Man' 패키지 + 공식 무료 머리카락(HumanoidDescription). 옷차림은 부품을 WeldConstraint로 붙임
   - 동작은 Roblox 기본 애니메이션(앉기 2506281703, 서 있기 507766388, 휘두르기 522635514)을 클라 NpcAnimator가 재생
@@ -256,6 +256,17 @@ src/
 - [x] 곡괭이 Power: T1 1 / T2 1.5 / T3 2 / T4 3 (2026-10-09 결정). 가격은 임시값
   - T4 이름은 '다이아몬드 곡괭이'(2026-10-09 변경, Id는 SteelPickaxe 그대로). 티어마다 모양·크기가 다른 부품 모델, 휘두를 때 궤적(Trail)
   - 좋은 곡괭이로 칠수록 충격파 고리·튀는 광석 조각·카메라 흔들림이 커짐(Config.HitFeel.TierEffects), 다이아몬드는 반짝이
+- [x] 벌목(2026-10-09 사용자 요청으로 MVP-2 항목을 앞당김): 나무 5종 + 도끼 4종
+  - 나무는 바위와 같은 자원 노드(OreDefs Kind="Tree", 태그 OreNode). 타이밍 잔상·판정·피버·보상 공식 공통
+  - 소나무·참나무(돌 도끼, T1), 자작나무(T2), 단풍나무(T3), 흑단나무(T4). HP 9/12/15/29/45, 통나무 판매가 1/2/4/8/25G
+  - 바위는 곡괭이, 나무는 도끼로만 캔다(서버 확인, 잘못 들면 안내). 티어는 플레이어 속성 PickaxeTier / AxeTier로 따로 기록
+  - 도끼: 돌(시작 지급)·구리·철·다이아몬드, Power 1/1.5/2/3. 대장장이 "도끼" 탭에서 구매 (같은 ShopAction "BuyPickaxe")
+  - 손잡이에 통나무가 든다: 구리 곡괭이 참나무 3, 철 곡괭이 자작나무 3, 다이아 곡괭이 단풍나무 3 / 구리 도끼 소나무 3, 철 도끼 자작나무 3, 다이아 도끼 단풍나무 3
+  - 나무 모델 기준점(Pivot)은 줄기 밑동 가운데. 타격 위치는 밑동 위 HitHeight, 체력바·문구는 그보다 Config.HitFeel.TreeLabelAbove 위
+  - 흑단나무: 스폰 파트 속성 RandomPool="Ebony"인 후보 자리 중 Config.RandomPools.Ebony.Active(2)곳에만 서 있고, 베면 다른 빈자리에 다시 생김
+  - 자동 조준은 든 도구에 맞는 종류(곡괭이→바위, 도끼→나무)를 먼저 고른다. 모바일 버튼 이름 "캐기"/"베기"
+  - 나무 타격음은 도끼 "퍽"(Sounds.WoodChop), 쓰러질 때 Sounds.TreeBreak
+  - 모델·아이콘·스폰 자리는 `studio/BuildTreesAndAxes.luau`를 Studio 명령 모음에 붙여 넣어 만든다 (다시 실행하면 자기가 만든 것만 갈아 끼움)
 - [ ] 저장(DataService), 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)

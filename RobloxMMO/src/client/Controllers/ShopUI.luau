@@ -18,7 +18,11 @@ local InventoryState = require(script.Parent.InventoryState)
 local ItemIcon = require(script.Parent.ItemIcon)
 local UiKit = require(script.Parent.UiKit)
 
-local PICKAXE_ORDER = { "CopperPickaxe", "IronPickaxe", "SteelPickaxe" }
+-- 탭별로 파는 도구 (순서대로 표시)와 그 종류의 티어 속성
+local TOOL_TABS = {
+	Pickaxe = { Order = { "CopperPickaxe", "IronPickaxe", "SteelPickaxe" }, TierAttribute = "PickaxeTier" },
+	Axe = { Order = { "CopperAxe", "IronAxe", "DiamondAxe" }, TierAttribute = "AxeTier" },
+}
 local CLOSE_DISTANCE_MARGIN = 4 -- 상호작용 거리보다 이만큼 멀어지면 창을 닫는다
 
 local localPlayer = Players.LocalPlayer
@@ -109,13 +113,13 @@ local function drawSmelt()
 	end
 end
 
--- 곡괭이 탭: 단계별 곡괭이와 가격, 구매 버튼
-local function drawPickaxe()
-	local tierAttribute = localPlayer:GetAttribute("PickaxeTier")
+-- 곡괭이·도끼 탭: 단계별 도구와 가격, 구매 버튼
+local function drawTools(tab: typeof(TOOL_TABS.Pickaxe))
+	local tierAttribute = localPlayer:GetAttribute(tab.TierAttribute)
 	local ownedTier = if typeof(tierAttribute) == "number" then tierAttribute else 0
 	local gold = InventoryState.get().Gold
 
-	for order, pickaxeId in PICKAXE_ORDER do
+	for order, pickaxeId in tab.Order do
 		local def = PickaxeDefs[pickaxeId]
 		local config = Config.Pickaxes[pickaxeId]
 		local price = config.Price
@@ -238,8 +242,8 @@ local function redraw()
 	local tabId = currentTab.Id
 	if tabId == "Smelt" then
 		drawSmelt()
-	elseif tabId == "Pickaxe" then
-		drawPickaxe()
+	elseif tabId == "Pickaxe" or tabId == "Axe" then
+		drawTools(if tabId == "Axe" then TOOL_TABS.Axe else TOOL_TABS.Pickaxe)
 	elseif tabId == "Sell" then
 		drawSell()
 	elseif tabId == "Bag" then
@@ -370,6 +374,7 @@ function ShopUI.init()
 	end)
 	InventoryState.Changed:Connect(redraw)
 	localPlayer:GetAttributeChangedSignal("PickaxeTier"):Connect(redraw)
+	localPlayer:GetAttributeChangedSignal("AxeTier"):Connect(redraw)
 	RunService.Heartbeat:Connect(checkDistance)
 end
 

@@ -26,9 +26,16 @@ local hpLabel: TextLabel
 local currentRock: Model? = nil
 local shownHp = -1
 
--- 바위 꼭대기 높이 (바위 중심 기준)
-local function rockTopOffset(rock: Model): number
-	return rock:GetExtentsSize().Y / 2
+-- 문구·체력바를 띄울 기준 위치 (월드 좌표)
+-- 바위: 꼭대기 (기준점이 바위 중심). 나무: 기준점이 밑동이고 키가 커서 꼭대기 대신 찍는 높이 조금 위
+local function labelTop(rock: Model): Vector3
+	local pivot = rock:GetPivot().Position
+	local oreType = rock:GetAttribute("OreType")
+	local def = if typeof(oreType) == "string" then OreDefs[oreType] else nil
+	if def and def.Kind == "Tree" then
+		return pivot + Vector3.new(0, (def.HitHeight or 2.5) + Config.HitFeel.TreeLabelAbove, 0)
+	end
+	return pivot + Vector3.new(0, rock:GetExtentsSize().Y / 2, 0)
 end
 
 -- 위치에 붙일 보이지 않는 Attachment (바위가 없어진 뒤에도 문구를 띄우기 위해)
@@ -99,8 +106,12 @@ local function updateHpBar()
 		currentRock = rock
 		shownHp = -1
 		if rock then
-			hpBillboard.Adornee = rock.PrimaryPart or rock:FindFirstChildWhichIsA("BasePart", true)
-			hpBillboard.StudsOffsetWorldSpace = Vector3.new(0, rockTopOffset(rock) + 0.9, 0)
+			local adornee = rock.PrimaryPart or rock:FindFirstChildWhichIsA("BasePart", true)
+			hpBillboard.Adornee = adornee
+			if adornee then
+				-- Adornee 위치 기준이므로 기준 위치까지의 차이만큼 올린다
+				hpBillboard.StudsOffsetWorldSpace = labelTop(rock) - adornee.Position + Vector3.new(0, 0.9, 0)
+			end
 			local oreType = rock:GetAttribute("OreType")
 			local def = if typeof(oreType) == "string" then OreDefs[oreType] else nil
 			hpLabel.Text = if def then def.DisplayName else ""
@@ -151,7 +162,7 @@ function RockHUD.showJudgment(rock: Model, judgment: string)
 		return
 	end
 	local duration = Config.HitFeel.JudgmentPopupDuration
-	local top = rock:GetPivot().Position + Vector3.new(0, rockTopOffset(rock), 0)
+	local top = labelTop(rock)
 	local sideways = (math.random() - 0.5) * 1.2
 	local anchor = makeAnchor(top, duration + 0.1)
 

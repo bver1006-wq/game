@@ -10,6 +10,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local ItemDefs = require(ReplicatedStorage.Shared.ItemDefs)
 local OreDefs = require(ReplicatedStorage.Shared.OreDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local RockHUD = require(script.Parent.RockHUD)
@@ -41,6 +42,11 @@ local function oreColor(oreType: unknown): Color3
 		return OreDefs[oreType].Color
 	end
 	return DEFAULT_COLOR
+end
+
+-- 나무 노드인가 (나무는 돌 소리·"깡!" 대신 도끼 "퍽" 소리를 낸다)
+local function isTree(oreType: unknown): boolean
+	return typeof(oreType) == "string" and OreDefs[oreType] ~= nil and OreDefs[oreType].Kind == "Tree"
 end
 
 -- 바위의 원래 위치를 돌려준다 (처음 보는 바위면 지금 위치를 원래 위치로 기록)
@@ -339,21 +345,33 @@ local function onHitEffect(
 	HitFeelController.emitDebris(hitPosition, color, debrisCount, if judgment == "Perfect" then 1.3 else 1)
 
 	local pitch = random:NextNumber(Config.HitFeel.PitchRange.Min, Config.HitFeel.PitchRange.Max)
-	if judgment == "Perfect" then
-		HitFeelController.playSound(Config.Sounds.HitPerfect, hitPosition, pitch, 0.8)
+	if rock and isTree(rock:GetAttribute("OreType")) then
+		-- 나무: 도끼 "퍽". 판정이 좋을수록 높고 크게
+		local chop = Config.HitFeel.Chop
+		local chopPitch = pitch * (if judgment == "Perfect" then chop.PerfectPitch elseif judgment == "Nice" then chop.NicePitch else 1)
+		HitFeelController.playSound(
+			Config.Sounds.WoodChop,
+			hitPosition,
+			chopPitch,
+			if judgment == "Perfect" then chop.PerfectVolume else chop.Volume
+		)
 	else
-		HitFeelController.playSound(Config.Sounds.HitNormal, hitPosition, pitch * (if judgment == "Nice" then 1.08 else 1), 0.6)
-	end
+		if judgment == "Perfect" then
+			HitFeelController.playSound(Config.Sounds.HitPerfect, hitPosition, pitch, 0.8)
+		else
+			HitFeelController.playSound(Config.Sounds.HitNormal, hitPosition, pitch * (if judgment == "Nice" then 1.08 else 1), 0.6)
+		end
 
-	-- 곡괭이 "깡!": 돌 소리에 겹친다. 판정이 좋을수록 높고 크게
-	local clang = Config.HitFeel.Clang
-	local clangPitch = pitch * (if judgment == "Perfect" then clang.PerfectPitch elseif judgment == "Nice" then clang.NicePitch else 1)
-	HitFeelController.playSound(
-		Config.Sounds.PickaxeClang,
-		hitPosition,
-		clangPitch,
-		if judgment == "Perfect" then clang.PerfectVolume else clang.Volume
-	)
+		-- 곡괭이 "깡!": 돌 소리에 겹친다. 판정이 좋을수록 높고 크게
+		local clang = Config.HitFeel.Clang
+		local clangPitch = pitch * (if judgment == "Perfect" then clang.PerfectPitch elseif judgment == "Nice" then clang.NicePitch else 1)
+		HitFeelController.playSound(
+			Config.Sounds.PickaxeClang,
+			hitPosition,
+			clangPitch,
+			if judgment == "Perfect" then clang.PerfectVolume else clang.Volume
+		)
+	end
 
 	local tier = pickaxeTier or 1
 	tierImpact(rock, hitPosition, color, tier, judgment)
@@ -375,14 +393,23 @@ end
 local function onRockBroken(position: Vector3, oreType: string, rewards: { [string]: number }, feverBonus: number)
 	local color = oreColor(oreType)
 	HitFeelController.emitDebris(position, color, Config.HitFeel.DebrisCount.Break, 1.6)
-	HitFeelController.playSound(Config.Sounds.RockBreak, position, random:NextNumber(0.95, 1.05), 0.8)
+	local tree = isTree(oreType)
+	HitFeelController.playSound(
+		if tree then Config.Sounds.TreeBreak else Config.Sounds.RockBreak,
+		position,
+		random:NextNumber(0.95, 1.05),
+		0.8
+	)
 
 	local amount = rewards[tostring(localPlayer.UserId)]
 	if amount and amount > 0 then
 		HitFeelController.cameraShake(Config.HitFeel.CameraShake.Magnitude * 2, Config.HitFeel.CameraShake.Duration * 2)
 		spawnOreChunks(position, color, amount)
+		-- 획득 이름은 가방 아이템 이름 ("소나무 통나무"), 없으면 노드 이름
+		local item = ItemDefs.Items[oreType]
 		local def = OreDefs[oreType]
-		RockHUD.showReward(position, amount, if def then def.DisplayName else oreType, feverBonus)
+		local name = if item then item.DisplayName elseif def then def.DisplayName else oreType
+		RockHUD.showReward(position, amount, name, feverBonus)
 	end
 end
 
