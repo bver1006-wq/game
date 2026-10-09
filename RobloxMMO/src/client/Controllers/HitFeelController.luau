@@ -786,7 +786,15 @@ local function onRockBroken(position: Vector3, oreType: string, rewards: { [stri
 		HitFeelController.emitDebris(burstPosition, color, Config.HitFeel.DebrisCount.Break, 1.6)
 	end
 	if treeDef then
-		HitFeelController.playSound(Config.Sounds.TreeBreak, position, random:NextNumber(0.95, 1.05), 0.9)
+		-- "뻐지지직": 나무 찍는 소리를 짧게 여러 번, 음을 흔들며 빠르게 겹쳐 줄기가 갈라지는 소리를 낸다
+		local crack = Config.HitFeel.TreeCrack
+		for index = 0, crack.Count - 1 do
+			task.delay(index * crack.Interval + random:NextNumber(0, crack.Interval * 0.4), function()
+				local fade = 1 - index / crack.Count * 0.6
+				HitFeelController.playSound(Config.Sounds.WoodChop, position + Vector3.new(0, 2, 0), random:NextNumber(crack.PitchMin, crack.PitchMax), crack.Volume * fade)
+			end)
+		end
+		HitFeelController.playSound(Config.Sounds.TreeBreak, position, random:NextNumber(0.95, 1.05), crack.BreakVolume)
 		dropLeaves(nil, position, treeDef.LeafColor or DEFAULT_LEAF_COLOR, Config.HitFeel.Tree.BreakLeafCount)
 		-- 이 자리 나무의 복제본이 있으면 쓰러뜨린다
 		for index, entry in pendingFalls do

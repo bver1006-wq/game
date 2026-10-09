@@ -142,10 +142,8 @@ local function setBound(shouldBind: boolean)
 	end
 	bound = shouldBind
 	if shouldBind then
-		-- 세 번째 인자 true: 모바일에서 화면 공격 버튼을 만든다
-		ContextActionService:BindAction(ACTION_NAME, onAction, true, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
-		ContextActionService:SetTitle(ACTION_NAME, "공격")
-		ContextActionService:SetPosition(ACTION_NAME, UDim2.new(1, -150, 1, -150))
+		-- 모바일 공격 버튼은 MobileControls가 오른쪽 아래에 크게 만든다 (기본 작은 버튼은 안 씀)
+		ContextActionService:BindAction(ACTION_NAME, onAction, false, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonR2)
 	else
 		cancelPress()
 		ContextActionService:UnbindAction(ACTION_NAME)
@@ -174,6 +172,21 @@ local function onCharacterAdded(character: Model)
 		refresh(character)
 	end)
 	refresh(character)
+end
+
+-- 도구·무기를 들고 있어서 공격 버튼이 먹는지 (MobileControls가 버튼을 흐리게 할 때 쓴다)
+function InputController.canAttack(): boolean
+	return bound
+end
+
+-- 모바일 공격 버튼을 눌렀다 / 뗐다 (PC 클릭과 똑같이 모으고 휘두른다)
+function InputController.pressAttack()
+	if bound then
+		press()
+	end
+end
+function InputController.releaseAttack()
+	release(true)
 end
 
 -- 클라이언트 시작 시 한 번 호출

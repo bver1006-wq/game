@@ -268,7 +268,7 @@ function InventoryUI.init()
 	end)
 
 	-- 골드 (오른쪽 위, 체력·마나 바 아래)
-	local goldPanel = UiKit.panel(gui, UDim2.fromOffset(150, 40), UDim2.new(1, -16, 0, 172), Vector2.new(1, 0))
+	local goldPanel = UiKit.panel(gui, UDim2.fromOffset(150, 40), UDim2.new(1, -16, 0, 60), Vector2.new(1, 0)) -- 체력·마나 바 바로 아래
 	UiKit.swatch(goldPanel, UiKit.Colors.Gold, 20, UDim2.fromOffset(12, 10))
 	goldLabel = UiKit.label(goldPanel, "0 G", UDim2.new(1, -46, 1, 0), UDim2.fromOffset(40, 0), UiKit.Colors.Gold, 18)
 

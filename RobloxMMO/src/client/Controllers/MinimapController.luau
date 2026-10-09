@@ -289,7 +289,7 @@ function MinimapController.init()
 
 	panel = Instance.new("Frame")
 	panel.AnchorPoint = Vector2.new(1, 0)
-	panel.Position = UDim2.new(1, -16, 0, 210)
+	panel.Position = UDim2.new(1, -16, 0, 110) -- 골드 칸 아래 (2026-10-09 체력·마나를 맨 위로 올리면서)
 	panel.Size = UDim2.fromOffset(size, size)
 	panel.BackgroundColor3 = OUTDOOR_BACKGROUND
 	panel.BorderSizePixel = 0

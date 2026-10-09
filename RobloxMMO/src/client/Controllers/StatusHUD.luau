@@ -14,7 +14,7 @@ local UiKit = require(script.Parent.UiKit)
 
 local BAR_WIDTH = 240
 local BAR_HEIGHT = 20
-local TOP = 120 -- 오른쪽 위, Roblox 리더보드 아래 (골드 표시는 그 아래로 내렸다)
+local TOP = 8 -- 오른쪽 맨 위 (2026-10-09: Roblox 리더보드를 끄고 위로 올림. 골드 표시는 그 아래)
 
 local HP_COLOR = Color3.fromRGB(225, 70, 70)
 local MANA_COLOR = Color3.fromRGB(70, 130, 240)
@@ -69,11 +69,13 @@ local function setBar(bar: Bar, name: string, value: number, max: number)
 	bar.Label.Text = `{name} {math.floor(value + 0.5)} / {math.floor(max + 0.5)}`
 end
 
--- Roblox 기본 체력바 끄기 (코어 GUI가 늦게 준비될 수 있어 몇 번 시도)
+-- Roblox 기본 체력바·리더보드 끄기 (코어 GUI가 늦게 준비될 수 있어 몇 번 시도)
+-- 리더보드는 오른쪽 위를 가려서 끈다. 골드는 체력·마나 아래 칸에 따로 보인다
 local function disableDefaultHealth()
 	for _ = 1, 10 do
 		local ok = pcall(function()
 			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Health, false)
+			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
 		end)
 		if ok then
 			return

@@ -101,8 +101,6 @@ local function finishRock(state: RockState, feverPlayer: Player?, feverMultiplie
 	end
 end
 
-local lastWallNotice: { [Player]: number } = {}
-
 -- 타격 위치: 바위는 중심에서 캐릭터 쪽 표면 근처, 나무는 밑동(기준점) 위 HitHeight 높이의 줄기 표면
 local function hitPositionFor(state: RockState, oreDef: OreDefs.OreDef, rock: Model, player: Player): Vector3
 	local root = (player.Character :: Model):FindFirstChild("HumanoidRootPart") :: BasePart
@@ -169,12 +167,8 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 	end
 
 	-- 장비 벽: 도구 단계가 모자라면 때릴 수는 있지만 체력이 안 닳는다 ("팅" 하고 튕겨 나온다)
+	-- 알림 창은 띄우지 않는다 (바위 위 "단단해!" 문구로 충분, 2026-10-09 사용자 요청)
 	if pickaxe.Tier < oreDef.RequiredTier then
-		local now = os.clock()
-		if now - (lastWallNotice[player] or -math.huge) >= Config.TierWall.NoticeInterval then
-			lastWallNotice[player] = now
-			NotifyService.send(player, `{oreDef.DisplayName}: 너무 단단해요! {PickaxeService.nameFor(neededKind, oreDef.RequiredTier)} 이상이 필요해요.`, "bad")
-		end
 		fireNearby(hitEffectRemote, state.Position, rock, "Normal", hitPositionFor(state, oreDef, rock, player), player.UserId, 0, 0, pickaxe.Tier, "Blocked")
 		return
 	end
