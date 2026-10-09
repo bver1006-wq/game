@@ -1,7 +1,10 @@
 --!strict
 -- 가방에 들어가는 아이템 정의. 이름·분류·아이콘 같은 고정 정보만 둔다.
+-- 장비(헬멧·갑옷·신발·장갑·목걸이·팔찌)는 EquipmentDefs에서 만들어 여기에 더한다 (분류 "방어구").
 -- 판매가·레시피 같은 밸런스 수치는 Config에 있다.
 -- 광석·통나무 아이템 Id는 OreDefs의 Id와, 곡괭이·도끼 아이템 Id는 PickaxeDefs의 Id와 같다.
+
+local EquipmentDefs = require(script.Parent.EquipmentDefs)
 
 -- 가방 분류 탭: 무기 / 방어구 / 도구 / 기타
 export type Category = "Weapon" | "Armor" | "Tool" | "Etc"
@@ -80,6 +83,13 @@ local ORDER = {
 	"Pine", "Oak", "Birch", "Maple", "Ebony",
 	"SlimeJelly", "Bone", "OldCloth", "CerberusFang", "BugbearFur",
 }
+
+-- 장비 아이템을 더한다 (무기 다음 순서)
+for index, id in EquipmentDefs.Order do
+	local def = EquipmentDefs.Items[id]
+	ItemDefs[id] = { Id = id, DisplayName = def.DisplayName, Category = "Armor", Stackable = false, Icon = id, Color = def.Color }
+	table.insert(ORDER, 12 + index, id)
+end
 
 -- 가방 분류 탭 (순서대로 표시). Category가 nil이면 전체
 local TABS: { { Title: string, Category: Category? } } = {

@@ -63,10 +63,10 @@ end
 
 -- 한 번 휘두른다 (놓는 순간). charge: 모은 정도 0~1. 서버에 요청을 보냈으면 true
 -- 쿨다운은 서버와 같은 값으로 로컬에서도 막는다
-local function swing(isTouch: boolean, charge: number): boolean
+local function swing(isTouch: boolean, charge: number, held: number): boolean
 	local def = equippedDef()
 	if def and CombatController.isWeapon(def) then
-		return CombatController.attack(def, charge)
+		return CombatController.attack(def, charge, held)
 	end
 	local now = os.clock()
 	if now - lastSwingClock < Config.Mining.SwingInterval then
@@ -106,8 +106,8 @@ local function release(isTouch: boolean)
 		return
 	end
 	pressing = false
-	local _, charge = ChargeController.stop()
-	if FeverController.isActive() or not swing(isTouch, charge) then
+	local held, charge = ChargeController.stop()
+	if FeverController.isActive() or not swing(isTouch, charge, held) then
 		chargeCancelRemote:FireServer() -- 요청을 안 보냈으면 서버의 모으기 기록을 지운다
 	end
 end

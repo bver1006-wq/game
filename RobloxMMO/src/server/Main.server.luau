@@ -11,6 +11,7 @@ local ChargeService = require(Services.ChargeService)
 local CombatService = require(Services.CombatService)
 local CraftingService = require(Services.CraftingService)
 local EconomyService = require(Services.EconomyService)
+local EquipmentService = require(Services.EquipmentService)
 local FeverService = require(Services.FeverService)
 local InventoryService = require(Services.InventoryService)
 local ItemUseService = require(Services.ItemUseService)
@@ -28,8 +29,9 @@ Remotes.setup()
 -- 도끼·나무 템플릿·스폰 자리를 제작 스크립트(ServerStorage/StudioTools)로 매번 새로 만든다
 -- (예전에 저장된 템플릿이 남아 있어도 지금 코드 기준으로 덮어쓴다. 실행 중에 만든 것은 저장되지 않는다)
 local studioTools = ServerStorage:FindFirstChild("StudioTools")
--- 무기·몹 템플릿과 몹 생성 자리도 같은 방식으로 만든다 (BuildWeaponsAndMobs는 곡괭이 Tool이 있어야 해서 뒤에 돈다)
-for _, name in { "BuildTreesAndAxes", "BuildWeaponsAndMobs" } do
+-- 광산을 지하로 옮기고(MoveMineUnderground, 광석 자리도 같이 옮기므로 맨 먼저), 무기·몹 템플릿과 몹 생성 자리도 만든다
+-- (BuildWeaponsAndMobs는 곡괭이 Tool이 있어야 해서 뒤에 돈다)
+for _, name in { "MoveMineUnderground", "BuildTreesAndAxes", "BuildWeaponsAndMobs" } do
 	local builder = studioTools and studioTools:FindFirstChild(name)
 	if builder and builder:IsA("ModuleScript") then
 		local ok, err = pcall(require, builder)
@@ -46,6 +48,7 @@ FeverService.init()
 InventoryService.init()
 ManaService.init()
 ChargeService.init()
+EquipmentService.init()
 PickaxeService.init()
 MiningService.init()
 NpcService.init()

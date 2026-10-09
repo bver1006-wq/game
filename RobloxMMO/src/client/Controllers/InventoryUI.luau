@@ -14,11 +14,14 @@ local DragController = require(script.Parent.DragController)
 local HotbarController = require(script.Parent.HotbarController)
 local InventoryState = require(script.Parent.InventoryState)
 local CooldownController = require(script.Parent.CooldownController)
+local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
+local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local ItemIcon = require(script.Parent.ItemIcon)
 local UiKit = require(script.Parent.UiKit)
 
 local TOGGLE_KEY = Enum.KeyCode.B
 local CELL_SIZE = 66 -- 칸 너비
+local localPlayer = Players.LocalPlayer
 local CELL_HEIGHT = 84 -- 칸 높이 (아래 이름 줄 포함)
 local NAME_HEIGHT = 20
 
@@ -34,6 +37,38 @@ local tabBar: Frame
 local grid: ScrollingFrame
 local infoLabel: TextLabel
 local currentTabIndex = 1
+local equipPanel: Frame
+local equipRows: { [string]: { Icon: Frame, Name: TextLabel } } = {}
+local powerLabel: TextLabel
+local statsLabel: TextLabel
+local lastClickId: string? = nil
+local lastClickTime = 0
+local DOUBLE_CLICK = 0.4 -- 이 시간 안에 두 번 누르면 더블클릭(초)
+
+-- 이 아이템을 지금 끼우고 있는지 (장비 칸 또는 손에 든 도구·무기)
+local function isEquipped(itemId: string): boolean
+	for _, slot in EquipmentDefs.Slots do
+		if localPlayer:GetAttribute(`Equip_{slot.Id}`) == itemId then
+			return true
+		end
+	end
+	return false
+end
+
+-- 더블클릭: 장비는 끼우고(이미 끼웠으면 뺀다), 도구·무기는 손에 든다
+local function activate(itemId: string)
+	local def = ItemDefs.Items[itemId]
+	local equipment = EquipmentDefs.Items[itemId]
+	if equipment then
+		if localPlayer:GetAttribute(`Equip_{equipment.Slot}`) == itemId then
+			Remotes.get(Remotes.Names.UnequipSlot):FireServer(equipment.Slot)
+		else
+			Remotes.get(Remotes.Names.EquipItem):FireServer(itemId)
+		end
+	elseif def and (def.Category == "Tool" or def.Category == "Weapon") and not def.Usable then
+		HotbarController.useItem(itemId)
+	end
+end
 
 -- 칸 하나를 그린다 (entry가 nil이면 빈 칸)
 local function drawCell(order: number, entry: InventoryState.SlotEntry?)
@@ -57,6 +92,12 @@ local function drawCell(order: number, entry: InventoryState.SlotEntry?)
 	holder.Parent = cell
 	ItemIcon.create(holder, entry.ItemId)
 	CooldownController.attach(cell, entry.ItemId)
+	-- 끼우고 있는 장비·들고 있는 도구는 금색 테두리 + "E"
+	if isEquipped(entry.ItemId) then
+		UiKit.stroke(cell, UiKit.Colors.Gold, 2.5)
+		local badge = UiKit.label(cell, "E", UDim2.fromOffset(16, 16), UDim2.fromOffset(3, 2), UiKit.Colors.Gold, 13)
+		badge.ZIndex = 4
+	end
 
 	local def = ItemDefs.Items[entry.ItemId]
 	-- 아이콘 아래 이름
@@ -83,9 +124,17 @@ local function drawCell(order: number, entry: InventoryState.SlotEntry?)
 		-- 누르면 이름·정보 표시, 도구면 바로 든다
 		local price = Config.SellPrices[itemId]
 		infoLabel.Text = `{def.DisplayName}  x{InventoryState.count(itemId)}` .. (if price then `  ·  개당 {price}G` else "")
-		-- 곡괭이는 누르면 바로 든다 (소모품은 실수로 쓰지 않게 빠른 칸에서만 쓴다)
-		if (def.Category == "Tool" or def.Category == "Weapon") and not def.Usable then
-			HotbarController.useItem(itemId)
+		-- 장착 아이템은 더블클릭해야 장착된다 (소모품은 실수로 쓰지 않게 빠른 칸에서만 쓴다)
+		local now = os.clock()
+		if lastClickId == itemId and now - lastClickTime <= DOUBLE_CLICK then
+			lastClickId = nil
+			activate(itemId)
+		else
+			lastClickId = itemId
+			lastClickTime = now
+			if EquipmentDefs.Items[itemId] or def.Category == "Tool" or def.Category == "Weapon" then
+				infoLabel.Text ..= "  ·  더블클릭: 장착"
+			end
 		end
 	end, function(position, draggedId)
 		local slot = HotbarController.slotAt(position)
@@ -114,6 +163,33 @@ local function drawTabs()
 			button.BackgroundColor3 = UiKit.Colors.PanelLight
 		end
 	end
+end
+
+-- 장비 창을 다시 그린다 (속성 Equip_<칸>·Stat*·CombatPower)
+local function refreshEquipment()
+	if not equipPanel then
+		return
+	end
+	for slotId, row in equipRows do
+		for _, child in row.Icon:GetChildren() do
+			if child:IsA("GuiObject") then
+				child:Destroy()
+			end
+		end
+		local itemId = localPlayer:GetAttribute(`Equip_{slotId}`)
+		if typeof(itemId) == "string" and itemId ~= "" and ItemDefs.Items[itemId] then
+			ItemIcon.create(row.Icon, itemId)
+			row.Name.Text = ItemDefs.Items[itemId].DisplayName
+		else
+			row.Name.Text = "-"
+		end
+	end
+	local function stat(name: string): number
+		local value = localPlayer:GetAttribute(name)
+		return if typeof(value) == "number" then value else 0
+	end
+	powerLabel.Text = `전투력 {stat("CombatPower")}`
+	statsLabel.Text = `공격 {stat("StatAtk")}  방어 {stat("StatDef")}\n체력 +{stat("StatHp")}  치명타 +{stat("StatCrit")}%`
 end
 
 -- 가방 내용을 다시 그린다
@@ -149,9 +225,11 @@ end
 -- 가방 창 열고 닫기
 function InventoryUI.setOpen(open: boolean)
 	bagPanel.Visible = open
+	equipPanel.Visible = open
 	backdrop.Visible = open
 	if open then
-		infoLabel.Text = "칸을 끌어서 아래 빠른 칸에 놓으세요. 도구는 누르면 바로 들어요."
+		infoLabel.Text = "칸을 끌어서 아래 빠른 칸에 놓으세요. 도구·무기·장비는 더블클릭하면 장착해요."
+		refreshEquipment()
 		InventoryUI.refresh()
 	end
 end
@@ -256,8 +334,62 @@ function InventoryUI.init()
 
 	infoLabel = UiKit.label(bagPanel, "", UDim2.new(1, -24, 0, 36), UDim2.new(0, 12, 1, -42), UiKit.Colors.SubText, 13)
 
+	-- 장비 창 (가방 창 왼쪽): 칸 7개, 전투력, 능력치. 장비 칸을 더블클릭하면 뺀다
+	local bagWidth = 5 * (CELL_SIZE + 6) + 34
+	equipPanel = UiKit.panel(gui, UDim2.fromOffset(200, 430), UDim2.new(0.5, -bagWidth / 2 - 8, 0, 56), Vector2.new(1, 0))
+	equipPanel.ZIndex = 1
+	equipPanel.Visible = false
+	UiKit.label(equipPanel, "장비", UDim2.new(1, -20, 0, 26), UDim2.fromOffset(12, 6), UiKit.Colors.Gold, 18)
+	powerLabel = UiKit.label(equipPanel, "전투력 0", UDim2.new(1, -20, 0, 22), UDim2.fromOffset(12, 32), Color3.fromRGB(255, 220, 120), 16)
+	for index, slot in EquipmentDefs.Slots do
+		local row = Instance.new("TextButton")
+		row.Text = ""
+		row.AutoButtonColor = false
+		row.Size = UDim2.new(1, -16, 0, 44)
+		row.Position = UDim2.fromOffset(8, 58 + (index - 1) * 48)
+		row.BackgroundColor3 = UiKit.Colors.PanelLight
+		row.BorderSizePixel = 0
+		row.Parent = equipPanel
+		UiKit.corner(row, 8)
+		local icon = Instance.new("Frame")
+		icon.Size = UDim2.fromOffset(38, 38)
+		icon.Position = UDim2.fromOffset(3, 3)
+		icon.BackgroundColor3 = UiKit.Colors.Panel
+		icon.BorderSizePixel = 0
+		icon.Parent = row
+		UiKit.corner(icon, 6)
+		UiKit.label(row, slot.Title, UDim2.new(1, -50, 0, 16), UDim2.fromOffset(46, 3), UiKit.Colors.SubText, 11)
+		local name = UiKit.label(row, "-", UDim2.new(1, -50, 0, 20), UDim2.fromOffset(46, 19), UiKit.Colors.Text, 13)
+		name.TextScaled = true
+		local nameSize = Instance.new("UITextSizeConstraint")
+		nameSize.MaxTextSize = 13
+		nameSize.Parent = name
+		equipRows[slot.Id] = { Icon = icon, Name = name }
+		local slotId = slot.Id
+		local lastRowClick = 0
+		row.Activated:Connect(function()
+			local now = os.clock()
+			if now - lastRowClick <= DOUBLE_CLICK and slotId ~= "Weapon" then
+				Remotes.get(Remotes.Names.UnequipSlot):FireServer(slotId)
+			end
+			lastRowClick = now
+		end)
+	end
+	statsLabel = UiKit.label(equipPanel, "", UDim2.new(1, -16, 0, 34), UDim2.new(0, 8, 1, -40), UiKit.Colors.SubText, 12)
+	statsLabel.TextWrapped = true
+
 	drawTabs()
 	InventoryState.Changed:Connect(InventoryUI.refresh)
+	-- 장비가 바뀌면 장비 창과 가방 테두리(E 표시)를 다시 그린다
+	localPlayer.AttributeChanged:Connect(function(name)
+		if string.sub(name, 1, 6) == "Equip_" then
+			refreshEquipment()
+			InventoryUI.refresh()
+		elseif string.sub(name, 1, 4) == "Stat" or name == "CombatPower" then
+			refreshEquipment()
+		end
+	end)
+	refreshEquipment()
 	InventoryUI.refresh()
 
 	UserInputService.InputBegan:Connect(function(input, processed)

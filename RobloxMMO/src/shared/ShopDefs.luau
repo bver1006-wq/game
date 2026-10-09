@@ -4,7 +4,7 @@
 -- Studio의 NPC 모델 속성 ShopId가 여기 키와 같아야 한다.
 
 export type ShopTab = {
-	Id: "Smelt" | "Pickaxe" | "Axe" | "Sword" | "Bow" | "Club" | "Sell" | "Buy" | "Bag" | "ComingSoon",
+	Id: "Smelt" | "Pickaxe" | "Axe" | "Sword" | "Bow" | "Club" | "ArmorGear" | "Accessory" | "Sell" | "Buy" | "Bag" | "ComingSoon",
 	Title: string,
 	Note: string?, -- ComingSoon 탭에 보여줄 설명
 }
@@ -45,13 +45,15 @@ local ShopDefs: { [string]: ShopDef } = {
 	Hunter = {
 		Id = "Hunter",
 		NpcName = "사냥꾼 카엘",
-		Role = "칼 · 활 · 방망이",
+		Role = "칼 · 활 · 방망이 · 방어구 · 장신구",
 		Greeting = "들판에 귀여운 녀석들이 늘었어. 얕보면 큰코다치니 무기 하나 챙겨 가게.",
 		Tabs = {
 			-- 사냥과 전투는 2026-10-09 사용자 결정으로 앞당김. 방어구·신발은 아직 없음
 			{ Id = "Sword", Title = "칼" },
 			{ Id = "Bow", Title = "활" },
 			{ Id = "Club", Title = "방망이" },
+			{ Id = "ArmorGear", Title = "방어구" },
+			{ Id = "Accessory", Title = "장신구" },
 		},
 	},
 }

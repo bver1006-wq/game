@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
 local ItemDefs = require(ReplicatedStorage.Shared.ItemDefs)
 local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -165,6 +166,51 @@ local function drawTools(kind: PickaxeDefs.ToolKind)
 	end
 end
 
+-- 장비 능력치 글자 ("방어 6 · 체력 25")
+local STAT_NAMES = { { "Atk", "공격" }, { "Def", "방어" }, { "Hp", "체력" }, { "Crit", "치명타%" } }
+local function describeStats(itemId: string): string
+	local def = EquipmentDefs.Items[itemId]
+	local base = (Config.Equipment.Base :: any)[def.Slot] or {}
+	local multiplier = Config.Equipment.TierMultiplier[def.Tier] or 1
+	local parts = {}
+	for _, pair in STAT_NAMES do
+		local value = base[pair[1]]
+		if value then
+			table.insert(parts, `{pair[2]} {math.round(value * multiplier * 10) / 10}`)
+		end
+	end
+	return table.concat(parts, " · ")
+end
+
+-- 방어구·장신구 탭: 칸 목록(slots)의 장비를 단계 순서로. 같은 장비는 하나만 살 수 있다
+local function drawEquipment(slots: { string })
+	local gold = InventoryState.get().Gold
+	local order = 0
+	for _, itemId in EquipmentDefs.Order do
+		local def = EquipmentDefs.Items[itemId]
+		if table.find(slots, def.Slot) then
+			order += 1
+			local price = Config.Equipment.Prices[def.Tier]
+			local canAfford = gold >= price.Gold
+			for id, amount in price.Items do
+				if InventoryState.count(id) < amount then
+					canAfford = false
+				end
+			end
+			local owned = InventoryState.count(itemId) > 0
+			local row = UiKit.row(content, 68, order)
+			iconBox(row, itemId, 54)
+			UiKit.label(row, `T{def.Tier} {def.DisplayName}`, UDim2.new(1, -200, 0, 22), UDim2.fromOffset(70, 6), UiKit.Colors.Text, 16)
+			UiKit.label(row, describeStats(itemId), UDim2.new(1, -200, 0, 18), UDim2.fromOffset(70, 28), Color3.fromRGB(150, 220, 150), 12)
+			UiKit.label(row, `{price.Gold}G + {describeItems(price.Items)}`, UDim2.new(1, -200, 0, 18), UDim2.fromOffset(70, 46), UiKit.Colors.SubText, 12)
+			local status = if owned then "보유 중" elseif canAfford then "구매" else "부족"
+			UiKit.button(row, status, UDim2.fromOffset(110, 40), UDim2.new(1, -120, 0, 12), function()
+				send("BuyEquipment", itemId)
+			end, not owned and canAfford)
+		end
+	end
+end
+
 -- 팔기 탭: 가진 광석·괴와 가격, "1개 / 모두" 버튼
 local function drawSell()
 	local order = 1
@@ -254,6 +300,10 @@ local function redraw()
 		drawTools("Pickaxe")
 	elseif tabId == "Axe" or tabId == "Sword" or tabId == "Bow" or tabId == "Club" then
 		drawTools(tabId)
+	elseif tabId == "ArmorGear" then
+		drawEquipment({ "Helmet", "Armor", "Boots", "Gloves" })
+	elseif tabId == "Accessory" then
+		drawEquipment({ "Necklace", "Bracelet" })
 	elseif tabId == "Sell" then
 		drawSell()
 	elseif tabId == "Bag" then

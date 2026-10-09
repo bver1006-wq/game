@@ -14,6 +14,7 @@ local StarterGui = game:GetService("StarterGui")
 local UserInputService = game:GetService("UserInputService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
 local ItemDefs = require(ReplicatedStorage.Shared.ItemDefs)
 local DragController = require(script.Parent.DragController)
 local InventoryState = require(script.Parent.InventoryState)
@@ -121,6 +122,16 @@ function HotbarController.useItem(itemId: string)
 	end
 	if def.Usable then
 		Remotes.get(Remotes.Names.UseItem):FireServer(itemId)
+		return
+	end
+	-- 장비(헬멧·갑옷 등)는 한 번 누르면 끼우고, 이미 끼웠으면 뺀다
+	local equipment = EquipmentDefs.Items[itemId]
+	if equipment then
+		if localPlayer:GetAttribute(`Equip_{equipment.Slot}`) == itemId then
+			Remotes.get(Remotes.Names.UnequipSlot):FireServer(equipment.Slot)
+		else
+			Remotes.get(Remotes.Names.EquipItem):FireServer(itemId)
+		end
 		return
 	end
 	if def.Category ~= "Tool" and def.Category ~= "Weapon" then

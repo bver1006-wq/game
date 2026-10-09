@@ -31,6 +31,7 @@ type Session = {
 	Sparkles: ParticleEmitter?,
 	Highlight: Highlight?,
 	Anchor: Attachment?,
+	Over: boolean, -- 활: 추가 차징(2단계)까지 다 모였는지
 	Gather: BasePart?, -- 마나 입자가 모여드는 투명 공 (도구 가운데를 따라다닌다)
 	GatherEmitter: ParticleEmitter?,
 	Sound: Sound?,
@@ -39,6 +40,7 @@ type Session = {
 local current: Session? = nil
 local gaugeFrame: Frame
 local gaugeFill: Frame
+local manaFill: Frame -- 활 추가 차징 게이지 (파란색, 1단계 위에 겹친다)
 
 -- 들고 있는 Tool
 local function heldTool(): Tool?
@@ -161,7 +163,11 @@ local function onFull(session: Session)
 		session.GatherEmitter.Rate = 8
 	end
 	if session.Def.Kind == "Bow" then
+		-- 활: 1단계가 다 찼다 → 이제부터 마나가 모이는 추가 차징
 		gaugeFill.BackgroundColor3 = UiKit.Colors.Gold
+		if not session.Gather then
+			startGather(session)
+		end
 		return
 	end
 	if session.Light then
@@ -182,9 +188,11 @@ end
 -- 모으기 시작 (InputController가 누르는 순간 부른다)
 function ChargeController.start(def: PickaxeDefs.PickaxeDef)
 	ChargeController.stop()
-	current = { Def = def, Start = os.clock(), Holding = false, Full = false, Light = nil, Sparkles = nil, Highlight = nil, Anchor = nil, Gather = nil, GatherEmitter = nil, Sound = nil }
+	current = { Def = def, Start = os.clock(), Holding = false, Full = false, Over = false, Light = nil, Sparkles = nil, Highlight = nil, Anchor = nil, Gather = nil, GatherEmitter = nil, Sound = nil }
 	if def.Kind == "Bow" then
 		gaugeFill.Size = UDim2.fromScale(0, 1)
+		manaFill.Size = UDim2.fromScale(0, 1)
+		manaFill.BackgroundColor3 = Color3.fromRGB(70, 140, 255)
 		gaugeFill.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
 		gaugeFrame.Visible = true
 		local tool = heldTool()
@@ -254,10 +262,30 @@ local function update()
 	-- 짧게 누르는 것보다 길어지면 기운을 모으기 시작한다
 	if not session.Holding and held >= Config.Charge.TapThreshold then
 		session.Holding = true
-		startGather(session)
 		if session.Def.Kind ~= "Bow" then
+			startGather(session) -- 활은 1단계가 다 찬 뒤에 마나가 모이기 시작한다
 			PoseController.windUp()
 			startGlow(session)
+		end
+	end
+	-- 활 추가 차징: 다 모으면 파란 게이지가 차고, 끝까지 차면 반짝
+	if session.Def.Kind == "Bow" and session.Full then
+		local over = math.clamp((held - Config.Charge.Time) / Config.Charge.BowOverTime, 0, 1)
+		manaFill.Size = UDim2.fromScale(over, 1)
+		if session.Sound then
+			session.Sound.PlaybackSpeed = 0.8 + over * 0.6
+		end
+		if session.GatherEmitter and not session.Over then
+			session.GatherEmitter.Rate = 15 + over * 55
+		end
+		if over >= 1 and not session.Over then
+			session.Over = true
+			manaFill.BackgroundColor3 = Color3.fromRGB(140, 230, 255)
+			HitFeelController.playSound(Config.Sounds.JudgmentPop, nil, 2.1, 0.6)
+			if session.GatherEmitter then
+				session.GatherEmitter:Emit(30)
+				session.GatherEmitter.Rate = 10
+			end
 		end
 	end
 	-- 마나 입자 공은 도구 가운데를 따라다니고, 모일수록 많아진다. 소리도 점점 높아진다
@@ -269,7 +297,7 @@ local function update()
 				session.Gather.CFrame = CFrame.new(center)
 			end
 		end
-		if not session.Full then
+		if not session.Full and session.Def.Kind ~= "Bow" then
 			if session.GatherEmitter then
 				session.GatherEmitter.Rate = 10 + ratio * 50
 			end
@@ -325,6 +353,13 @@ function ChargeController.init()
 	gaugeFill.BorderSizePixel = 0
 	gaugeFill.Parent = gaugeFrame
 	UiKit.corner(gaugeFill, 6)
+	manaFill = Instance.new("Frame")
+	manaFill.Size = UDim2.fromScale(0, 1)
+	manaFill.BackgroundColor3 = Color3.fromRGB(70, 140, 255)
+	manaFill.BorderSizePixel = 0
+	manaFill.ZIndex = 2
+	manaFill.Parent = gaugeFrame
+	UiKit.corner(manaFill, 6)
 	RunService.RenderStepped:Connect(update)
 end
 

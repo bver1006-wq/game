@@ -146,7 +146,7 @@ end
 
 -- 무기로 한 번 공격한다 (InputController가 놓는 순간 부른다). charge: 모은 정도 0~1
 -- 쿨다운은 서버와 같은 값으로 로컬에서도 막는다. 서버에 요청을 보냈으면 true
-function CombatController.attack(def: PickaxeDefs.PickaxeDef, charge: number): boolean
+function CombatController.attack(def: PickaxeDefs.PickaxeDef, charge: number, held: number?): boolean
 	local config = Config.Weapons[def.Id]
 	if not config then
 		return false
@@ -179,8 +179,10 @@ function CombatController.attack(def: PickaxeDefs.PickaxeDef, charge: number): b
 			face(root.Position + look)
 			to = from + look * range
 		end
+		-- 추가 차징(마나)까지 다 모았으면 가장 밝은 화살
+		local over = (held or 0) >= chargeConfig.Time + chargeConfig.BowOverTime
 		HitFeelController.playSound(Config.Sounds.BowShoot, from, if charge >= 1 then 1.8 else 2.2, if charge >= 1 then 0.8 else 0.5)
-		shootArrow(from, to, if charge >= 1 then math.max(def.Tier, 3) else def.Tier, function() end) -- 내 화살은 바로 보여 준다 (서버 연출에서는 다시 그리지 않는다)
+		shootArrow(from, to, if over then 4 elseif charge >= 1 then math.max(def.Tier, 3) else def.Tier, function() end) -- 내 화살은 바로 보여 준다 (서버 연출에서는 다시 그리지 않는다)
 		return mob ~= nil
 	end
 	local mob = nearestMob(config.Range)
@@ -396,18 +398,25 @@ local function onMobDied(position: Vector3, mobType: string, killerUserId: numbe
 end
 
 -- 몹 머리 위 이름·체력바를 만든다
+-- 태그가 먼저 도착하고 부품은 나중에 복제되므로, 뿌리 부품(Root)이 올 때까지 기다렸다가 붙인다
 local function addHpBar(mob: Instance)
 	if not mob:IsA("Model") or hpBars[mob] then
 		return
 	end
+	local root = mob:FindFirstChild("Root") or mob:WaitForChild("Root", 10)
+	if not root or not root:IsA("BasePart") or hpBars[mob] or not mob.Parent then
+		return
+	end
+	task.wait() -- 나머지 몸 부품도 들어올 틈
 	local def = mobDef(mob)
 	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.new(4, 0, 1, 0)
-	billboard.StudsOffsetWorldSpace = Vector3.new(0, mob:GetExtentsSize().Y + 0.8, 0)
+	billboard.Size = UDim2.new(4.5, 0, 1.1, 0)
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, math.max(mob:GetExtentsSize().Y, 2) + 0.8, 0)
 	billboard.AlwaysOnTop = true
 	billboard.LightInfluence = 0
+	billboard.MaxDistance = Config.Combat.HpBarRange
 	billboard.Enabled = false
-	billboard.Adornee = mob.PrimaryPart or mob:FindFirstChildWhichIsA("BasePart")
+	billboard.Adornee = root
 	billboard.Parent = hudFolder
 
 	local name = Instance.new("TextLabel")
@@ -460,6 +469,11 @@ local function updateHpBars()
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	local rootPosition = if root and root:IsA("BasePart") then root.Position else nil
 	for mob, bar in hpBars do
+		if not mob.Parent then
+			bar.Gui:Destroy()
+			hpBars[mob] = nil
+			continue
+		end
 		local hp = mob:GetAttribute("Hp")
 		local maxHp = mob:GetAttribute("MaxHp")
 		local near = rootPosition ~= nil and (mob:GetPivot().Position - rootPosition).Magnitude <= Config.Combat.HpBarRange
@@ -498,9 +512,11 @@ function CombatController.init()
 	hurtFrame.Parent = gui
 
 	for _, mob in CollectionService:GetTagged(MOB_TAG) do
-		addHpBar(mob)
+		task.spawn(addHpBar, mob)
 	end
-	CollectionService:GetInstanceAddedSignal(MOB_TAG):Connect(addHpBar)
+	CollectionService:GetInstanceAddedSignal(MOB_TAG):Connect(function(mob)
+		task.spawn(addHpBar, mob)
+	end)
 	CollectionService:GetInstanceRemovedSignal(MOB_TAG):Connect(removeHpBar)
 	RunService.Heartbeat:Connect(updateHpBars)
 

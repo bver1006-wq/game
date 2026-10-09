@@ -114,6 +114,32 @@ Config.Movement = {
 	MovingThreshold = 2, -- 이 속도(스터드/초)보다 빠르면 움직이는 중으로 본다
 }
 
+-- 장비 능력치: 칸마다 1단계 기본값 × 단계 배수 (공격 Atk, 방어 Def, 체력 Hp, 치명타 Crit %)
+-- 방어: 몹에게 받는 피해 × 100 / (100 + 방어). 체력: 최대 체력 + Hp. 공격: 무기 데미지에 더함. 치명타: 확률 + Crit%
+-- 전투력 = 공격×3 + 방어×4 + 체력×1 + 치명타×15 (머리 위에 착용 장비 합산 값). 무기 칸은 손에 든 도구·무기
+-- TODO(미정): 수치·가격은 임시값
+Config.Equipment = {
+	Base = {
+		Helmet = { Def = 3, Hp = 10 },
+		Armor = { Def = 6, Hp = 25 },
+		Boots = { Def = 2, Hp = 5 },
+		Gloves = { Atk = 2, Def = 1 },
+		Necklace = { Hp = 15, Crit = 2 },
+		Bracelet = { Atk = 3, Crit = 1 },
+	},
+	TierMultiplier = { 1, 2.2, 4, 7 },
+	ToolAtkPerPower = 6, -- 곡괭이·도끼를 들고 있으면 공격 = Power × 이 값 (무기는 Config.Weapons의 Damage)
+	PowerWeights = { Atk = 3, Def = 4, Hp = 1, Crit = 15 },
+	BaseMaxHealth = 100,
+	-- 사냥꾼 상점 가격 (단계별, 모든 장비 공통)
+	Prices = {
+		{ Gold = 40, Items = { OldCloth = 3 } },
+		{ Gold = 150, Items = { CopperIngot = 3, Bone = 2 } },
+		{ Gold = 500, Items = { IronIngot = 4, CerberusFang = 2 } },
+		{ Gold = 1800, Items = { SteelIngot = 5, BugbearFur = 3 } },
+	},
+}
+
 -- 차징: 모든 도구·무기는 누르고 있으면 모았다가 놓을 때 휘두른다
 -- 활: 짧게 누르면 사거리·데미지가 줄고(BowTap*), 다 모으면 원래 사거리·데미지. 게이지가 보인다
 -- 나머지(곡괭이·도끼·칼·방망이): 휘두르기 직전 자세로 멈추고 도구에 빛이 점점 커진다. 다 모으면 마나를 써서 강타(Multiplier배)
@@ -126,6 +152,9 @@ Config.Charge = {
 	ManaCost = 10, -- 강타에 쓰는 마나. 모자라면 보통 타격
 	BowTapDamage = 0.5, -- 활을 짧게 쏘면 데미지 배수
 	BowTapRange = 0.6, -- 활을 짧게 쏘면 사거리 배수
+	-- 활은 다 모은 뒤 계속 누르면 2단계(마나가 모이는 추가 차징). 다 모이면 마나를 써서 강타
+	BowOverTime = 1.0, -- 추가 차징에 걸리는 시간(초)
+	BowOverMultiplier = 2.5, -- 추가 차징 강타 데미지 배수
 	GlowColor = Color3.fromRGB(255, 235, 170), -- 모을 때 도구 빛
 	FullColor = Color3.fromRGB(255, 255, 255), -- 다 모였을 때 선명한 테두리
 	MaxHold = 6, -- 서버: 이보다 오래 누른 기록은 무시(초)
@@ -219,7 +248,8 @@ Config.Inventory = {
 Config.Debug = {
 	GiveAllPickaxes = true, -- true면 들어올 때 곡괭이·도끼를 전부 지급 (테스트용, 2026-10-09 사용자 요청으로 켬)
 	GiveReturnScrolls = 5, -- 들어오면 귀환 주문서를 이만큼 지급. 테스트 끝나면 0
-	StartSlots = 30, -- Studio 테스트 때 가방 칸 수 (도구·무기를 전부 받으면 21칸이 필요하다)
+	StartSlots = 60, -- Studio 테스트 때 가방 칸 수 (도구·무기·장비를 전부 받으면 45칸이 넘는다)
+	GiveAllEquipment = true, -- Studio에서 들어오면 장비 24종을 전부 지급 (테스트용)
 	GiveFoods = 5, -- Studio에서 들어오면 음식을 종류마다 이만큼 지급. 테스트 끝나면 0
 }
 
