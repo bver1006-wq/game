@@ -13,6 +13,7 @@ local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local DataService = require(script.Parent.DataService)
+local GearVisualService = require(script.Parent.GearVisualService)
 local InventoryService = require(script.Parent.InventoryService)
 local NotifyService = require(script.Parent.NotifyService)
 
@@ -86,6 +87,9 @@ local function recompute(player: Player)
 	player:SetAttribute("StatHp", total.Hp)
 	player:SetAttribute("StatCrit", total.Crit)
 	player:SetAttribute("CombatPower", power)
+
+	-- 착용 장비를 캐릭터 모양으로 (같은 장비면 아무것도 안 한다)
+	GearVisualService.apply(player, slots)
 
 	-- 최대 체력: 비율은 유지
 	local character = player.Character
@@ -172,6 +176,16 @@ function EquipmentService.init()
 				end
 			end)
 			task.defer(recompute, player)
+			-- 아바타 외형(몸 부품 크기·머리카락)이 다 들어오면 장비 모양을 다시 맞춘다
+			task.spawn(function()
+				if not player:HasAppearanceLoaded() then
+					player.CharacterAppearanceLoaded:Wait()
+				end
+				if character.Parent then
+					GearVisualService.invalidate(character)
+					recompute(player)
+				end
+			end)
 		end
 		player.CharacterAdded:Connect(watchCharacter)
 		if player.Character then
