@@ -1,0 +1,34 @@
+--!strict
+-- 클라이언트 진입점. 컨트롤러를 순서대로 초기화한다.
+
+local Controllers = script.Parent.Controllers
+
+local InventoryState = require(Controllers.InventoryState)
+local NotifyController = require(Controllers.NotifyController)
+local HotbarController = require(Controllers.HotbarController)
+local InventoryUI = require(Controllers.InventoryUI)
+local ShopUI = require(Controllers.ShopUI)
+local RockHUD = require(Controllers.RockHUD)
+local HitFeelController = require(Controllers.HitFeelController)
+local TimingGhostController = require(Controllers.TimingGhostController)
+local FeverController = require(Controllers.FeverController)
+local InputController = require(Controllers.InputController)
+local MineAtmosphereController = require(Controllers.MineAtmosphereController)
+local MinimapController = require(Controllers.MinimapController)
+local NpcAnimator = require(Controllers.NpcAnimator)
+
+InventoryState.init()
+NotifyController.init()
+HotbarController.init()
+InventoryUI.init()
+ShopUI.init()
+RockHUD.init()
+HitFeelController.init()
+TimingGhostController.init()
+FeverController.init()
+InputController.init()
+MineAtmosphereController.init()
+MinimapController.init()
+NpcAnimator.init()
+
+print("[Client] 초기화 완료")

@@ -1,0 +1,37 @@
+{
+  "name": "RobloxMMO",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "Server": {
+        "$path": "src/server"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/client"
+        }
+      }
+    },
+    "ServerStorage": {
+      "Templates": {
+        "$className": "Folder",
+        "$ignoreUnknownInstances": true,
+        "Ores": {
+          "$className": "Folder",
+          "$ignoreUnknownInstances": true
+        },
+        "Pickaxes": {
+          "$className": "Folder",
+          "$ignoreUnknownInstances": true
+        }
+      }
+    }
+  }
+}
