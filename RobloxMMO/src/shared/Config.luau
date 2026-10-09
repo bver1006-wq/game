@@ -171,6 +171,9 @@ Config.Charge = {
 	-- 활은 다 모은 뒤 계속 누르면 2단계(마나가 모이는 추가 차징). 다 모이면 마나를 써서 강타
 	BowOverTime = 1.0, -- 추가 차징에 걸리는 시간(초)
 	BowOverMultiplier = 2.5, -- 추가 차징 강타 데미지 배수
+	-- 활 시위를 당기는 거리(스터드, 시위 기준). 너무 당기면 왼손이 머리 뒤로 넘어가서 줄임 (2026-10-09)
+	BowPullStart = 0.15, -- 누르자마자
+	BowPullDistance = 0.45, -- 다 모았을 때 더 당기는 만큼
 	GlowColor = Color3.fromRGB(255, 235, 170), -- 모을 때 도구 빛
 	FullColor = Color3.fromRGB(255, 255, 255), -- 다 모였을 때 선명한 테두리
 	MaxHold = 6, -- 서버: 이보다 오래 누른 기록은 무시(초)
@@ -378,11 +381,18 @@ Config.OreSpawn = {
 }
 
 -- 바위 하나당 산출량: 랜덤 BaseMin~BaseMax개 (판정과 상관없음)
--- 여러 명이 같이 캤으면 기여도(준 데미지 비율)대로 나눈다. 피버 보너스는 피버를 연 사람에게 더한다
+-- 여러 명이 같이 캤으면 기여도(준 데미지 비율)대로 나눈다. 피버를 연 사람은 자기 몫에 피버 배수를 곱한다
 Config.Reward = {
 	BaseMin = 5, -- 기본 개수 최소 (2026-10-09 보상 키우기: 2~5 → 5~10)
 	BaseMax = 10, -- 기본 개수 최대
 	MinPerContributor = 1, -- 조금이라도 친 사람은 최소 이만큼 받는다
+}
+
+-- 주인 정하기: 먼저 데미지를 준 사람만 그 바위·나무·몹을 칠 수 있다 (2026-10-09 사용자 요청)
+Config.Ownership = {
+	HoldTime = 8, -- 주인이 이 초 동안 안 치면 누구나 칠 수 있게 풀린다
+	NoticeInterval = 3, -- "다른 사람이 ~중이에요" 알림 간격(초)
+	LockShowRange = 60, -- 남의 것 위 "🔒 이름" 표시가 보이는 거리(스터드)
 }
 
 -- 피버 수치
@@ -405,13 +415,14 @@ Config.Fever = {
 	TapPitchJitter = 0.06, -- 매번 조금씩 다르게 (±)
 	TapVolume = 0.9,
 	TapSparkleVolume = 0.45, -- 겹치는 반짝임 소리 볼륨
-	-- 탭 수 기준 보너스 개수 (MinTaps 이상이면 해당 보너스, 큰 값부터 검사)
+	-- 탭 수 기준 보상 배수 (MinTaps 이상이면 해당 배수, 큰 값부터 검사). 피버를 연 사람의 몫에 곱한다
+	-- 2026-10-09 사용자 요청: 조금만 잘해도 3~5배 (4초에 16번 = 초당 4번이면 3배)
 	Tiers = {
-		{ MinTaps = 40, Bonus = 5 },
-		{ MinTaps = 30, Bonus = 4 },
-		{ MinTaps = 20, Bonus = 3 },
-		{ MinTaps = 10, Bonus = 2 },
-		{ MinTaps = 0, Bonus = 1 },
+		{ MinTaps = 24, Multiplier = 5 },
+		{ MinTaps = 16, Multiplier = 3 },
+		{ MinTaps = 10, Multiplier = 2 },
+		{ MinTaps = 5, Multiplier = 1.5 },
+		{ MinTaps = 0, Multiplier = 1.3 },
 	},
 }
 
@@ -479,10 +490,10 @@ Config.Sounds = {
 	-- 전투: 따로 찾기 전까지 있는 소리를 음높이만 바꿔 쓴다. TODO: 칼·활·방망이 전용 소리 찾기
 	SwordHit = "rbxassetid://9125361455", -- 칼 (Anvil Hit을 높게)
 	ClubHit = "rbxassetid://9118608146", -- 방망이 (Rock Hits Rock을 낮게)
-	ArrowHit = "rbxassetid://9120950231", -- 화살 꽂힘 (Wood Chop)
+	ArrowHit = "rbxassetid://9120950231", -- 화살이 맞아 데미지가 뜰 때 "퍽!" (Wood Chop)
 	PlayerHurt = "rbxassetid://9118608146", -- 몹에게 맞음
 	MobDie = "rbxassetid://17779566040", -- 몹이 펑 사라짐 (pop click을 낮게)
-	BowShoot = "rbxassetid://9113443901", -- 활 쏘는 "슉" (Bird Flying을 높게). TODO: 활 전용 소리
+	BowShoot = "rbxasset://sounds/swordslash.wav", -- 활을 놓을 때 "휘익" (Roblox 기본 칼 휘두르는 소리). 2026-10-09 푸드덕(Bird Flying) 소리를 바꿈
 	CritBurn = "rbxassetid://3406813517", -- 치명타 불꽃 (Power_Up을 높게)
 	ChargeUp = "rbxassetid://3406813517", -- 차징: 기운이 차오르는 소리 (Power_Up, 모일수록 음이 올라간다). TODO: 전용 소리
 	Eat = "rbxassetid://17779566040", -- 먹기 (pop click)

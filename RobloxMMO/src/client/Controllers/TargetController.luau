@@ -15,7 +15,13 @@ local localPlayer = Players.LocalPlayer
 
 local TargetController = {}
 
--- 캐릭터에서 range 이내에 있는, 아직 HP가 남은 가장 가까운 바위를 돌려준다
+-- 다른 사람이 주인인 바위·나무·몹인가 (서버가 모델 속성 OwnerId로 알려 준다. 남의 것은 조준하지 않는다)
+function TargetController.isOthers(model: Instance): boolean
+	local ownerId = model:GetAttribute("OwnerId")
+	return typeof(ownerId) == "number" and ownerId ~= localPlayer.UserId
+end
+
+-- 캐릭터에서 range 이내에 있는, 아직 HP가 남은 가장 가까운 바위를 돌려준다 (남이 캐는 바위는 뺀다)
 function TargetController.getNearestRock(range: number): Model?
 	local character = localPlayer.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -28,7 +34,7 @@ function TargetController.getNearestRock(range: number): Model?
 	for _, instance in CollectionService:GetTagged(ORE_TAG) do
 		if instance:IsA("Model") and instance:IsDescendantOf(Workspace) then
 			local hp = instance:GetAttribute("Hp")
-			if typeof(hp) == "number" and hp > 0 then
+			if typeof(hp) == "number" and hp > 0 and not TargetController.isOthers(instance) then
 				local distance = (instance:GetPivot().Position - root.Position).Magnitude
 				if distance <= bestDistance then
 					best = instance

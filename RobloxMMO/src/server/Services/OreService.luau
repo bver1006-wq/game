@@ -11,6 +11,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local OwnershipService = require(script.Parent.OwnershipService)
 local OreDefs = require(ReplicatedStorage.Shared.OreDefs)
 
 -- 플레이어 한 명이 이 바위에서 낸 판정 횟수
@@ -32,6 +33,8 @@ export type RockState = {
 	Judgments: { [number]: JudgmentCounts }, -- UserId → Nice·Perfect 횟수
 	HitCount: number,
 	LastHit: number, -- 마지막으로 맞은 시각 (자연 회복용)
+	Owner: number?, -- 주인 UserId (OwnershipService)
+	OwnerAt: number,
 	Weakpoint: Vector3?, -- 7단계(약점)부터 사용. 바위 기준 약점 방향
 }
 
@@ -140,6 +143,8 @@ local function spawnRock(spawnPart: BasePart): Model?
 		Judgments = {},
 		HitCount = 0,
 		LastHit = 0,
+		Owner = nil,
+		OwnerAt = 0,
 		Weakpoint = nil,
 	}
 
@@ -218,6 +223,7 @@ function OreService.init()
 			task.wait(step)
 			local now = os.clock()
 			for rock, state in states do
+				OwnershipService.expire(state, rock, now)
 				if not state.Depleted and state.Hp < state.MaxHp and now - state.LastHit >= Config.Regen.Delay then
 					state.Hp = math.min(state.MaxHp, state.Hp + state.MaxHp * Config.Regen.NodePercentPerSecond * step)
 					rock:SetAttribute("Hp", math.floor(state.Hp * 10 + 0.5) / 10)
@@ -257,6 +263,7 @@ function OreService.applyDamage(rock: Model, player: Player, damage: number): bo
 	state.Hp -= dealt
 	state.HitCount += 1
 	state.LastHit = os.clock()
+	OwnershipService.claim(state, rock, player)
 	state.Contributions[player.UserId] = (state.Contributions[player.UserId] or 0) + dealt
 	rock:SetAttribute("Hp", state.Hp)
 

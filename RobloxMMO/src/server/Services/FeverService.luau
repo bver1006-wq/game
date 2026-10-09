@@ -26,14 +26,14 @@ local FeverService = {}
 local sessions: { [Player]: FeverSession } = {}
 local random = Random.new()
 
--- 탭 수에 맞는 보너스 개수를 고른다
-local function bonusFor(taps: number): number
+-- 탭 수에 맞는 보상 배수를 고른다
+local function multiplierFor(taps: number): number
 	for _, tier in Config.Fever.Tiers do
 		if taps >= tier.MinTaps then
-			return tier.Bonus
+			return tier.Multiplier
 		end
 	end
-	return 0
+	return 1
 end
 
 -- 연타 1회를 받는다. 구간 밖이거나 초당 한도를 넘으면 무시한다
@@ -80,7 +80,7 @@ function FeverService.isActive(player: Player): boolean
 end
 
 -- 피버를 시작한다. 끝나면 onFinish(보너스 개수)를 부른다 (플레이어가 나가도 그때까지 센 탭으로 부른다)
-function FeverService.start(player: Player, rock: Model, onFinish: (bonus: number) -> ())
+function FeverService.start(player: Player, rock: Model, onFinish: (multiplier: number) -> ())
 	local fever = Config.Fever
 	local startTime = Workspace:GetServerTimeNow()
 	local tapStart = startTime + fever.FreezeDuration + fever.OrbitDuration + fever.TitleDuration
@@ -110,7 +110,7 @@ function FeverService.start(player: Player, rock: Model, onFinish: (bonus: numbe
 
 	-- 연타 구간이 끝나고 지연 허용치만큼 기다린 뒤 결과를 낸다
 	task.delay(tapEnd + fever.TapLatencyTolerance - startTime, function()
-		local bonus = bonusFor(session.Taps)
+		local multiplier = multiplierFor(session.Taps)
 		if sessions[player] == session then
 			sessions[player] = nil
 		end
@@ -118,12 +118,12 @@ function FeverService.start(player: Player, rock: Model, onFinish: (bonus: numbe
 			session.ForceField:Destroy()
 		end
 		if player.Parent then
-			Remotes.get(Remotes.Names.FeverResult):FireClient(player, rock, bonus, session.Taps)
+			Remotes.get(Remotes.Names.FeverResult):FireClient(player, rock, multiplier, session.Taps)
 		end
-		print(`[FeverService] {player.Name} 피버 종료: 탭 {session.Taps}회 → +{bonus}개`)
+		print(`[FeverService] {player.Name} 피버 종료: 탭 {session.Taps}회 → x{multiplier}`)
 		-- 폭발 연출 시간을 준 뒤 바위를 깨뜨린다
 		task.wait(fever.BurstDuration)
-		onFinish(bonus)
+		onFinish(multiplier)
 	end)
 end
 

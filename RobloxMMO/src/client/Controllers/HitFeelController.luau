@@ -775,8 +775,8 @@ local function onHitEffect(
 	end
 end
 
--- 서버의 RockBroken: 바위가 깨졌다 (rewards는 UserId 문자열 → 개수, feverBonus는 피버 보너스 개수)
-local function onRockBroken(position: Vector3, oreType: string, rewards: { [string]: number }, feverBonus: number)
+-- 서버의 RockBroken: 바위가 깨졌다 (rewards는 UserId 문자열 → 개수, feverMultiplier는 피버 배수, 피버가 아니면 1)
+local function onRockBroken(position: Vector3, oreType: string, rewards: { [string]: number }, feverMultiplier: number)
 	local color = oreColor(oreType)
 	local def = OreDefs[oreType]
 	local treeDef = if def and def.Kind == "Tree" then def else nil
@@ -808,7 +808,7 @@ local function onRockBroken(position: Vector3, oreType: string, rewards: { [stri
 			PickupFeed.show(oreType, amount)
 		end)
 		local def = OreDefs[oreType]
-		RockHUD.showReward(burstPosition, amount, if def then def.DisplayName else oreType, feverBonus)
+		RockHUD.showReward(burstPosition, amount, if def then def.DisplayName else oreType, feverMultiplier)
 	end
 end
 

@@ -22,6 +22,7 @@ local MobService = require(script.Parent.MobService)
 local MobDefs = require(ReplicatedStorage.Shared.MobDefs)
 local NotifyService = require(script.Parent.NotifyService)
 local NpcService = require(script.Parent.NpcService)
+local OwnershipService = require(script.Parent.OwnershipService)
 local PickaxeService = require(script.Parent.PickaxeService)
 
 local SHOP_ID = "Hunter"
@@ -58,6 +59,11 @@ local function onAttack(player: Player, mobArg: unknown)
 	end
 	local state = MobService.getState(mob)
 	if not state or FeverService.isActive(player) then
+		return
+	end
+	-- 다른 사람이 사냥 중인 몹은 못 친다
+	if not OwnershipService.canHit(state, player) then
+		OwnershipService.notifyBlocked(player, "다른 사람이 사냥 중인 몹이에요.")
 		return
 	end
 

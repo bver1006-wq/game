@@ -18,6 +18,7 @@ local HitFeelController = require(script.Parent.HitFeelController)
 local PickupFeed = require(script.Parent.PickupFeed)
 local RockHUD = require(script.Parent.RockHUD)
 local SwingAnimation = require(script.Parent.SwingAnimation)
+local TargetController = require(script.Parent.TargetController)
 
 local MOB_TAG = "Mob"
 local WEAPON_KINDS: { [string]: boolean } = { Sword = true, Bow = true, Club = true }
@@ -44,7 +45,7 @@ local function mobDef(mob: Instance): MobDefs.MobDef?
 	return if typeof(mobType) == "string" then MobDefs[mobType] else nil
 end
 
--- 사거리 안에서 가장 가까운 살아 있는 몹
+-- 사거리 안에서 가장 가까운 살아 있는 몹 (남이 사냥 중인 몹은 뺀다)
 local function nearestMob(range: number): Model?
 	local character = localPlayer.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -55,7 +56,7 @@ local function nearestMob(range: number): Model?
 	local bestDistance = math.huge
 	for _, mob in CollectionService:GetTagged(MOB_TAG) do
 		local hp = mob:GetAttribute("Hp")
-		if mob:IsA("Model") and mob:IsDescendantOf(Workspace) and typeof(hp) == "number" and hp > 0 then
+		if mob:IsA("Model") and mob:IsDescendantOf(Workspace) and typeof(hp) == "number" and hp > 0 and not TargetController.isOthers(mob) then
 			local size = mob:GetExtentsSize()
 			local flat = (mob:GetPivot().Position - root.Position) * Vector3.new(1, 0, 1)
 			local distance = flat.Magnitude - math.max(size.X, size.Z) / 2
@@ -82,7 +83,7 @@ local function bowTarget(range: number): Model?
 	local bestScore = math.huge
 	for _, mob in CollectionService:GetTagged(MOB_TAG) do
 		local hp = mob:GetAttribute("Hp")
-		if mob:IsA("Model") and mob:IsDescendantOf(Workspace) and typeof(hp) == "number" and hp > 0 then
+		if mob:IsA("Model") and mob:IsDescendantOf(Workspace) and typeof(hp) == "number" and hp > 0 and not TargetController.isOthers(mob) then
 			local flat = (mob:GetPivot().Position - root.Position) * Vector3.new(1, 0, 1)
 			local distance = flat.Magnitude
 			if distance <= range and distance > 0.1 then
@@ -182,7 +183,7 @@ function CombatController.attack(def: PickaxeDefs.PickaxeDef, charge: number, he
 		end
 		-- 추가 차징(마나)까지 다 모았으면 가장 밝은 화살
 		local over = (held or 0) >= chargeConfig.Time + chargeConfig.BowOverTime
-		HitFeelController.playSound(Config.Sounds.BowShoot, from, if charge >= 1 then 1.8 else 2.2, if charge >= 1 then 0.8 else 0.5)
+		HitFeelController.playSound(Config.Sounds.BowShoot, from, if charge >= 1 then 0.9 else 1.15, if charge >= 1 then 0.9 else 0.6) -- "휘익"
 		shootArrow(from, to, if over then 4 elseif charge >= 1 then math.max(def.Tier, 3) else def.Tier, function() end) -- 내 화살은 바로 보여 준다 (서버 연출에서는 다시 그리지 않는다)
 		return mob ~= nil
 	end
@@ -323,7 +324,7 @@ local function playImpact(mob: Model?, damage: number, isCrit: boolean, kind: st
 	elseif kind == "Club" then
 		HitFeelController.playSound(Config.Sounds.ClubHit, hitPosition, pitch * 0.75, 0.8)
 	else
-		HitFeelController.playSound(Config.Sounds.ArrowHit, hitPosition, pitch * 1.3, 0.6)
+		HitFeelController.playSound(Config.Sounds.ArrowHit, hitPosition, pitch * 1.1, 0.9) -- "퍽!"
 	end
 
 	-- 다 모은 강타: 큰 충격파와 흔들림
