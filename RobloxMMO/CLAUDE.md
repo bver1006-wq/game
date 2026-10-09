@@ -264,7 +264,7 @@ src/
   - 곡괭이·도끼 가격에 손잡이용 통나무가 들어간다 (Config.Pickaxes)
   - 나무 모델 기준점(Pivot)은 줄기 밑동 가운데. 줄기 반지름 = OreDefs.HitRadius, 타격 높이 = HitHeight
   - 연출: "퍽" 소리(Sounds.WoodChop), 나뭇조각·떨어지는 잎(OreDefs.LeafColor), 덜 흔들림. 잔상은 줄기 둘레 고리가 줄어든다. 다 베면 Sounds.TreeBreak와 함께 친 사람 반대쪽으로 쓰러진다(클라 복제본). 체력바·말풍선은 타격 높이 위 (Config.HitFeel.Tree)
-  - Studio 제작: `studio/BuildTreesAndAxes.luau`를 명령 줄에 붙여 실행하면 도끼 Tool(같은 티어 곡괭이 손잡이 재사용)·나무 템플릿 5종x3모양·아이콘·스폰 자리를 만든다. 다시 실행하면 새로 만든다
+  - Studio 제작: Rojo가 `studio/`를 ServerStorage/StudioTools로 넣는다. 명령 모음에서 `require(game.ServerStorage.StudioTools.BuildTreesAndAxes:Clone())` 실행하면 도끼 Tool(같은 티어 곡괭이 손잡이 재사용)·나무 템플릿 5종x3모양·아이콘·스폰 자리를 만든다. 다시 실행하면 새로 만든다
 - [ ] 저장(DataService), 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)

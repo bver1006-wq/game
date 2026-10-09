@@ -1,6 +1,8 @@
 --!nocheck
--- Studio 명령 줄(보기 → 명령 줄)에 통째로 붙여 넣고 Enter로 실행하는 제작 스크립트.
--- 게임 코드가 아니다 (Rojo가 동기화하지 않는다). 다시 실행하면 전에 만든 것을 지우고 새로 만든다.
+-- Studio 제작 스크립트. Rojo가 ServerStorage/StudioTools/BuildTreesAndAxes(ModuleScript)로 넣어 준다.
+-- 게임 중에는 아무도 require하지 않으므로 실행되지 않는다. 편집 상태에서 명령 모음에 아래 한 줄을 넣고 Enter:
+--   require(game.ServerStorage.StudioTools.BuildTreesAndAxes:Clone())
+-- (:Clone()을 붙여야 두 번째부터도 다시 실행된다.) 다시 실행하면 전에 만든 것을 지우고 새로 만든다.
 --
 -- 만드는 것
 --   1. 도끼 Tool 4종  → ServerStorage/Templates/Pickaxes/{StoneAxe, CopperAxe, IronAxe, DiamondAxe}
@@ -623,3 +625,5 @@ if recording then
 	ChangeHistoryService:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
 end
 print("[BuildTreesAndAxes] 끝. Ctrl+Z로 한 번에 되돌릴 수 있어요.")
+
+return true
