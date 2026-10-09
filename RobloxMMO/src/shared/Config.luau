@@ -277,6 +277,13 @@ Config.HitFeel = {
 		FadeTime = 0.5, -- 쓰러진 뒤 사라지는 시간(초)
 		GhostRingHeight = 1.6, -- 타이밍 잔상 고리 높이(스터드). 나무는 줄기 둘레에 고리가 줄어든다
 	},
+	-- 도끼(나무) 타격 연출. 곡괭이 표와 같은 항목 + Sparks: 튀는 불꽃 수, Slash: 베는 빛줄기, Leaves: 떨어지는 잎 배수
+	AxeTierEffects = {
+		[1] = { Color = Color3.fromRGB(200, 170, 120), Chunks = 2, Ring = 2.5, Shake = 1.05, Sparkle = false, Sparks = 0, Slash = false, Leaves = 1 },
+		[2] = { Color = Color3.fromRGB(255, 150, 70), Chunks = 5, Ring = 4, Shake = 1.3, Sparkle = false, Sparks = 12, Slash = false, Leaves = 1.6 },
+		[3] = { Color = Color3.fromRGB(230, 235, 255), Chunks = 8, Ring = 5.5, Shake = 1.55, Sparkle = false, Sparks = 18, Slash = true, Leaves = 2.2 },
+		[4] = { Color = Color3.fromRGB(110, 235, 255), Chunks = 12, Ring = 8, Shake = 1.9, Sparkle = true, Sparks = 26, Slash = true, Leaves = 3 },
+	},
 	TierEffects = {
 		[2] = { Color = Color3.fromRGB(235, 140, 70), Chunks = 3, Ring = 3.5, Shake = 1.2, Sparkle = false },
 		[3] = { Color = Color3.fromRGB(225, 230, 240), Chunks = 6, Ring = 5, Shake = 1.45, Sparkle = false },
