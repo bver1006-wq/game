@@ -546,6 +546,18 @@ end
 -- 다른 연출(전투)에서도 쓰도록 공개한다
 HitFeelController.tierImpact = tierImpact
 
+-- 다 모은 강타가 맞았을 때: 큰 흰 충격파·불꽃·반짝이와 큰 화면 흔들림
+function HitFeelController.chargedImpact(target: Model?, hitPosition: Vector3, isMine: boolean)
+	local impact = Config.Charge.Impact
+	tierImpact(target, hitPosition, impact.Color, 1, "Perfect", Enum.Material.Neon, { [1] = impact })
+	HitFeelController.emitDebris(hitPosition, impact.Color, 25, 1.8)
+	HitFeelController.playSound(Config.Sounds.FeverBurst, hitPosition, 1.4, 0.5)
+	if isMine then
+		local shake = Config.HitFeel.CameraShake
+		HitFeelController.cameraShake(shake.Magnitude * impact.Shake, shake.Duration * 1.6)
+	end
+end
+
 -- 서버의 HitEffect: 근처 누군가가 바위를 쳤다
 local function onHitEffect(
 	rock: Model?,
@@ -560,6 +572,8 @@ local function onHitEffect(
 	local isMine = attackerUserId == localPlayer.UserId
 	if special == "Lightning" then
 		playLightning(hitPosition, isMine)
+	elseif special == "Charged" then
+		HitFeelController.chargedImpact(rock, hitPosition, isMine)
 	end
 	local def = if rock then TargetController.getDef(rock) else nil
 	local isTree = def ~= nil and def.Kind == "Tree"

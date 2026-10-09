@@ -102,7 +102,7 @@ Config.Pickaxes = {
 -- 마나: 스킬·차징 스매시·달리기에 쓴다 (스킬·차징은 나중에). 플레이어 속성 Mana·MaxMana·Sprinting
 Config.Mana = {
 	Max = 100,
-	Regen = 5, -- 1초에 차는 양 (달리는 중이 아닐 때)
+	Regen = 2.5, -- 1초에 차는 양 (달리는 중이 아닐 때). 2026-10-09 절반으로 (천천히 참)
 	RegenDelay = 1.5, -- 마나를 쓴 뒤 이만큼 지나야 다시 찬다(초)
 }
 
@@ -110,8 +110,28 @@ Config.Mana = {
 Config.Movement = {
 	WalkSpeed = 16, -- 평소 속도 (Roblox 기본)
 	SprintSpeed = 26, -- 달리기 속도
-	SprintManaPerSecond = 8, -- 달리는 동안 1초에 쓰는 마나
+	SprintManaPerSecond = 4, -- 달리는 동안 1초에 쓰는 마나. 2026-10-09 절반으로 (천천히 닳음)
 	MovingThreshold = 2, -- 이 속도(스터드/초)보다 빠르면 움직이는 중으로 본다
+}
+
+-- 차징: 모든 도구·무기는 누르고 있으면 모았다가 놓을 때 휘두른다
+-- 활: 짧게 누르면 사거리·데미지가 줄고(BowTap*), 다 모으면 원래 사거리·데미지. 게이지가 보인다
+-- 나머지(곡괭이·도끼·칼·방망이): 휘두르기 직전 자세로 멈추고 도구에 빛이 점점 커진다. 다 모으면 마나를 써서 강타(Multiplier배)
+-- 모으는 동안은 달리기 모드여도 WalkSpeed로 천천히 걷는다
+Config.Charge = {
+	Time = 1.0, -- 다 모으는 데 걸리는 시간(초)
+	TapThreshold = 0.2, -- 이보다 짧게 누르면 그냥 한 번 휘두르기(초)
+	WalkSpeed = 8, -- 모으는 동안 걷는 속도
+	Multiplier = 1.8, -- 다 모은 강타 데미지 배수 (활 제외)
+	ManaCost = 10, -- 강타에 쓰는 마나. 모자라면 보통 타격
+	BowTapDamage = 0.5, -- 활을 짧게 쏘면 데미지 배수
+	BowTapRange = 0.6, -- 활을 짧게 쏘면 사거리 배수
+	HoldPose = 0.18, -- 휘두르기 애니메이션의 이 지점(0~1)에서 멈춰 자세를 잡는다
+	GlowColor = Color3.fromRGB(255, 235, 170), -- 모을 때 도구 빛
+	FullColor = Color3.fromRGB(255, 255, 255), -- 다 모였을 때 선명한 테두리
+	MaxHold = 6, -- 서버: 이보다 오래 누른 기록은 무시(초)
+	-- 강타가 맞았을 때 연출 (도끼 표와 같은 항목)
+	Impact = { Color = Color3.fromRGB(255, 245, 210), Chunks = 8, Ring = 8, Shake = 2.2, Sparkle = true, Sparks = 24, Slash = true },
 }
 
 -- 음식: 먹으면 체력(Hp)·마나(Mana)를 채운다. 나중에 요리로 만든다 (지금은 상인 잡화에서 판다)

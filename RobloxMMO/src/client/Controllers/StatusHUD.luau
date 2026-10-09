@@ -1,5 +1,5 @@
 --!strict
--- 체력·마나 바(하단 빠른 칸 바로 위, 항상 보임)와 달리기 모드 버튼(오른쪽).
+-- 체력·마나 바(오른쪽 위, 항상 보임. 체력 아래 마나)와 달리기 모드 버튼(오른쪽).
 -- 체력은 캐릭터 Humanoid, 마나·달리기는 서버가 정한 플레이어 속성(Mana·MaxMana·Sprinting)을 보여 준다.
 -- 버튼은 서버에 "달리기 켜기/끄기"만 보낸다 (SetSprint).
 
@@ -12,9 +12,9 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local UiKit = require(script.Parent.UiKit)
 
-local BAR_WIDTH = 320
-local BAR_HEIGHT = 18
-local HOTBAR_HEIGHT = 64 + 8 + 12 -- 빠른 칸 높이 + 여백 (HotbarController와 맞춘다)
+local BAR_WIDTH = 240
+local BAR_HEIGHT = 20
+local TOP = 120 -- 오른쪽 위, Roblox 리더보드 아래 (골드 표시는 그 아래로 내렸다)
 
 local HP_COLOR = Color3.fromRGB(225, 70, 70)
 local MANA_COLOR = Color3.fromRGB(70, 130, 240)
@@ -26,11 +26,11 @@ local StatusHUD = {}
 
 type Bar = { Fill: Frame, Label: TextLabel }
 
--- 바 하나 (배경 + 채움 + 가운데 글자)
+-- 바 하나 (배경 + 채움 + 가운데 글자). 오른쪽 위에서 y만큼 아래
 local function makeBar(parent: Instance, y: number, color: Color3): Bar
 	local back = Instance.new("Frame")
-	back.AnchorPoint = Vector2.new(0.5, 1)
-	back.Position = UDim2.new(0.5, 0, 1, -y)
+	back.AnchorPoint = Vector2.new(1, 0)
+	back.Position = UDim2.new(1, -16, 0, y)
 	back.Size = UDim2.fromOffset(BAR_WIDTH, BAR_HEIGHT)
 	back.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 	back.BackgroundTransparency = 0.2
@@ -44,6 +44,10 @@ local function makeBar(parent: Instance, y: number, color: Color3): Bar
 	fill.BorderSizePixel = 0
 	fill.Parent = back
 	UiKit.corner(fill, 9)
+	local gradient = Instance.new("UIGradient") -- 위는 밝게, 아래는 어둡게
+	gradient.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.fromRGB(170, 170, 170))
+	gradient.Rotation = 90
+	gradient.Parent = fill
 	local label = Instance.new("TextLabel")
 	label.Size = UDim2.fromScale(1, 1)
 	label.BackgroundTransparency = 1
@@ -89,9 +93,9 @@ function StatusHUD.init()
 	gui.DisplayOrder = 14
 	gui.Parent = localPlayer:WaitForChild("PlayerGui")
 
-	-- 위: 체력, 아래: 마나 (마나 바로 아래가 빠른 칸)
-	local manaBar = makeBar(gui, HOTBAR_HEIGHT + 4, MANA_COLOR)
-	local hpBar = makeBar(gui, HOTBAR_HEIGHT + 4 + BAR_HEIGHT + 4, HP_COLOR)
+	-- 위: 체력, 아래: 마나
+	local hpBar = makeBar(gui, TOP, HP_COLOR)
+	local manaBar = makeBar(gui, TOP + BAR_HEIGHT + 4, MANA_COLOR)
 
 	-- 달리기 버튼 (오른쪽 가운데)
 	local sprintButton = Instance.new("TextButton")

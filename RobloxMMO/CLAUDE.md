@@ -291,10 +291,15 @@ src/
     - 모양은 제작 스크립트가 돌 곡괭이 Tool의 쥐는 각도를 그대로 쓰고 부품으로 짓는다. 연출: 맞으면 하얗게 번쩍, 데미지 숫자(치명타 노랑), 티어별 불꽃·빛줄기(Config.Combat.TierEffects), 활은 화살이 날아간다
   - 활은 화살 없이 언제든 쏜다 (몹이 없으면 앞으로). 화면 가운데 BowAimAngle 안의 몹을 먼저 노린다. 치명타면 몹이 짧게 불탄다(CritBurnTime)
   - 무기를 들고 있으면 바위·나무 체력바는 띄우지 않는다
-- [x] 체력·마나 (2026-10-09): 하단 빠른 칸 위에 체력바, 그 아래 마나바 (항상 보임, Roblox 기본 체력바는 끔. StatusHUD)
+- [x] 체력·마나 (2026-10-09): 오른쪽 위(리더보드 아래)에 체력바, 그 아래 마나바, 그 아래 골드 (항상 보임, Roblox 기본 체력바는 끔. StatusHUD)
   - 마나: 플레이어 속성 Mana·MaxMana, 서버 ManaService. 스킬·차징 스매시(예정)·달리기에 쓴다. 안 쓰면 RegenDelay 뒤 Regen/초로 참
   - 달리기 모드: 오른쪽 "달리기 ON/OFF" 버튼 (속성 Sprinting). 움직이는 동안 SprintManaPerSecond씩 줄고, 바닥나면 자동으로 꺼진다 (Config.Movement)
   - 음식(빵·마나 베리·모험가 도시락)으로 체력·마나 회복 (Config.Foods, ItemUseService). 지금은 상인 잡화에서 판다. 나중에 요리 기능으로 만든다
+- [x] 차징 (2026-10-09): 모든 도구·무기는 누르고 있으면 모으고 놓을 때 휘두른다 (Config.Charge)
+  - 서버 ChargeService가 ChargeStart ~ 휘두르기·공격 요청 사이 시간으로 모은 정도를 정한다. 요청을 안 보내게 되면 클라가 ChargeCancel
+  - 모으는 동안 속성 Charging → 달리기 모드여도 Charge.WalkSpeed로 천천히 걷는다 (ManaService)
+  - 활: 짧게 쏘면 사거리 BowTapRange·데미지 BowTapDamage배, 다 모으면 원래 값. 화면 아래 게이지 (ChargeController)
+  - 나머지: 휘두르기 직전 자세로 멈추고(SwingAnimation.hold) 도구 빛이 깜빡이며 커지다가, 다 모이면 깜빡임이 멈추고 선명한 테두리. 다 모은 강타는 마나 ManaCost를 써서 Multiplier배 (바위·나무도). HitEffect special "Charged" / CombatEffect charged
   - TODO: 칼·활·방망이 전용 소리 (지금은 있는 소리 음높이만 바꿈), 몹 애니메이션, 방어구
 - [ ] 저장(DataService), 트로피, 모루 미니게임, 매크로 방어
 

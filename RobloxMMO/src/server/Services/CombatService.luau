@@ -10,8 +10,10 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
+local ChargeService = require(script.Parent.ChargeService)
 local CraftingService = require(script.Parent.CraftingService)
 local FeverService = require(script.Parent.FeverService)
+local ManaService = require(script.Parent.ManaService)
 local MobService = require(script.Parent.MobService)
 local NotifyService = require(script.Parent.NotifyService)
 local NpcService = require(script.Parent.NpcService)
@@ -39,6 +41,8 @@ end
 
 -- AttackRequest 처리. 인자는 전부 의심하고 검사한다
 local function onAttack(player: Player, mobArg: unknown)
+	-- 모은 정도는 요청이 오면 무조건 꺼낸다 (거절돼도 느린 걸음이 남지 않게)
+	local charge = ChargeService.consume(player)
 	if typeof(mobArg) ~= "Instance" or not (mobArg :: Instance):IsA("Model") then
 		return
 	end
@@ -67,6 +71,17 @@ local function onAttack(player: Player, mobArg: unknown)
 		return
 	end
 
+	-- 모은 정도: 활은 짧게 쏘면 사거리·데미지가 줄고, 나머지는 다 모으면 마나를 써서 강타
+	local chargeConfig = Config.Charge
+	local range = config.Range
+	local chargeMultiplier = 1
+	local charged = false
+	if weapon.Kind == "Bow" then
+		range *= chargeConfig.BowTapRange + (1 - chargeConfig.BowTapRange) * charge
+		chargeMultiplier = chargeConfig.BowTapDamage + (1 - chargeConfig.BowTapDamage) * charge
+		charged = charge >= 1
+	end
+
 	-- 거리 (몹 몸 크기만큼 봐준다)
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -74,14 +89,18 @@ local function onAttack(player: Player, mobArg: unknown)
 		return
 	end
 	local flat = (state.Position - root.Position) * Vector3.new(1, 0, 1)
-	if flat.Magnitude > config.Range + state.Radius + Config.Combat.RangeTolerance then
+	if flat.Magnitude > range + state.Radius + Config.Combat.RangeTolerance then
 		return
 	end
 	lastAttack[player] = now
+	if weapon.Kind ~= "Bow" and charge >= 1 and ManaService.spend(player, chargeConfig.ManaCost) then
+		chargeMultiplier = chargeConfig.Multiplier
+		charged = true
+	end
 
 	-- 데미지: 기본 × (1 ± 흔들림), 치명타면 배수
 	local combat = Config.Combat
-	local damage = config.Damage * (1 + random:NextNumber(-combat.DamageSpread, combat.DamageSpread))
+	local damage = config.Damage * chargeMultiplier * (1 + random:NextNumber(-combat.DamageSpread, combat.DamageSpread))
 	local isCrit = random:NextNumber() < combat.CritChance
 	if isCrit then
 		damage *= combat.CritMultiplier
@@ -91,7 +110,7 @@ local function onAttack(player: Player, mobArg: unknown)
 	local direction = if flat.Magnitude > 0.01 then flat.Unit else Vector3.zAxis
 	local hitPosition = state.Position + Vector3.new(0, state.Height * 0.5, 0) - direction * state.Radius * 0.6
 	local fromPosition = root.Position + Vector3.new(0, 1, 0)
-	fireNearby(state.Position, mob, damage, isCrit, weapon.Kind, weapon.Tier, player.UserId, fromPosition, hitPosition)
+	fireNearby(state.Position, mob, damage, isCrit, weapon.Kind, weapon.Tier, player.UserId, fromPosition, hitPosition, charged)
 	MobService.damage(mob, player, damage, direction, config.Knockback)
 end
 

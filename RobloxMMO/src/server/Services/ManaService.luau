@@ -73,10 +73,12 @@ local function step(dt: number)
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if humanoid and root and root:IsA("BasePart") and humanoid.Health > 0 then
-			local sprinting = player:GetAttribute("Sprinting") == true
+			-- 모으는(차징) 중에는 달리기 모드여도 천천히 걷고 마나도 쓰지 않는다
+			local charging = player:GetAttribute("Charging") == true
+			local sprinting = player:GetAttribute("Sprinting") == true and not charging
 			local velocity = root.AssemblyLinearVelocity * Vector3.new(1, 0, 1)
 			local moving = velocity.Magnitude > movement.MovingThreshold
-			local speed = if sprinting then movement.SprintSpeed else movement.WalkSpeed
+			local speed = if charging then Config.Charge.WalkSpeed elseif sprinting then movement.SprintSpeed else movement.WalkSpeed
 			if humanoid.WalkSpeed ~= speed then
 				humanoid.WalkSpeed = speed
 			end

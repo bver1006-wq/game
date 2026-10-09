@@ -144,24 +144,28 @@ local function shootArrow(from: Vector3, to: Vector3, tier: number, onArrive: ()
 	end)
 end
 
--- 무기로 한 번 공격한다 (InputController가 부른다). 쿨다운은 서버와 같은 값으로 로컬에서도 막는다
-function CombatController.attack(def: PickaxeDefs.PickaxeDef)
+-- 무기로 한 번 공격한다 (InputController가 놓는 순간 부른다). charge: 모은 정도 0~1
+-- 쿨다운은 서버와 같은 값으로 로컬에서도 막는다. 서버에 요청을 보냈으면 true
+function CombatController.attack(def: PickaxeDefs.PickaxeDef, charge: number): boolean
 	local config = Config.Weapons[def.Id]
 	if not config then
-		return
+		return false
 	end
 	local now = os.clock()
 	if now - lastAttackClock < config.Cooldown then
-		return
+		SwingAnimation.cancelHold()
+		return false
 	end
 	lastAttackClock = now
 	if def.Kind == "Bow" then
-		-- 활: 화살 없이 언제든 쏜다. 몹이 사거리 안에 있으면 그쪽으로, 없으면 앞으로 날아간다
-		local mob = bowTarget(config.Range)
+		-- 활: 화살 없이 언제든 쏜다. 짧게 쏘면 사거리가 짧고, 다 모으면 원래 사거리
+		local chargeConfig = Config.Charge
+		local range = config.Range * (chargeConfig.BowTapRange + (1 - chargeConfig.BowTapRange) * charge)
+		local mob = bowTarget(range)
 		local character = localPlayer.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if not root or not root:IsA("BasePart") then
-			return
+			return false
 		end
 		local from = root.Position + Vector3.new(0, 1, 0)
 		local to: Vector3
@@ -174,11 +178,11 @@ function CombatController.attack(def: PickaxeDefs.PickaxeDef)
 			local look = (if camera then camera.CFrame.LookVector else root.CFrame.LookVector) * Vector3.new(1, 0, 1)
 			look = if look.Magnitude > 0.01 then look.Unit else root.CFrame.LookVector
 			face(root.Position + look)
-			to = from + look * config.Range
+			to = from + look * range
 		end
-		HitFeelController.playSound(Config.Sounds.BowShoot, from, 2.2, 0.5)
-		shootArrow(from, to, def.Tier, function() end) -- 내 화살은 바로 보여 준다 (서버 연출에서는 다시 그리지 않는다)
-		return
+		HitFeelController.playSound(Config.Sounds.BowShoot, from, if charge >= 1 then 1.8 else 2.2, if charge >= 1 then 0.8 else 0.5)
+		shootArrow(from, to, if charge >= 1 then math.max(def.Tier, 3) else def.Tier, function() end) -- 내 화살은 바로 보여 준다 (서버 연출에서는 다시 그리지 않는다)
+		return mob ~= nil
 	end
 	local mob = nearestMob(config.Range)
 	if mob then
@@ -187,7 +191,9 @@ function CombatController.attack(def: PickaxeDefs.PickaxeDef)
 	SwingAnimation.play()
 	if mob then
 		attackRemote:FireServer(mob)
+		return true
 	end
+	return false
 end
 
 -- 위치에 잠깐 떠올랐다 사라지는 숫자
@@ -297,7 +303,7 @@ local function burn(mob: Model)
 end
 
 -- 맞은 순간 연출 (활은 화살이 도착한 뒤에 부른다)
-local function playImpact(mob: Model?, damage: number, isCrit: boolean, kind: string, tier: number, isMine: boolean, hitPosition: Vector3)
+local function playImpact(mob: Model?, damage: number, isCrit: boolean, kind: string, tier: number, isMine: boolean, hitPosition: Vector3, charged: boolean?)
 	local def = if mob then mobDef(mob) else nil
 	local color = if def then def.Color else Color3.new(1, 1, 1)
 	if mob then
@@ -318,6 +324,10 @@ local function playImpact(mob: Model?, damage: number, isCrit: boolean, kind: st
 		HitFeelController.playSound(Config.Sounds.ArrowHit, hitPosition, pitch * 1.3, 0.6)
 	end
 
+	-- 다 모은 강타: 큰 충격파와 흔들림
+	if charged then
+		HitFeelController.chargedImpact(mob, hitPosition, isMine)
+	end
 	if isCrit then
 		popNumber(hitPosition, `{damage}!`, Color3.fromRGB(255, 150, 40), 1.4)
 	else
@@ -334,21 +344,21 @@ local function playImpact(mob: Model?, damage: number, isCrit: boolean, kind: st
 end
 
 -- 서버의 CombatEffect: 누군가 몹을 때렸다
-local function onCombatEffect(mob: Model?, damage: number, isCrit: boolean, kind: string, tier: number, attackerUserId: number, from: Vector3, hitPosition: Vector3)
+local function onCombatEffect(mob: Model?, damage: number, isCrit: boolean, kind: string, tier: number, attackerUserId: number, from: Vector3, hitPosition: Vector3, charged: boolean?)
 	local isMine = attackerUserId == localPlayer.UserId
 	if kind == "Bow" then
 		if isMine then
 			-- 내 화살은 쏠 때 이미 그렸다. 도착할 즈음 맞은 연출만
 			task.delay(math.max((hitPosition - from).Magnitude / Config.Combat.ArrowSpeed - 0.05, 0), function()
-				playImpact(mob, damage, isCrit, kind, tier, isMine, hitPosition)
+				playImpact(mob, damage, isCrit, kind, tier, isMine, hitPosition, charged)
 			end)
 		else
 			shootArrow(from, hitPosition, tier, function()
-				playImpact(mob, damage, isCrit, kind, tier, isMine, hitPosition)
+				playImpact(mob, damage, isCrit, kind, tier, isMine, hitPosition, charged)
 			end)
 		end
 	else
-		playImpact(mob, damage, isCrit, kind, tier, isMine, hitPosition)
+		playImpact(mob, damage, isCrit, kind, tier, isMine, hitPosition, charged)
 	end
 end
 

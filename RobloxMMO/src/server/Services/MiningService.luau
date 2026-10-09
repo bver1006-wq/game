@@ -12,8 +12,10 @@ local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
 local AntiCheatService = require(script.Parent.AntiCheatService)
+local ChargeService = require(script.Parent.ChargeService)
 local FeverService = require(script.Parent.FeverService)
 local InventoryService = require(script.Parent.InventoryService)
+local ManaService = require(script.Parent.ManaService)
 local NotifyService = require(script.Parent.NotifyService)
 local OreService = require(script.Parent.OreService)
 local PickaxeService = require(script.Parent.PickaxeService)
@@ -112,6 +114,8 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 	end
 	local clientTime = clientTimeArg :: number
 	local isTouch = isTouchArg == true
+	-- 모은 정도는 요청이 오면 무조건 꺼낸다 (거절돼도 느린 걸음이 남지 않게)
+	local charge = ChargeService.consume(player)
 
 	local state = OreService.getState(rock)
 	if not state or state.Depleted then
@@ -156,6 +160,11 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 	-- 번개 (다이아몬드 도끼 등 LightningChance가 있는 도구로 나무를 칠 때): 남은 HP를 한 번에 깎는다
 	local toolConfig = Config.Pickaxes[pickaxe.Id]
 	local special: string? = nil
+	-- 다 모은 강타: 마나를 써서 데미지 배수 (마나가 모자라면 보통 타격)
+	if charge >= 1 and ManaService.spend(player, Config.Charge.ManaCost) then
+		special = "Charged"
+		damage *= Config.Charge.Multiplier
+	end
 	if oreDef.Kind == "Tree" and toolConfig and toolConfig.LightningChance and random:NextNumber() < toolConfig.LightningChance then
 		special = "Lightning"
 		damage = math.max(damage, state.Hp)
