@@ -31,6 +31,7 @@ export type RockState = {
 	Contributions: { [number]: number }, -- UserId → 누적 데미지 (보상 분배용)
 	Judgments: { [number]: JudgmentCounts }, -- UserId → Nice·Perfect 횟수
 	HitCount: number,
+	LastHit: number, -- 마지막으로 맞은 시각 (자연 회복용)
 	Weakpoint: Vector3?, -- 7단계(약점)부터 사용. 바위 기준 약점 방향
 }
 
@@ -138,6 +139,7 @@ local function spawnRock(spawnPart: BasePart): Model?
 		Contributions = {},
 		Judgments = {},
 		HitCount = 0,
+		LastHit = 0,
 		Weakpoint = nil,
 	}
 
@@ -208,6 +210,25 @@ function OreService.init()
 	end
 
 	print(`[OreService] 바위 {spawned}개 생성`)
+
+	-- 자연 회복: 한동안 안 맞은 바위·나무는 천천히 찬다
+	task.spawn(function()
+		local step = 0.5
+		while true do
+			task.wait(step)
+			local now = os.clock()
+			for rock, state in states do
+				if not state.Depleted and state.Hp < state.MaxHp and now - state.LastHit >= Config.Regen.Delay then
+					state.Hp = math.min(state.MaxHp, state.Hp + state.MaxHp * Config.Regen.NodePercentPerSecond * step)
+					rock:SetAttribute("Hp", math.floor(state.Hp * 10 + 0.5) / 10)
+					if state.Hp >= state.MaxHp then
+						state.Contributions = {} -- 다 찼으면 기여도도 처음부터
+						state.Judgments = {}
+					end
+				end
+			end
+		end
+	end)
 	for oreType, count in skipped do
 		-- MVP-0은 돌만 쓰므로 다른 종류는 정의·템플릿이 생길 때까지 건너뛴다
 		print(`[OreService] OreType={oreType} 스폰 {count}개 건너뜀 (OreDefs·Config·템플릿 중 없음)`)
@@ -235,6 +256,7 @@ function OreService.applyDamage(rock: Model, player: Player, damage: number): bo
 	local dealt = math.min(damage, state.Hp)
 	state.Hp -= dealt
 	state.HitCount += 1
+	state.LastHit = os.clock()
 	state.Contributions[player.UserId] = (state.Contributions[player.UserId] or 0) + dealt
 	rock:SetAttribute("Hp", state.Hp)
 

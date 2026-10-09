@@ -345,8 +345,27 @@ local function playImpact(mob: Model?, damage: number, isCrit: boolean, kind: st
 end
 
 -- 서버의 CombatEffect: 누군가 몹을 때렸다
-local function onCombatEffect(mob: Model?, damage: number, isCrit: boolean, kind: string, tier: number, attackerUserId: number, from: Vector3, hitPosition: Vector3, charged: boolean?)
+local function onCombatEffect(mob: Model?, damage: number, isCrit: boolean, kind: string, tier: number, attackerUserId: number, from: Vector3, hitPosition: Vector3, charged: boolean?, blocked: boolean?)
 	local isMine = attackerUserId == localPlayer.UserId
+	if blocked then
+		-- 무기가 너무 약해 흠집도 안 남: 둔한 소리 + "흠집도 안 나!" (활은 화살이 도착한 뒤)
+		local function bounce()
+			HitFeelController.playSound(Config.Sounds.SwordHit, hitPosition, 0.5, 0.4)
+			HitFeelController.emitDebris(hitPosition, Color3.fromRGB(190, 190, 190), 4, 0.6)
+			HitFeelController.popText(hitPosition, "흠집도 안 나!", Color3.fromRGB(200, 200, 210))
+			if isMine and kind ~= "Bow" then
+				SwingAnimation.freeze(0.1)
+			end
+		end
+		if kind == "Bow" and not isMine then
+			shootArrow(from, hitPosition, tier, bounce)
+		elseif kind == "Bow" then
+			task.delay((hitPosition - from).Magnitude / Config.Combat.ArrowSpeed, bounce)
+		else
+			bounce()
+		end
+		return
+	end
 	if kind == "Bow" then
 		if isMine then
 			-- 내 화살은 쏠 때 이미 그렸다. 도착할 즈음 맞은 연출만

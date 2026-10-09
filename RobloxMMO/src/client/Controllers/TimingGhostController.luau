@@ -172,10 +172,12 @@ local function onHitEffect(
 	_hitPosition: Vector3,
 	attackerUserId: number,
 	hitTime: number,
-	ghostDuration: number
+	ghostDuration: number,
+	_pickaxeTier: number?,
+	special: string?
 )
-	if attackerUserId ~= localPlayer.UserId then
-		return
+	if attackerUserId ~= localPlayer.UserId or special == "Blocked" then
+		return -- 장비가 모자라 튕겨 나온 타격은 잔상이 없다
 	end
 	clearGhost()
 	if not rock or not rock.Parent then

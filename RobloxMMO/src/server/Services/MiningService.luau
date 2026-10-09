@@ -99,6 +99,23 @@ local function finishRock(state: RockState, feverPlayer: Player?, feverBonus: nu
 	end
 end
 
+local lastWallNotice: { [Player]: number } = {}
+
+-- 타격 위치: 바위는 중심에서 캐릭터 쪽 표면 근처, 나무는 밑동(기준점) 위 HitHeight 높이의 줄기 표면
+local function hitPositionFor(state: RockState, oreDef: OreDefs.OreDef, rock: Model, player: Player): Vector3
+	local root = (player.Character :: Model):FindFirstChild("HumanoidRootPart") :: BasePart
+	local toPlayer = (root.Position - state.Position) * Vector3.new(1, 0, 1)
+	local direction = if toPlayer.Magnitude > 0.01 then toPlayer.Unit else Vector3.zAxis
+	if oreDef.Kind == "Tree" then
+		-- 줄기 반지름은 템플릿 속성 HitRadius(맵 나무에서 잰 값)가 우선
+		local radiusAttribute = rock:GetAttribute("HitRadius")
+		local radius = if typeof(radiusAttribute) == "number" then radiusAttribute else oreDef.HitRadius or 1
+		return state.Position + direction * radius + Vector3.new(0, oreDef.HitHeight or 2.5, 0)
+	end
+	local size = rock:GetExtentsSize()
+	return state.Position + direction * (math.max(size.X, size.Z) * 0.45) + Vector3.new(0, size.Y * 0.1, 0)
+end
+
 -- SwingRequest 처리. 인자는 전부 의심하고 검사한다
 local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: unknown, isTouchArg: unknown)
 	-- 인자 형식 검사
@@ -136,16 +153,22 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 		NotifyService.send(player, if neededKind == "Axe" then "나무는 도끼로 베어야 해요." else "바위는 곡괭이로 캐야 해요.", "bad")
 		return
 	end
-	if pickaxe.Tier < oreDef.RequiredTier then
-		NotifyService.send(player, `{oreDef.DisplayName}: {PickaxeService.nameFor(neededKind, oreDef.RequiredTier)} 이상이 필요해요.`, "bad")
-		return
-	end
-
 	-- 거리, 쿨다운 (쿨다운은 다른 검사를 통과한 뒤에 소모한다)
 	if not AntiCheatService.isInRange(player, state.Position) then
 		return
 	end
 	if not AntiCheatService.tryConsumeSwing(player) then
+		return
+	end
+
+	-- 장비 벽: 도구 단계가 모자라면 때릴 수는 있지만 체력이 안 닳는다 ("팅" 하고 튕겨 나온다)
+	if pickaxe.Tier < oreDef.RequiredTier then
+		local now = os.clock()
+		if now - (lastWallNotice[player] or -math.huge) >= Config.TierWall.NoticeInterval then
+			lastWallNotice[player] = now
+			NotifyService.send(player, `{oreDef.DisplayName}: 너무 단단해요! {PickaxeService.nameFor(neededKind, oreDef.RequiredTier)} 이상이 필요해요.`, "bad")
+		end
+		fireNearby(hitEffectRemote, state.Position, rock, "Normal", hitPositionFor(state, oreDef, rock, player), player.UserId, 0, 0, pickaxe.Tier, "Blocked")
 		return
 	end
 
@@ -171,20 +194,7 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 	end
 	local depleted = OreService.applyDamage(rock, player, damage)
 
-	-- 타격 위치: 바위는 중심에서 캐릭터 쪽 표면 근처, 나무는 밑동(기준점) 위 HitHeight 높이의 줄기 표면
-	local root = (player.Character :: Model):FindFirstChild("HumanoidRootPart") :: BasePart
-	local toPlayer = (root.Position - state.Position) * Vector3.new(1, 0, 1)
-	local direction = if toPlayer.Magnitude > 0.01 then toPlayer.Unit else Vector3.zAxis
-	local hitPosition: Vector3
-	if oreDef.Kind == "Tree" then
-		-- 줄기 반지름은 템플릿 속성 HitRadius(맵 나무에서 잰 값)가 우선
-		local radiusAttribute = rock:GetAttribute("HitRadius")
-		local radius = if typeof(radiusAttribute) == "number" then radiusAttribute else oreDef.HitRadius or 1
-		hitPosition = state.Position + direction * radius + Vector3.new(0, oreDef.HitHeight or 2.5, 0)
-	else
-		local size = rock:GetExtentsSize()
-		hitPosition = state.Position + direction * (math.max(size.X, size.Z) * 0.45) + Vector3.new(0, size.Y * 0.1, 0)
-	end
+	local hitPosition = hitPositionFor(state, oreDef, rock, player)
 
 	fireNearby(hitEffectRemote, state.Position, rock, judgment, hitPosition, player.UserId, swingTime, ghostDuration, pickaxe.Tier, special)
 
