@@ -5,6 +5,7 @@
 -- 광석·통나무 아이템 Id는 OreDefs의 Id와, 곡괭이·도끼 아이템 Id는 PickaxeDefs의 Id와 같다.
 
 local EquipmentDefs = require(script.Parent.EquipmentDefs)
+local PickaxeDefs = require(script.Parent.PickaxeDefs)
 
 -- 가방 분류 탭: 무기 / 방어구 / 도구 / 기타
 export type Category = "Weapon" | "Armor" | "Tool" | "Etc"
@@ -25,10 +26,16 @@ local ItemDefs: { [string]: ItemDef } = {
 	Coal = { Id = "Coal", DisplayName = "석탄", Category = "Etc", Stackable = true, Icon = "Coal", Color = Color3.fromRGB(45, 45, 50) },
 	CopperOre = { Id = "CopperOre", DisplayName = "구리", Category = "Etc", Stackable = true, Icon = "CopperOre", Color = Color3.fromRGB(205, 120, 70) },
 	IronOre = { Id = "IronOre", DisplayName = "철", Category = "Etc", Stackable = true, Icon = "IronOre", Color = Color3.fromRGB(175, 160, 150) },
+	-- 광산 3층 광석 (2026-10-09). 아이콘은 studio/BuildMineFloor3가 철 아이콘을 복제해 색을 바꿔 만든다
+	Mithril = { Id = "Mithril", DisplayName = "미스릴", Category = "Etc", Stackable = true, Icon = "Mithril", Color = Color3.fromRGB(150, 200, 245) },
+	Orichalcum = { Id = "Orichalcum", DisplayName = "오리하르콘", Category = "Etc", Stackable = true, Icon = "Orichalcum", Color = Color3.fromRGB(255, 195, 70) },
 	-- 기타: 괴
 	CopperIngot = { Id = "CopperIngot", DisplayName = "구리괴", Category = "Etc", Stackable = true, Icon = "CopperIngot", Color = Color3.fromRGB(230, 140, 80) },
 	IronIngot = { Id = "IronIngot", DisplayName = "철괴", Category = "Etc", Stackable = true, Icon = "IronIngot", Color = Color3.fromRGB(200, 200, 205) },
 	SteelIngot = { Id = "SteelIngot", DisplayName = "강철괴", Category = "Etc", Stackable = true, Icon = "SteelIngot", Color = Color3.fromRGB(130, 150, 175) },
+	-- 5·6단계 괴 (2026-10-09). 아이콘은 studio/BuildWeaponsAndMobs가 만든다
+	MithrilIngot = { Id = "MithrilIngot", DisplayName = "미스릴괴", Category = "Etc", Stackable = true, Icon = "MithrilIngot", Color = Color3.fromRGB(165, 205, 250) },
+	OrichalcumIngot = { Id = "OrichalcumIngot", DisplayName = "오리하르콘괴", Category = "Etc", Stackable = true, Icon = "OrichalcumIngot", Color = Color3.fromRGB(250, 185, 60) },
 	-- 기타: 통나무 (나무 노드 Id와 같다)
 	Pine = { Id = "Pine", DisplayName = "소나무 통나무", Category = "Etc", Stackable = true, Icon = "Pine", Color = Color3.fromRGB(150, 105, 65) },
 	Oak = { Id = "Oak", DisplayName = "참나무 통나무", Category = "Etc", Stackable = true, Icon = "Oak", Color = Color3.fromRGB(130, 90, 55) },
@@ -41,6 +48,10 @@ local ItemDefs: { [string]: ItemDef } = {
 	OldCloth = { Id = "OldCloth", DisplayName = "낡은 천", Category = "Etc", Stackable = true, Icon = "OldCloth", Color = Color3.fromRGB(90, 110, 150) },
 	CerberusFang = { Id = "CerberusFang", DisplayName = "케르베로스 송곳니", Category = "Etc", Stackable = true, Icon = "CerberusFang", Color = Color3.fromRGB(250, 245, 230) },
 	CyclopsEye = { Id = "CyclopsEye", DisplayName = "사이클롭스 눈알", Category = "Etc", Stackable = true, Icon = "CyclopsEye", Color = Color3.fromRGB(255, 200, 60) },
+	-- 방어구 재료로 쓰는 두 번째 전리품·보스 전리품 (2026-10-09, 떨어뜨리는 확률·개수는 Config.Mobs ExtraLoot·Config.MobBoss.ExtraLoot)
+	CerberusHide = { Id = "CerberusHide", DisplayName = "케르베로스 털가죽", Category = "Etc", Stackable = true, Icon = "CerberusHide", Color = Color3.fromRGB(85, 65, 72) },
+	CyclopsHide = { Id = "CyclopsHide", DisplayName = "사이클롭스 가죽", Category = "Etc", Stackable = true, Icon = "CyclopsHide", Color = Color3.fromRGB(165, 170, 115) },
+	BossToken = { Id = "BossToken", DisplayName = "보스의 증표", Category = "Etc", Stackable = true, Icon = "BossToken", Color = Color3.fromRGB(255, 205, 60) },
 	-- 도구: 음식 (먹으면 체력·마나를 채운다, 수치는 Config.Foods)
 	Bread = { Id = "Bread", DisplayName = "빵", Category = "Tool", Stackable = true, Usable = true, Icon = "Bread", Color = Color3.fromRGB(210, 160, 90) },
 	ManaBerry = { Id = "ManaBerry", DisplayName = "마나 베리", Category = "Tool", Stackable = true, Usable = true, Icon = "ManaBerry", Color = Color3.fromRGB(90, 130, 255) },
@@ -51,11 +62,15 @@ local ItemDefs: { [string]: ItemDef } = {
 	CopperPickaxe = { Id = "CopperPickaxe", DisplayName = "구리 곡괭이", Category = "Tool", Stackable = false, Icon = "CopperPickaxe", Color = Color3.fromRGB(205, 115, 60) },
 	IronPickaxe = { Id = "IronPickaxe", DisplayName = "철 곡괭이", Category = "Tool", Stackable = false, Icon = "IronPickaxe", Color = Color3.fromRGB(170, 170, 175) },
 	SteelPickaxe = { Id = "SteelPickaxe", DisplayName = "다이아몬드 곡괭이", Category = "Tool", Stackable = false, Icon = "SteelPickaxe", Color = Color3.fromRGB(110, 220, 255) },
+	MithrilPickaxe = { Id = "MithrilPickaxe", DisplayName = "미스릴 곡괭이", Category = "Tool", Stackable = false, Icon = "MithrilPickaxe", Color = Color3.fromRGB(165, 205, 250) },
+	OrichalcumPickaxe = { Id = "OrichalcumPickaxe", DisplayName = "오리하르콘 곡괭이", Category = "Tool", Stackable = false, Icon = "OrichalcumPickaxe", Color = Color3.fromRGB(250, 185, 60) },
 	-- 도구: 도끼 (실제 Tool은 PickaxeService가 가방에 넣는다)
 	StoneAxe = { Id = "StoneAxe", DisplayName = "돌 도끼", Category = "Tool", Stackable = false, Icon = "StoneAxe", Color = Color3.fromRGB(150, 145, 140) },
 	CopperAxe = { Id = "CopperAxe", DisplayName = "구리 도끼", Category = "Tool", Stackable = false, Icon = "CopperAxe", Color = Color3.fromRGB(205, 115, 60) },
 	IronAxe = { Id = "IronAxe", DisplayName = "철 도끼", Category = "Tool", Stackable = false, Icon = "IronAxe", Color = Color3.fromRGB(170, 170, 175) },
 	DiamondAxe = { Id = "DiamondAxe", DisplayName = "다이아몬드 도끼", Category = "Tool", Stackable = false, Icon = "DiamondAxe", Color = Color3.fromRGB(110, 220, 255) },
+	MithrilAxe = { Id = "MithrilAxe", DisplayName = "미스릴 도끼", Category = "Tool", Stackable = false, Icon = "MithrilAxe", Color = Color3.fromRGB(165, 205, 250) },
+	OrichalcumAxe = { Id = "OrichalcumAxe", DisplayName = "오리하르콘 도끼", Category = "Tool", Stackable = false, Icon = "OrichalcumAxe", Color = Color3.fromRGB(250, 185, 60) },
 	-- 무기 (실제 Tool은 PickaxeService가 가방에 넣는다)
 	WoodenSword = { Id = "WoodenSword", DisplayName = "나무 검", Category = "Weapon", Stackable = false, Icon = "WoodenSword", Color = Color3.fromRGB(160, 115, 70) },
 	CopperSword = { Id = "CopperSword", DisplayName = "구리 검", Category = "Weapon", Stackable = false, Icon = "CopperSword", Color = Color3.fromRGB(205, 115, 60) },
@@ -69,29 +84,50 @@ local ItemDefs: { [string]: ItemDef } = {
 	GoblinClub = { Id = "GoblinClub", DisplayName = "도깨비방망이", Category = "Weapon", Stackable = false, Icon = "GoblinClub", Color = Color3.fromRGB(120, 75, 45) },
 	MorningStar = { Id = "MorningStar", DisplayName = "모닝스타", Category = "Weapon", Stackable = false, Icon = "MorningStar", Color = Color3.fromRGB(170, 170, 175) },
 	DiamondMace = { Id = "DiamondMace", DisplayName = "다이아몬드 철퇴", Category = "Weapon", Stackable = false, Icon = "DiamondMace", Color = Color3.fromRGB(110, 220, 255) },
+	-- 5·6단계 무기 (2026-10-09, 모양은 studio/BuildWeaponsAndMobs)
+	MithrilSword = { Id = "MithrilSword", DisplayName = "미스릴 검", Category = "Weapon", Stackable = false, Icon = "MithrilSword", Color = Color3.fromRGB(165, 205, 250) },
+	OrichalcumSword = { Id = "OrichalcumSword", DisplayName = "오리하르콘 성검", Category = "Weapon", Stackable = false, Icon = "OrichalcumSword", Color = Color3.fromRGB(250, 185, 60) },
+	MithrilBow = { Id = "MithrilBow", DisplayName = "미스릴 활", Category = "Weapon", Stackable = false, Icon = "MithrilBow", Color = Color3.fromRGB(165, 205, 250) },
+	OrichalcumBow = { Id = "OrichalcumBow", DisplayName = "오리하르콘 태양궁", Category = "Weapon", Stackable = false, Icon = "OrichalcumBow", Color = Color3.fromRGB(250, 185, 60) },
+	MithrilHammer = { Id = "MithrilHammer", DisplayName = "미스릴 전투망치", Category = "Weapon", Stackable = false, Icon = "MithrilHammer", Color = Color3.fromRGB(165, 205, 250) },
+	OrichalcumHammer = { Id = "OrichalcumHammer", DisplayName = "오리하르콘 거인망치", Category = "Weapon", Stackable = false, Icon = "OrichalcumHammer", Color = Color3.fromRGB(250, 185, 60) },
 }
 
 -- UI에 보여줄 순서 (무기 → 도구 → 기타)
 local ORDER = {
-	"WoodenSword", "CopperSword", "IronSword", "DiamondSword",
-	"WoodenBow", "CopperBow", "IronBow", "DiamondBow",
-	"BaseballBat", "GoblinClub", "MorningStar", "DiamondMace",
-	"StonePickaxe", "CopperPickaxe", "IronPickaxe", "SteelPickaxe",
-	"StoneAxe", "CopperAxe", "IronAxe", "DiamondAxe", "Bread", "ManaBerry", "LunchBox",
-	"Stone", "Coal", "CopperOre", "IronOre", "CopperIngot", "IronIngot", "SteelIngot",
+	"WoodenSword", "CopperSword", "IronSword", "DiamondSword", "MithrilSword", "OrichalcumSword",
+	"WoodenBow", "CopperBow", "IronBow", "DiamondBow", "MithrilBow", "OrichalcumBow",
+	"BaseballBat", "GoblinClub", "MorningStar", "DiamondMace", "MithrilHammer", "OrichalcumHammer",
+	"StonePickaxe", "CopperPickaxe", "IronPickaxe", "SteelPickaxe", "MithrilPickaxe", "OrichalcumPickaxe",
+	"StoneAxe", "CopperAxe", "IronAxe", "DiamondAxe", "MithrilAxe", "OrichalcumAxe", "Bread", "ManaBerry", "LunchBox",
+	"Stone", "Coal", "CopperOre", "IronOre", "Mithril", "Orichalcum", "CopperIngot", "IronIngot", "SteelIngot", "MithrilIngot", "OrichalcumIngot",
 	"Pine", "Oak", "Birch", "Maple", "Ebony",
-	"SlimeJelly", "Bone", "OldCloth", "CerberusFang", "CyclopsEye",
+	"SlimeJelly", "Bone", "OldCloth", "CerberusFang", "CerberusHide", "CyclopsEye", "CyclopsHide", "BossToken",
 }
 
--- 장비 아이템을 더한다 (무기 다음 순서)
+-- 장비 아이템을 더한다 (마지막 무기 다음 순서. 무기 수를 세지 않고 찾으니 단계가 늘어도 그대로 된다)
+local lastWeapon = 0
+for index, id in ORDER do
+	local item = ItemDefs[id]
+	if item and item.Category == "Weapon" then
+		lastWeapon = index
+	end
+end
 for index, id in EquipmentDefs.Order do
 	local def = EquipmentDefs.Items[id]
 	ItemDefs[id] = { Id = id, DisplayName = def.DisplayName, Category = "Armor", Stackable = false, Icon = id, Color = def.Color }
-	table.insert(ORDER, 12 + index, id)
+	table.insert(ORDER, lastWeapon + index, id)
 end
 
--- 화살통(방패 칸 장비)을 더한다: 분류 "무기", 활 바로 다음 순서. 아이콘 모델이 없으면 ItemIcon이 부품으로 그린다
-local quiverAt = (table.find(ORDER, "DiamondBow") or 0) + 1
+-- 화살통(방패 칸 장비)을 더한다: 분류 "무기", 마지막 활 바로 다음 순서. 아이콘 모델이 없으면 ItemIcon이 부품으로 그린다
+local lastBow = 0
+for index, id in ORDER do
+	local tool = PickaxeDefs[id]
+	if tool and tool.Kind == "Bow" then
+		lastBow = index
+	end
+end
+local quiverAt = lastBow + 1
 for index, id in EquipmentDefs.QuiverOrder do
 	local def = EquipmentDefs.Items[id]
 	ItemDefs[id] = { Id = id, DisplayName = def.DisplayName, Category = "Weapon", Stackable = false, Icon = id, Color = def.Color }

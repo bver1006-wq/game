@@ -459,15 +459,49 @@ local function die(state: MobState, killer: Player)
 	end
 	InventoryService.addGold(killer, gold)
 	local added = InventoryService.add(killer, def.LootId, lootCount)
-	if added < lootCount then
+	local bagFull = added < lootCount
+
+	-- 두 번째 전리품(Config.Mobs ExtraLoot, 보스는 크기만큼 더) + 보스 전리품(Config.MobBoss.ExtraLoot) (2026-10-09)
+	local extras: { { Id: string, Count: number } } = {}
+	local function rollExtra(list: any, scaleWithBoss: boolean)
+		if typeof(list) ~= "table" then
+			return
+		end
+		for _, entry in list do
+			if ItemDefs.Items[entry.Id] and random:NextNumber() < (entry.Chance or 1) then
+				local count = random:NextInteger(entry.Count[1], entry.Count[2])
+				if scaleWithBoss and state.Boss then
+					count = math.max(count, math.floor(count * boss.LootPerScale * state.Scale + 0.5))
+				end
+				local got = InventoryService.add(killer, entry.Id, count)
+				if got < count then
+					bagFull = true
+				end
+				if got > 0 then
+					table.insert(extras, { Id = entry.Id, Count = got })
+				end
+			end
+		end
+	end
+	rollExtra((config :: any).ExtraLoot, true)
+	if state.Boss then
+		rollExtra((boss :: any).ExtraLoot, false)
+	end
+
+	if bagFull then
 		NotifyService.send(killer, "가방이 가득 찼어요! 마을 상인에게 팔고 오세요.", "bad")
 	end
 	if state.Boss then
 		NotifyService.send(killer, `{boss.NamePrefix}{def.DisplayName}을(를) 물리쳤어요! +{gold}G`, "good")
 	end
-	fireNearby(diedRemote, state.Position, state.Position, state.Type, killer.UserId, gold, def.LootId, added)
+	-- 7번째 인자 extras: 주 전리품 말고 더 받은 전리품 목록 (예전 클라는 무시해도 된다)
+	fireNearby(diedRemote, state.Position, state.Position, state.Type, killer.UserId, gold, def.LootId, added, extras)
 	local label = if state.Boss then boss.NamePrefix .. def.DisplayName else def.DisplayName
-	print(`[MobService] {killer.Name}이(가) {label} 처치: {gold}G, {ItemDefs.Items[def.LootId].DisplayName} {added}개`)
+	local lootText = `{ItemDefs.Items[def.LootId].DisplayName} {added}개`
+	for _, extra in extras do
+		lootText ..= `, {ItemDefs.Items[extra.Id].DisplayName} {extra.Count}개`
+	end
+	print(`[MobService] {killer.Name}이(가) {label} 처치: {gold}G, {lootText}`)
 
 	state.Model:Destroy()
 	local spawnPart = state.SpawnPart

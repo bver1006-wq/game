@@ -68,6 +68,8 @@ Config.Ores = {
 	Coal = { MaxHp = 12, RespawnTime = 10 },
 	CopperOre = { MaxHp = 15, RespawnTime = 12 },
 	IronOre = { MaxHp = 29, RespawnTime = 15 },
+	Mithril = { MaxHp = 45, RespawnTime = 30 }, -- 광산 3층 (2026-10-09)
+	Orichalcum = { MaxHp = 70, RespawnTime = 300 }, -- 광산 3층 아주 희귀 (RandomPools.Orichalcum)
 	Pine = { MaxHp = 9, RespawnTime = 10 },
 	Oak = { MaxHp = 12, RespawnTime = 12 },
 	Birch = { MaxHp = 15, RespawnTime = 15 },
@@ -92,8 +94,10 @@ Config.TierWall = {
 }
 
 -- 희귀 나무: 후보 자리(스폰 파트 속성 RandomPool) 중 Active개만 동시에 서 있고, 베면 다른 빈 자리에 다시 생긴다
+-- 오리하르콘(광산 3층)도 같은 방식: 후보 자리 중 1개만, 캐면 RespawnTime 뒤 다른 빈 자리에
 Config.RandomPools = {
 	Ebony = { Active = 2 },
+	Orichalcum = { Active = 1 },
 }
 
 -- 마을 거리별 난이도 (2026-10-09 사용자 요청): 마을 NPC 가까이는 쉬운 것(아주 가끔 중간), 조금 멀면 중간, 꽤 멀면 센 것
@@ -132,6 +136,8 @@ Config.Pickaxes = {
 	CopperPickaxe = { Power = 1.5 },
 	IronPickaxe = { Power = 2 },
 	SteelPickaxe = { Power = 3 }, -- 다이아몬드 곡괭이
+	MithrilPickaxe = { Power = 4 }, -- 5단계 (2026-10-09). 오리하르콘(OreDefs RequiredTier 5)을 캔다
+	OrichalcumPickaxe = { Power = 5.5 }, -- 6단계
 	StoneAxe = { Power = 1 }, -- 시작 지급
 	CopperAxe = { Power = 1.5 },
 	IronAxe = { Power = 2 },
@@ -139,6 +145,8 @@ Config.Pickaxes = {
 		Power = 3,
 		LightningChance = 0.2, -- 나무를 칠 때 이 확률로 번개가 내려쳐 한 방에 벤다 (2026-10-09 사용자 요청)
 	},
+	MithrilAxe = { Power = 4, LightningChance = 0.25 },
+	OrichalcumAxe = { Power = 5.5, LightningChance = 0.3 },
 }
 
 -- 마나: 스킬·차징 스매시·달리기에 쓴다 (스킬·차징은 나중에). 플레이어 속성 Mana·MaxMana·Sprinting
@@ -174,7 +182,7 @@ Config.Equipment = {
 		Necklace = { Hp = 15, Crit = 2 },
 		Bracelet = { Atk = 3, Crit = 1 },
 	},
-	TierMultiplier = { 1, 2.2, 4, 7 },
+	TierMultiplier = { 1, 2.2, 4, 7, 11, 16 }, -- 단계별 (5 미스릴·6 오리하르콘 2026-10-09). 없는 단계는 가장 높은 아래 단계 값 (TierDefs.pick)
 	ToolAtkPerPower = 6, -- 곡괭이·도끼를 들고 있으면 공격 = Power × 이 값 (무기는 Config.Weapons의 Damage)
 	PowerWeights = { Atk = 3, Def = 4, Hp = 1, Crit = 15 },
 	BaseMaxHealth = 100,
@@ -188,6 +196,7 @@ Config.Quiver = {
 	Items = {
 		WoodQuiver = { Arrows = 30, Price = { Gold = 10, Items = { Pine = 20 } } },
 		IronQuiver = { Arrows = 60, Price = { Gold = 40, Items = { Oak = 30, IronIngot = 2 } } },
+		MithrilQuiver = { Arrows = 100, Price = { Gold = 120, Items = { Maple = 30, MithrilIngot = 1 } } }, -- 2026-10-09
 	},
 	VisibleArrows = 7, -- 등의 화살통에 꽂혀 보이는 화살 수 (남은 화살이 이보다 적으면 그만큼만)
 	NoticeInterval = 1.5, -- "화살이 없어요" 알림을 다시 띄우기까지(초)
@@ -200,7 +209,7 @@ Config.GearVisual = {
 	HelmetScale = 1.18, -- 투구 둥근 껍데기 지름 = 머리 크기 × 이 값
 	ArmorDepth = 1.25, -- 갑옷 몸통 덮개의 앞뒤 두께 = 몸통 두께 × 이 값
 	PlateThickness = 0.12, -- 가슴판 두께 (몸통 두께 대비)
-	PauldronScale = { 1.45, 1.75 }, -- 어깨 보호대 지름 (팔 굵기 대비): 3단계, 4단계
+	PauldronScale = { 1.45, 1.75, 1.85, 2.0 }, -- 어깨 보호대 지름 (팔 굵기 대비): 3단계, 4단계, 5단계, 6단계 (더 높은 단계는 마지막 값)
 	CuffScale = 1.3, -- 장갑·장화 목 둘레 지름 (팔다리 굵기 대비)
 	BraceletScale = 1.45, -- 팔찌 지름 (팔 굵기 대비). 장갑 목보다 커야 바깥에 보인다
 	NecklaceGap = 0.05, -- 목걸이를 갑옷(또는 가슴) 앞으로 띄우는 거리 (몸통 두께 대비)
@@ -210,6 +219,32 @@ Config.GearVisual = {
 	GlowRange = 5, -- 그 빛이 닿는 거리(스터드)
 	DiamondSparkles = false, -- true면 다이아몬드 갑옷에 반짝이 효과도 붙인다
 	HideHairWithHelmet = true, -- 투구를 쓰면 머리카락·모자 액세서리를 숨긴다 (벗으면 되돌림)
+	-- 5단계 이상 겉모습 (2026-10-09). 몸통 색은 장비 Color(TierDefs), 여기는 테두리·장식·보석·빛. 없는 단계는 가장 높은 아래 단계 값
+	-- Trim 테두리(챙·허리띠·줄), Accent 작은 장식, Gem 보석·빛 색, Wings 투구 큰 날개, Sparkle 반짝이 입자 수(1초에), Shoulder 어깨 뿔
+	HighTiers = {
+		[5] = { -- 미스릴: 은빛 파란 금속 + 파랗게 빛나는 테두리 (가볍고 날렵)
+			Trim = Color3.fromRGB(70, 150, 255),
+			TrimMat = Enum.Material.Neon,
+			Accent = Color3.fromRGB(150, 210, 255),
+			Gem = Color3.fromRGB(80, 170, 255),
+			Wings = false,
+			Sparkle = 3,
+			Shoulder = false,
+			GlowBrightness = 0.9,
+			GlowRange = 7,
+		},
+		[6] = { -- 오리하르콘: 금빛 금속 + 주황빛 보석, 투구 날개·볏, 어깨 뿔, 반짝이 (묵직하고 화려)
+			Trim = Color3.fromRGB(255, 225, 140),
+			TrimMat = Enum.Material.Metal,
+			Accent = Color3.fromRGB(255, 140, 40),
+			Gem = Color3.fromRGB(255, 130, 30),
+			Wings = true,
+			Sparkle = 6,
+			Shoulder = true,
+			GlowBrightness = 1.2,
+			GlowRange = 8,
+		},
+	},
 }
 
 -- 차징: 모든 도구·무기는 누르고 있으면 모았다가 놓을 때 휘두른다
@@ -261,6 +296,13 @@ Config.Weapons = {
 	GoblinClub = { Damage = 20, Cooldown = 0.9, Range = 6.5, Knockback = 5 },
 	MorningStar = { Damage = 31, Cooldown = 0.9, Range = 7, Knockback = 6 },
 	DiamondMace = { Damage = 48, Cooldown = 0.9, Range = 7.5, Knockback = 8 },
+	-- 5단계 미스릴: 가볍고 빠름 (간격이 짧다) / 6단계 오리하르콘: 묵직하고 세다 (2026-10-09). TODO(미정): 임시값
+	MithrilSword = { Damage = 48, Cooldown = 0.42, Range = 9.5 },
+	OrichalcumSword = { Damage = 78, Cooldown = 0.5, Range = 10 },
+	MithrilBow = { Damage = 40, Cooldown = 0.65, Range = 62 },
+	OrichalcumBow = { Damage = 64, Cooldown = 0.8, Range = 68 },
+	MithrilHammer = { Damage = 70, Cooldown = 0.75, Range = 8, Knockback = 9 },
+	OrichalcumHammer = { Damage = 112, Cooldown = 0.95, Range = 8.5, Knockback = 11 },
 }
 
 -- 전투 공통 수치
@@ -281,6 +323,9 @@ Config.Combat = {
 		[2] = { Color = Color3.fromRGB(255, 150, 70), Chunks = 0, Ring = 3.5, Shake = 1.2, Sparkle = false, Sparks = 10, Slash = true },
 		[3] = { Color = Color3.fromRGB(230, 235, 255), Chunks = 0, Ring = 4.5, Shake = 1.45, Sparkle = false, Sparks = 16, Slash = true },
 		[4] = { Color = Color3.fromRGB(110, 235, 255), Chunks = 0, Ring = 6, Shake = 1.75, Sparkle = true, Sparks = 24, Slash = true },
+		-- 5 미스릴: 파란 빛줄기 / 6 오리하르콘: 금빛 이중 고리 + 번쩍임(Flash = 빛 밝기) (2026-10-09). 없는 단계는 가장 높은 아래 단계 값
+		[5] = { Color = Color3.fromRGB(110, 175, 255), Chunks = 0, Ring = 7.5, Shake = 1.95, Sparkle = true, Sparks = 30, Slash = true },
+		[6] = { Color = Color3.fromRGB(255, 180, 60), Chunks = 0, Ring = 9, Shake = 2.2, Sparkle = true, Sparks = 40, Slash = true, DoubleRing = true, Flash = 4 },
 	},
 }
 
@@ -289,13 +334,21 @@ Config.Combat = {
 -- Speed 이동 속도(스터드/초), Aggro 플레이어를 알아채는 거리, Gold 골드 범위, Loot 전리품 개수 범위, Respawn 다시 나오는 시간(초)
 -- Scale 모델 크기 배율. 생성 자리·마리 수는 Config.MobZones (몹 구역)
 -- Passive = true면 먼저 공격하지 않고, 맞으면 FleeTime초 동안 때린 사람 반대쪽으로 Speed × FleeSpeed로 도망친다 (피해 0)
+-- 전리품: 주 전리품 = MobDefs.LootId를 Loot개. ExtraLoot = 두 번째 전리품 목록 { Id, Chance 확률, Count 개수 범위 } (2026-10-09)
+--   몹마다 방어구 재료가 하나씩 나온다: 슬라임 젤리 / 뼈다귀 / 낡은 천 / 케르베로스 털가죽 / 사이클롭스 가죽. 보스는 Config.MobBoss.ExtraLoot도
 Config.Mobs = {
 	Slime = { Hp = 20, Damage = 0, AttackInterval = 1.5, AttackRange = 3.5, Speed = 7, Aggro = 18, Gold = { 2, 5 }, Loot = { 1, 2 }, Respawn = 10, Scale = 0.9, Passive = true, FleeTime = 4, FleeSpeed = 1.5 },
 	Skeleton = { Hp = 40, Damage = 8, AttackInterval = 1.4, AttackRange = 4, Speed = 9, Aggro = 22, Gold = { 5, 9 }, Loot = { 1, 2 }, Respawn = 18, Scale = 1 },
 	Zombie = { Hp = 55, Damage = 10, AttackInterval = 1.6, AttackRange = 4, Speed = 6, Aggro = 20, Gold = { 7, 12 }, Loot = { 1, 2 }, Respawn = 18, Scale = 1 },
-	Cerberus = { Hp = 90, Damage = 14, AttackInterval = 1.2, AttackRange = 4.5, Speed = 13, Aggro = 26, Gold = { 14, 24 }, Loot = { 1, 2 }, Respawn = 30, Scale = 1.1 },
+	Cerberus = {
+		Hp = 90, Damage = 14, AttackInterval = 1.2, AttackRange = 4.5, Speed = 13, Aggro = 26, Gold = { 14, 24 }, Loot = { 1, 2 }, Respawn = 30, Scale = 1.1,
+		ExtraLoot = { { Id = "CerberusHide", Chance = 0.85, Count = { 1, 2 } } },
+	},
 	-- 사이클롭스: 플레이어 키의 약 1.9배 (모델 높이 약 7.2 × Scale 1.4 ≈ 10스터드)
-	Cyclops = { Hp = 160, Damage = 18, AttackInterval = 1.8, AttackRange = 6.5, Speed = 9, Aggro = 26, Gold = { 25, 40 }, Loot = { 1, 3 }, Respawn = 45, Scale = 1.4 },
+	Cyclops = {
+		Hp = 160, Damage = 18, AttackInterval = 1.8, AttackRange = 6.5, Speed = 9, Aggro = 26, Gold = { 25, 40 }, Loot = { 1, 3 }, Respawn = 45, Scale = 1.4,
+		ExtraLoot = { { Id = "CyclopsHide", Chance = 0.85, Count = { 1, 3 } } },
+	},
 }
 
 -- 몹 구역 (2026-10-09, 같은 날 넓게 펼침): 마을에서 가까우면 슬라임, 조금 멀면 스켈레톤·좀비, 꽤 멀면 케르베로스·사이클롭스
@@ -340,6 +393,8 @@ Config.MobBoss = {
 	NameColor = Color3.fromRGB(255, 205, 60),
 	HpBarScale = 1.6, -- 체력바 크기 배율
 	HpBarRangeMultiplier = 2, -- 체력바가 보이는 거리 배율
+	-- 보스만 주는 전리품 (2026-10-09): 보스의 증표 = 6단계 방어구·거인망치 재료. 어느 몹 보스든 나온다 (크기와 상관없이 Count개)
+	ExtraLoot = { { Id = "BossToken", Chance = 1, Count = { 1, 2 } } },
 }
 Config.MobAI = {
 	TickRate = 15, -- 1초에 몇 번 생각하고 움직이는지
@@ -383,8 +438,8 @@ Config.Save = {
 
 Config.Debug = {
 	GiveAllPickaxes = true, -- true면 들어올 때 곡괭이·도끼를 전부 지급 (테스트용, 2026-10-09 사용자 요청으로 켬)
-	StartSlots = 60, -- Studio 테스트 때 가방 칸 수 (도구·무기·장비를 전부 받으면 45칸이 넘는다)
-	GiveAllEquipment = true, -- Studio에서 들어오면 장비 24종을 전부 지급 (테스트용)
+	StartSlots = 100, -- Studio 테스트 때 가방 칸 수 (도구·무기 30 + 장비 36 + 화살통·음식을 전부 받으면 70칸이 넘는다, 2026-10-09 60 → 100)
+	GiveAllEquipment = true, -- Studio에서 들어오면 장비(칸 6개 × 6단계 = 36종)를 전부 지급 (테스트용)
 	GiveFoods = 5, -- Studio에서 들어오면 음식을 종류마다 이만큼 지급. 테스트 끝나면 0
 	GiveQuivers = 1, -- Studio에서 처음 들어오면 화살통을 종류마다 이만큼 지급. 테스트 끝나면 0
 }
@@ -417,9 +472,13 @@ Config.SellPrices = {
 	Coal = 2,
 	CopperOre = 3,
 	IronOre = 6,
+	Mithril = 15,
+	Orichalcum = 60,
 	CopperIngot = 12,
 	IronIngot = 20,
 	SteelIngot = 60,
+	MithrilIngot = 45, -- 2026-10-09
+	OrichalcumIngot = 200,
 	Pine = 1, -- 통나무
 	Oak = 2,
 	Birch = 4,
@@ -430,83 +489,113 @@ Config.SellPrices = {
 	OldCloth = 5,
 	CerberusFang = 12,
 	CyclopsEye = 20,
+	CerberusHide = 14, -- 두 번째 전리품 (2026-10-09)
+	CyclopsHide = 22,
+	BossToken = 50, -- 보스만 준다
 }
 
 -- 대장장이 제련: 재료 + 수수료(골드) → 결과 1개
 -- TODO(미정): 수수료는 임시값
 Config.Smelting = {
-	Order = { "CopperIngot", "IronIngot", "SteelIngot" }, -- UI 표시 순서
+	Order = { "CopperIngot", "IronIngot", "SteelIngot", "MithrilIngot", "OrichalcumIngot" }, -- UI 표시 순서
 	Recipes = {
 		CopperIngot = { Inputs = { CopperOre = 2, Coal = 1 }, Fee = 2 },
 		IronIngot = { Inputs = { IronOre = 2, Coal = 1 }, Fee = 4 },
 		SteelIngot = { Inputs = { IronIngot = 2, Coal = 2 }, Fee = 10 },
+		-- 광산 3층 광석 (2026-10-09): 미스릴괴는 5단계, 오리하르콘괴는 6단계 재료
+		MithrilIngot = { Inputs = { Mithril = 2, Coal = 2 }, Fee = 20 },
+		OrichalcumIngot = { Inputs = { Orichalcum = 2, Coal = 3, MithrilIngot = 1 }, Fee = 40 },
 	},
 }
 
 -- 조합식 (2026-10-09 사용자 요청): 도구·무기·장비 만드는 법. 키 = 만들어지는 아이템 Id
 -- 1단계(From 없음): 골드 + 재료 조금으로 산다 (여러 개 살 수 있다)
--- 2~4단계: 같은 종류(칸) 바로 아래 단계 From.Count(3)개 + 재료 Items + 골드 Gold → 1개. 실패 확률 없음
--- 단계가 높을수록 재료 종류·개수가 늘어난다 (2단계 1~2종, 3단계 3종, 4단계 4종)
--- 재료는 그 단계 직전 도구로 구할 수 있는 것만 (예: 구리 곡괭이에 구리괴를 넣으면 구리를 캘 수 없어 막힌다)
+-- 2단계부터: 같은 종류(칸) 바로 아래 단계 From.Count(3)개 + 재료 Items + 골드 Gold → 1개. 실패 확률 없음
+-- 재료 원칙 (2026-10-09 사용자 결정):
+--   도구·무기·장신구(목걸이·팔찌) = 광물(광석·괴) + 통나무 (+ 무기는 가끔 귀한 몹 부위: 송곳니·눈알·보스의 증표)
+--   방어구(헬멧·갑옷·신발·장갑) = 몹 전리품이 주재료 (젤리 → 뼈·천 → 케르베로스 털가죽·사이클롭스 가죽 → 보스의 증표) + 묶는 괴 조금
+-- 재료는 그 단계 직전 도구·무기로 구할 수 있는 것 위주 (예: 미스릴 곡괭이에는 다이아몬드 곡괭이로 캐는 미스릴괴, 오리하르콘은 미스릴 곡괭이로 캔다)
 -- 대장장이가 곡괭이·도끼, 사냥꾼이 칼·활·방망이·장비를 만든다. 화살통은 Config.Quiver
 -- TODO(미정): 숫자는 임시값. 플레이테스트로 조정
 export type Recipe = { From: { Id: string, Count: number }?, Items: { [string]: number }, Gold: number }
 local RECIPES: { [string]: Recipe } = {
-	-- 곡괭이 (돌 → 구리 → 철 → 다이아몬드)
+	-- 곡괭이 (돌 → 구리 → 철 → 다이아몬드 → 미스릴 → 오리하르콘)
 	StonePickaxe = { Gold = 5, Items = { Stone = 3, Pine = 2 } },
 	CopperPickaxe = { From = { Id = "StonePickaxe", Count = 3 }, Gold = 30, Items = { Stone = 10, Oak = 4 } },
 	IronPickaxe = { From = { Id = "CopperPickaxe", Count = 3 }, Gold = 150, Items = { CopperIngot = 6, Coal = 8, Birch = 4 } },
 	SteelPickaxe = { From = { Id = "IronPickaxe", Count = 3 }, Gold = 600, Items = { SteelIngot = 5, IronIngot = 8, Coal = 15, Maple = 6 } },
+	MithrilPickaxe = { From = { Id = "SteelPickaxe", Count = 3 }, Gold = 1800, Items = { MithrilIngot = 6, SteelIngot = 6, Coal = 20, Ebony = 3 } },
+	OrichalcumPickaxe = { From = { Id = "MithrilPickaxe", Count = 3 }, Gold = 4500, Items = { OrichalcumIngot = 4, MithrilIngot = 8, SteelIngot = 6, Ebony = 6 } },
 	-- 도끼
 	StoneAxe = { Gold = 5, Items = { Pine = 3, Stone = 2 } },
 	CopperAxe = { From = { Id = "StoneAxe", Count = 3 }, Gold = 30, Items = { CopperIngot = 2, Oak = 6 } },
 	IronAxe = { From = { Id = "CopperAxe", Count = 3 }, Gold = 150, Items = { IronIngot = 4, Birch = 8, Coal = 5 } },
 	DiamondAxe = { From = { Id = "IronAxe", Count = 3 }, Gold = 600, Items = { SteelIngot = 5, IronIngot = 6, Maple = 10, Birch = 10 } },
-	-- 칼
+	MithrilAxe = { From = { Id = "DiamondAxe", Count = 3 }, Gold = 1800, Items = { MithrilIngot = 5, SteelIngot = 5, Maple = 12, Ebony = 4 } },
+	OrichalcumAxe = { From = { Id = "MithrilAxe", Count = 3 }, Gold = 4500, Items = { OrichalcumIngot = 3, MithrilIngot = 6, Ebony = 10, Maple = 15 } },
+	-- 칼 (광물 + 통나무, 높은 단계는 귀한 몹 부위 조금)
 	WoodenSword = { Gold = 5, Items = { Pine = 4 } },
-	CopperSword = { From = { Id = "WoodenSword", Count = 3 }, Gold = 40, Items = { CopperIngot = 3, SlimeJelly = 5 } },
-	IronSword = { From = { Id = "CopperSword", Count = 3 }, Gold = 180, Items = { IronIngot = 5, Bone = 6, Birch = 4 } },
+	CopperSword = { From = { Id = "WoodenSword", Count = 3 }, Gold = 40, Items = { CopperIngot = 3, Oak = 3 } },
+	IronSword = { From = { Id = "CopperSword", Count = 3 }, Gold = 180, Items = { IronIngot = 5, CopperIngot = 2, Birch = 4 } },
 	DiamondSword = { From = { Id = "IronSword", Count = 3 }, Gold = 700, Items = { SteelIngot = 6, IronIngot = 6, CerberusFang = 4, CyclopsEye = 2 } },
+	MithrilSword = { From = { Id = "DiamondSword", Count = 3 }, Gold = 2000, Items = { MithrilIngot = 6, SteelIngot = 4, Ebony = 2, CerberusFang = 4 } },
+	OrichalcumSword = { From = { Id = "MithrilSword", Count = 3 }, Gold = 5000, Items = { OrichalcumIngot = 4, MithrilIngot = 6, CyclopsEye = 4, BossToken = 1 } },
 	-- 활
 	WoodenBow = { Gold = 5, Items = { Pine = 5 } },
-	CopperBow = { From = { Id = "WoodenBow", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, SlimeJelly = 5 } },
-	IronBow = { From = { Id = "CopperBow", Count = 3 }, Gold = 180, Items = { IronIngot = 4, Birch = 6, OldCloth = 5 } },
+	CopperBow = { From = { Id = "WoodenBow", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, Oak = 5 } },
+	IronBow = { From = { Id = "CopperBow", Count = 3 }, Gold = 180, Items = { IronIngot = 4, Birch = 6, Maple = 3 } },
 	DiamondBow = { From = { Id = "IronBow", Count = 3 }, Gold = 700, Items = { SteelIngot = 5, Maple = 8, Ebony = 2, CerberusFang = 4 } },
-	-- 방망이
+	MithrilBow = { From = { Id = "DiamondBow", Count = 3 }, Gold = 2000, Items = { MithrilIngot = 4, Ebony = 4, Maple = 10, CerberusFang = 3 } },
+	OrichalcumBow = { From = { Id = "MithrilBow", Count = 3 }, Gold = 5000, Items = { OrichalcumIngot = 3, MithrilIngot = 4, Ebony = 8, CyclopsEye = 3 } },
+	-- 방망이 (6단계 오리하르콘 거인망치는 보스의 증표가 들어간다)
 	BaseballBat = { Gold = 5, Items = { Oak = 4 } },
 	GoblinClub = { From = { Id = "BaseballBat", Count = 3 }, Gold = 40, Items = { CopperIngot = 3, Oak = 5 } },
-	MorningStar = { From = { Id = "GoblinClub", Count = 3 }, Gold = 180, Items = { IronIngot = 6, Bone = 5, Oak = 10 } },
+	MorningStar = { From = { Id = "GoblinClub", Count = 3 }, Gold = 180, Items = { IronIngot = 6, Coal = 6, Oak = 10 } },
 	DiamondMace = { From = { Id = "MorningStar", Count = 3 }, Gold = 700, Items = { SteelIngot = 7, IronIngot = 5, CyclopsEye = 3, Maple = 6 } },
-	-- 헬멧
-	LeatherHelmet = { Gold = 8, Items = { SlimeJelly = 2 } },
-	CopperHelmet = { From = { Id = "LeatherHelmet", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, SlimeJelly = 4 } },
-	IronHelmet = { From = { Id = "CopperHelmet", Count = 3 }, Gold = 180, Items = { IronIngot = 4, CopperIngot = 3, Bone = 4 } },
-	DiamondHelmet = { From = { Id = "IronHelmet", Count = 3 }, Gold = 700, Items = { SteelIngot = 4, IronIngot = 5, CerberusFang = 3, CyclopsEye = 2 } },
+	MithrilHammer = { From = { Id = "DiamondMace", Count = 3 }, Gold = 2000, Items = { MithrilIngot = 7, SteelIngot = 5, Maple = 8, CyclopsEye = 3 } },
+	OrichalcumHammer = { From = { Id = "MithrilHammer", Count = 3 }, Gold = 5000, Items = { OrichalcumIngot = 4, MithrilIngot = 6, Ebony = 6, BossToken = 2 } },
+	-- 헬멧 (몹 전리품 주재료 + 묶는 괴 조금)
+	LeatherHelmet = { Gold = 8, Items = { SlimeJelly = 3 } },
+	CopperHelmet = { From = { Id = "LeatherHelmet", Count = 3 }, Gold = 40, Items = { SlimeJelly = 8, CopperIngot = 1 } },
+	IronHelmet = { From = { Id = "CopperHelmet", Count = 3 }, Gold = 180, Items = { Bone = 10, OldCloth = 4, IronIngot = 1 } },
+	DiamondHelmet = { From = { Id = "IronHelmet", Count = 3 }, Gold = 700, Items = { CerberusHide = 8, Bone = 10, CyclopsEye = 1, SteelIngot = 1 } },
+	MithrilHelmet = { From = { Id = "DiamondHelmet", Count = 3 }, Gold = 1800, Items = { CyclopsHide = 10, CerberusHide = 10, CyclopsEye = 2, MithrilIngot = 1 } },
+	OrichalcumHelmet = { From = { Id = "MithrilHelmet", Count = 3 }, Gold = 4500, Items = { CyclopsHide = 18, CerberusHide = 14, BossToken = 2, OrichalcumIngot = 1 } },
 	-- 갑옷
-	LeatherArmor = { Gold = 12, Items = { SlimeJelly = 3, Pine = 3 } },
-	CopperArmor = { From = { Id = "LeatherArmor", Count = 3 }, Gold = 50, Items = { CopperIngot = 3, SlimeJelly = 5 } },
-	IronArmor = { From = { Id = "CopperArmor", Count = 3 }, Gold = 220, Items = { IronIngot = 6, OldCloth = 5, Bone = 3 } },
-	DiamondArmor = { From = { Id = "IronArmor", Count = 3 }, Gold = 850, Items = { SteelIngot = 6, IronIngot = 6, CerberusFang = 4, CyclopsEye = 3 } },
+	LeatherArmor = { Gold = 12, Items = { SlimeJelly = 5 } },
+	CopperArmor = { From = { Id = "LeatherArmor", Count = 3 }, Gold = 50, Items = { SlimeJelly = 10, OldCloth = 2, CopperIngot = 1 } },
+	IronArmor = { From = { Id = "CopperArmor", Count = 3 }, Gold = 220, Items = { OldCloth = 10, Bone = 6, IronIngot = 2 } },
+	DiamondArmor = { From = { Id = "IronArmor", Count = 3 }, Gold = 850, Items = { CerberusHide = 10, CyclopsHide = 4, OldCloth = 10, SteelIngot = 2 } },
+	MithrilArmor = { From = { Id = "DiamondArmor", Count = 3 }, Gold = 2200, Items = { CyclopsHide = 14, CerberusHide = 12, CerberusFang = 4, MithrilIngot = 2 } },
+	OrichalcumArmor = { From = { Id = "MithrilArmor", Count = 3 }, Gold = 5500, Items = { CyclopsHide = 24, CerberusHide = 18, BossToken = 3, OrichalcumIngot = 1 } },
 	-- 신발
-	LeatherBoots = { Gold = 8, Items = { SlimeJelly = 2, Oak = 2 } },
-	CopperBoots = { From = { Id = "LeatherBoots", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, Oak = 5 } },
-	IronBoots = { From = { Id = "CopperBoots", Count = 3 }, Gold = 180, Items = { IronIngot = 4, OldCloth = 4, Birch = 4 } },
-	DiamondBoots = { From = { Id = "IronBoots", Count = 3 }, Gold = 700, Items = { SteelIngot = 4, IronIngot = 4, Maple = 6, CerberusFang = 3 } },
+	LeatherBoots = { Gold = 8, Items = { SlimeJelly = 3 } },
+	CopperBoots = { From = { Id = "LeatherBoots", Count = 3 }, Gold = 40, Items = { SlimeJelly = 8, CopperIngot = 1 } },
+	IronBoots = { From = { Id = "CopperBoots", Count = 3 }, Gold = 180, Items = { OldCloth = 8, Bone = 4, IronIngot = 1 } },
+	DiamondBoots = { From = { Id = "IronBoots", Count = 3 }, Gold = 700, Items = { CerberusHide = 8, OldCloth = 8, CerberusFang = 2, SteelIngot = 1 } },
+	MithrilBoots = { From = { Id = "DiamondBoots", Count = 3 }, Gold = 1800, Items = { CerberusHide = 14, CyclopsHide = 6, CerberusFang = 3, MithrilIngot = 1 } },
+	OrichalcumBoots = { From = { Id = "MithrilBoots", Count = 3 }, Gold = 4500, Items = { CerberusHide = 22, CyclopsHide = 10, BossToken = 2, OrichalcumIngot = 1 } },
 	-- 장갑
-	LeatherGloves = { Gold = 8, Items = { SlimeJelly = 2 } },
-	CopperGloves = { From = { Id = "LeatherGloves", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, SlimeJelly = 4 } },
-	IronGloves = { From = { Id = "CopperGloves", Count = 3 }, Gold = 180, Items = { IronIngot = 4, OldCloth = 4, Bone = 3 } },
-	DiamondGloves = { From = { Id = "IronGloves", Count = 3 }, Gold = 700, Items = { SteelIngot = 4, IronIngot = 4, CerberusFang = 3, CyclopsEye = 2 } },
-	-- 목걸이
-	BoneNecklace = { Gold = 8, Items = { SlimeJelly = 2, Stone = 3 } },
-	CopperNecklace = { From = { Id = "BoneNecklace", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, Bone = 2 } },
-	IronNecklace = { From = { Id = "CopperNecklace", Count = 3 }, Gold = 180, Items = { IronIngot = 3, CopperIngot = 3, Bone = 6 } },
-	DiamondNecklace = { From = { Id = "IronNecklace", Count = 3 }, Gold = 700, Items = { SteelIngot = 3, IronIngot = 4, CerberusFang = 4, CyclopsEye = 3 } },
-	-- 팔찌
+	LeatherGloves = { Gold = 8, Items = { SlimeJelly = 3 } },
+	CopperGloves = { From = { Id = "LeatherGloves", Count = 3 }, Gold = 40, Items = { SlimeJelly = 8, CopperIngot = 1 } },
+	IronGloves = { From = { Id = "CopperGloves", Count = 3 }, Gold = 180, Items = { OldCloth = 6, Bone = 6, IronIngot = 1 } },
+	DiamondGloves = { From = { Id = "IronGloves", Count = 3 }, Gold = 700, Items = { CerberusHide = 6, CyclopsHide = 3, Bone = 8, SteelIngot = 1 } },
+	MithrilGloves = { From = { Id = "DiamondGloves", Count = 3 }, Gold = 1800, Items = { CyclopsHide = 10, CerberusHide = 6, CerberusFang = 4, MithrilIngot = 1 } },
+	OrichalcumGloves = { From = { Id = "MithrilGloves", Count = 3 }, Gold = 4500, Items = { CyclopsHide = 16, CerberusHide = 10, BossToken = 2, OrichalcumIngot = 1 } },
+	-- 목걸이 (광물 + 통나무)
+	BoneNecklace = { Gold = 8, Items = { Stone = 4, Pine = 2 } },
+	CopperNecklace = { From = { Id = "BoneNecklace", Count = 3 }, Gold = 40, Items = { CopperIngot = 3, Stone = 6 } },
+	IronNecklace = { From = { Id = "CopperNecklace", Count = 3 }, Gold = 180, Items = { IronIngot = 4, CopperIngot = 3, Coal = 6 } },
+	DiamondNecklace = { From = { Id = "IronNecklace", Count = 3 }, Gold = 700, Items = { SteelIngot = 4, IronIngot = 5, Coal = 10, Ebony = 1 } },
+	MithrilNecklace = { From = { Id = "DiamondNecklace", Count = 3 }, Gold = 1800, Items = { MithrilIngot = 4, SteelIngot = 4, Ebony = 2 } },
+	OrichalcumNecklace = { From = { Id = "MithrilNecklace", Count = 3 }, Gold = 4500, Items = { OrichalcumIngot = 2, MithrilIngot = 5, Ebony = 3 } },
+	-- 팔찌 (광물 + 통나무)
 	WoodBracelet = { Gold = 8, Items = { Pine = 3 } },
 	CopperBracelet = { From = { Id = "WoodBracelet", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, Birch = 3 } },
-	IronBracelet = { From = { Id = "CopperBracelet", Count = 3 }, Gold = 180, Items = { IronIngot = 3, Maple = 4, Bone = 3 } },
-	DiamondBracelet = { From = { Id = "IronBracelet", Count = 3 }, Gold = 700, Items = { SteelIngot = 3, IronIngot = 4, Ebony = 2, CyclopsEye = 2 } },
+	IronBracelet = { From = { Id = "CopperBracelet", Count = 3 }, Gold = 180, Items = { IronIngot = 3, Maple = 4, Coal = 4 } },
+	DiamondBracelet = { From = { Id = "IronBracelet", Count = 3 }, Gold = 700, Items = { SteelIngot = 3, IronIngot = 4, Ebony = 2 } },
+	MithrilBracelet = { From = { Id = "DiamondBracelet", Count = 3 }, Gold = 1800, Items = { MithrilIngot = 3, SteelIngot = 3, Ebony = 3 } },
+	OrichalcumBracelet = { From = { Id = "MithrilBracelet", Count = 3 }, Gold = 4500, Items = { OrichalcumIngot = 2, MithrilIngot = 4, Ebony = 4 } },
 }
 Config.Recipes = RECIPES
 Config.Crafting = {
@@ -548,9 +637,20 @@ Config.Mine = {
 		[0] = { Name = "광산 지상", RequiredTier = 1 },
 		[1] = { Name = "광산 1층", RequiredTier = 2 },
 		[2] = { Name = "광산 2층", RequiredTier = 3 },
-		[3] = { Name = "광산 3층", RequiredTier = 4, Locked = true }, -- 공사 중
+		[3] = { Name = "광산 3층", RequiredTier = 4 }, -- 미스릴·오리하르콘 (2026-10-09 열림, 다이아몬드 곡괭이 필요)
+		[4] = { Name = "광산 4층", RequiredTier = 5, Locked = true }, -- 공사 중
 	},
 	PromptDistance = 8, -- 이동 발판 ProximityPrompt 거리(스터드)
+}
+
+-- 광산 3층 제작 스크립트(studio/BuildMineFloor3) 수치 (2026-10-09)
+Config.MineFloor3 = {
+	Seed = 3303, -- 미로 모양 고정용 (바꾸면 미로가 바뀐다)
+	ExtraLoops = 4, -- 막다른 길만 있으면 답답해서 벽을 몇 개 더 뚫는다
+	MithrilSpawns = 18, -- 미스릴 자리 수 (일부는 두 개가 붙어 나옴)
+	PairChance = 0.35, -- 두 개가 붙어 나올 확률
+	OrichalcumCandidates = 6, -- 오리하르콘 후보 자리 수 (동시에 서는 수는 RandomPools.Orichalcum.Active)
+	Depth = 40, -- 2층 맨 아래보다 이만큼 더 아래에 바닥 (스터드)
 }
 
 -- 광산 안 분위기 (클라이언트 전용): 광산 구역(MineZone)에 들어가면 어둡게, 음악, 박쥐
@@ -788,11 +888,16 @@ Config.HitFeel = {
 		[2] = { Color = Color3.fromRGB(255, 150, 70), Chunks = 0, Ring = 4, Shake = 1.3, Sparkle = false, Sparks = 12, Slash = false, Leaves = 1.6 },
 		[3] = { Color = Color3.fromRGB(230, 235, 255), Chunks = 0, Ring = 5.5, Shake = 1.55, Sparkle = false, Sparks = 18, Slash = true, Leaves = 2.2 },
 		[4] = { Color = Color3.fromRGB(110, 235, 255), Chunks = 0, Ring = 8, Shake = 1.9, Sparkle = true, Sparks = 26, Slash = true, Leaves = 3 },
+		-- 5 미스릴 파란 빛 / 6 오리하르콘 금빛 이중 고리 + 번쩍임(Flash = 빛 밝기) (2026-10-09). 없는 단계는 가장 높은 아래 단계 값
+		[5] = { Color = Color3.fromRGB(110, 175, 255), Chunks = 0, Ring = 9.5, Shake = 2.05, Sparkle = true, Sparks = 32, Slash = true, Leaves = 3.5 },
+		[6] = { Color = Color3.fromRGB(255, 180, 60), Chunks = 0, Ring = 11, Shake = 2.3, Sparkle = true, Sparks = 40, Slash = true, Leaves = 4, DoubleRing = true, Flash = 5 },
 	},
 	TierEffects = {
 		[2] = { Color = Color3.fromRGB(235, 140, 70), Chunks = 3, Ring = 3.5, Shake = 1.2, Sparkle = false },
 		[3] = { Color = Color3.fromRGB(225, 230, 240), Chunks = 6, Ring = 5, Shake = 1.45, Sparkle = false },
 		[4] = { Color = Color3.fromRGB(110, 235, 255), Chunks = 9, Ring = 7, Shake = 1.75, Sparkle = true },
+		[5] = { Color = Color3.fromRGB(110, 175, 255), Chunks = 11, Ring = 8.5, Shake = 1.95, Sparkle = true, Sparks = 12 }, -- 미스릴 (2026-10-09)
+		[6] = { Color = Color3.fromRGB(255, 180, 60), Chunks = 14, Ring = 10, Shake = 2.2, Sparkle = true, Sparks = 24, DoubleRing = true, Flash = 5 }, -- 오리하르콘
 	},
 }
 
