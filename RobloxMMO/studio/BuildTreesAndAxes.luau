@@ -7,7 +7,8 @@
 --
 -- 만드는 것
 --   1. 도끼 Tool 4종  → ServerStorage/Templates/Pickaxes/{StoneAxe, CopperAxe, IronAxe, DiamondAxe}
---      같은 티어 곡괭이 Tool을 복제해 손잡이·잡는 위치(Grip)는 그대로 쓰고, 머리만 도끼날로 바꾼다.
+--      같은 티어 곡괭이 Tool을 복제해 손잡이·쥐는 각도(Grip)는 그대로 쓰고, 머리(쥐는 점에서 가장 먼 부품)
+--      자리에 같은 방향으로 양날 도끼날을 단다.
 --   2. 나무 템플릿 5종 → ServerStorage/Templates/Ores/{Pine, Oak, Birch, Maple, Ebony}/
 --      맵에 원래 있는 나무(이름에 "Tree")를 본떠 종류별로 잎·줄기 색만 바꾼다. 맵 나무가 없으면 부품으로 만든다.
 --      기준점(Pivot)은 줄기 밑동 가운데, 잰 줄기 반지름은 속성 HitRadius (잔상 고리가 줄기에 딱 맞게).
@@ -17,7 +18,6 @@
 --      소나무·참나무·자작나무는 곳곳, 단풍나무는 근처에서 가장 높은 곳에 모아서,
 --      흑단나무는 마을에서 가장 먼 후보 자리들(속성 RandomPool = "Ebony", 그중 Config.RandomPools.Ebony.Active개만 선다)
 --
--- 실행 뒤 할 일: 플레이 테스트로 도끼 날 방향을 확인. 날이 뒤로 달렸으면 FLIP_BLADE = true로 바꿔 다시 실행.
 -- 스폰 자리는 Workspace/OreSpawns에서 GeneratedBy = "BuildTreesAndAxes" 파트를 옮기거나 지워서 다듬는다.
 
 local CollectionService = game:GetService("CollectionService")
@@ -29,8 +29,6 @@ local OreDefs = require(ReplicatedStorage.Shared.OreDefs)
 local Config = require(ReplicatedStorage.Shared.Config)
 
 ---------------------------------------------------------------- 설정
-local FLIP_BLADE = false -- 도끼날이 반대쪽에 달렸으면 true
-local BLADE_TURNS = 3 -- 도끼날을 손잡이 축으로 90도씩 돌리는 횟수 (0~3). 플레이 테스트로 맞춘다
 local GENERATED = "BuildTreesAndAxes" -- 이 스크립트가 만든 것 표시 (속성 GeneratedBy)
 local SCATTER_MIN = 45 -- 마을 중심에서 이 거리 밖부터 나무를 심는다 (스터드)
 local SCATTER_MAX = 230 -- 이 거리 안까지
@@ -100,17 +98,6 @@ local AXES = {
 	{ Id = "DiamondAxe", From = "SteelPickaxe", Head = Color3.fromRGB(110, 220, 255), Edge = Color3.fromRGB(220, 250, 255), Material = Enum.Material.Glass, BladeLen = 1.5, BladeH = 1.5, Trail = Color3.fromRGB(110, 235, 255), Sparkle = true },
 }
 
--- 손잡이 기준 주축 중 v와 가장 가까운 축 (부호 포함)
-local function principal(v: Vector3): Vector3
-	local ax, ay, az = math.abs(v.X), math.abs(v.Y), math.abs(v.Z)
-	if ax >= ay and ax >= az then
-		return Vector3.new(math.sign(v.X), 0, 0)
-	elseif ay >= az then
-		return Vector3.new(0, math.sign(v.Y), 0)
-	end
-	return Vector3.new(0, 0, math.sign(v.Z))
-end
-
 -- 곡괭이가 없을 때 쓸 기본 손잡이 Tool
 local function fallbackTool(): Tool
 	local tool = Instance.new("Tool")
@@ -125,76 +112,120 @@ end
 local function buildAxe(spec): Tool
 	local source = pickaxeFolder:FindFirstChild(spec.From)
 	local tool: Tool
-	local headAxis: Vector3? = nil
+	local center: Vector3
+	local shaft: Vector3 -- 쥐는 점 → 머리 방향 (월드)
+	local edge: Vector3 -- 날이 뻗는 방향 (월드)
 	if source and source:IsA("Tool") and source:FindFirstChild("Handle") then
+		-- 같은 티어 곡괭이를 복제해 손잡이·쥐는 각도는 그대로 두고, 머리만 도끼날로 바꾼다
 		tool = source:Clone()
-		local handle = tool.Handle
-		-- 곡괭이 머리가 뻗은 방향(손잡이 기준)을 알아낸 뒤, 머리 부품은 전부 지운다
-		-- 머리 = 손잡이를 뺀 가장 큰 부품. 그 부품의 가장 긴 변이 곡괭이 끝이 향하는 앞뒤 방향이다
-		local headPart, headVolume = nil, -1
+		local handle = tool.Handle :: BasePart
+		local gripWorld = handle.CFrame:PointToWorldSpace(tool.Grip.Position) -- 손이 쥐는 점
+
+		-- 곡괭이 머리 = 쥐는 점에서 먼 쪽 부품 무리 (손잡이 부품이 무엇이든 상관없이 찾는다)
+		-- 가장 먼 거리의 75% 넘게 떨어진 부품들을 머리로 보고, 부피 가중 평균을 머리 가운데로 쓴다 (양쪽 곡괭이 끝이 있어도 자루 위에 온다)
+		local farthest = 0
 		for _, d in tool:GetDescendants() do
-			if d:IsA("BasePart") and d ~= handle then
+			if d:IsA("BasePart") then
+				farthest = math.max(farthest, (d.Position - gripWorld).Magnitude)
+			end
+		end
+		local headParts: { BasePart } = {}
+		local weighted, totalVolume = Vector3.zero, 0
+		local headPart: BasePart = handle
+		local biggest = -1
+		for _, d in tool:GetDescendants() do
+			if d:IsA("BasePart") and (d.Position - gripWorld).Magnitude >= farthest * 0.75 then
 				local volume = d.Size.X * d.Size.Y * d.Size.Z
-				if volume > headVolume then
-					headPart, headVolume = d, volume
+				table.insert(headParts, d)
+				weighted += d.Position * volume
+				totalVolume += volume
+				if volume > biggest then
+					headPart, biggest = d, volume
 				end
 			end
 		end
-		local far: Vector3? = nil
-		if headPart then
-			local hs = headPart.Size
-			local longest = if hs.X >= hs.Y and hs.X >= hs.Z then Vector3.xAxis elseif hs.Y >= hs.Z then Vector3.yAxis else Vector3.zAxis
-			far = handle.CFrame:VectorToObjectSpace(headPart.CFrame:VectorToWorldSpace(longest))
-		end
-		for _, child in tool:GetChildren() do
-			if child ~= handle and not child:IsA("LuaSourceContainer") then
-				child:Destroy()
+		center = if totalVolume > 0 then weighted / totalVolume else headPart.Position
+		shaft = (center - gripWorld).Unit
+
+		-- 날 방향 = 머리 부품의 축 중 자루와 수직이면서 가장 긴 축 (곡괭이 끝이 뻗은 방향)
+		local best, bestSize = nil, -1
+		for _, pair in {
+			{ headPart.CFrame.RightVector, headPart.Size.X },
+			{ headPart.CFrame.UpVector, headPart.Size.Y },
+			{ headPart.CFrame.LookVector, headPart.Size.Z },
+		} do
+			if math.abs(pair[1]:Dot(shaft)) < 0.7 and pair[2] > bestSize then
+				best, bestSize = pair[1], pair[2]
 			end
 		end
-		for _, d in handle:GetChildren() do
-			if d:IsA("JointInstance") or d:IsA("WeldConstraint") or d:IsA("Trail") or d:IsA("Attachment") or d:IsA("ParticleEmitter") then
+		local axis = (best or shaft:Cross(Vector3.yAxis)) :: Vector3
+		edge = (axis - shaft * axis:Dot(shaft)).Unit
+
+		-- 머리 부품을 치운다. 손잡이(Handle)가 머리라면 지우지 않고 투명하게
+		for _, d in headParts do
+			if d == handle then
+				d.Transparency = 1
+				for _, c in d:GetChildren() do
+					if c:IsA("Decal") or c:IsA("Texture") or c:IsA("SurfaceAppearance") then
+						c:Destroy()
+					end
+				end
+			else
 				d:Destroy()
 			end
 		end
-		if far then
-			headAxis = far
+		for _, d in tool:GetDescendants() do
+			if d:IsA("Trail") or d:IsA("ParticleEmitter") then
+				d:Destroy() -- 곡괭이 궤적·반짝이는 도끼 것으로 새로 단다
+			end
+		end
+		-- 곡괭이가 통짜 부품 하나였으면 자루까지 안 보이게 되므로, 쥐는 점에서 머리까지 나무 자루를 새로 단다
+		local visible = 0
+		for _, d in tool:GetDescendants() do
+			if d:IsA("BasePart") and d.Transparency < 1 then
+				visible += 1
+			end
+		end
+		if visible == 0 then
+			local length = (center - gripWorld).Magnitude + 0.8
+			part({
+				Name = "Shaft",
+				Size = Vector3.new(0.3, length, 0.3),
+				CFrame = CFrame.fromMatrix(gripWorld + shaft * (length / 2 - 0.8), shaft:Cross(edge), shaft),
+				Color = Color3.fromRGB(120, 85, 55),
+				Material = Enum.Material.Wood,
+				Anchored = false,
+				CanCollide = false,
+				Massless = true,
+			}, tool)
+		end
+		-- 머리를 거쳐 붙어 있던 부품이 떨어지지 않게 남은 부품을 손잡이에 다시 붙인다
+		for _, d in tool:GetDescendants() do
+			if d:IsA("BasePart") and d ~= handle then
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = handle
+				weld.Part1 = d
+				weld.Parent = d
+			end
 		end
 	else
 		tool = fallbackTool()
+		local handle = tool.Handle :: BasePart
+		center = handle.CFrame:PointToWorldSpace(Vector3.new(0, handle.Size.Y / 2 - 0.3, 0))
+		shaft = handle.CFrame.UpVector
+		edge = handle.CFrame.LookVector
 	end
 	tool.Name = spec.Id
 	tool:SetAttribute("PickaxeId", nil)
 	tool:SetAttribute("GeneratedBy", GENERATED)
 	local handle = tool.Handle :: BasePart
 
-	-- u: 손잡이 긴 축(머리 쪽), a: 날이 뻗는 축, w: 두께 축 (모두 손잡이 기준)
-	local size = handle.Size
-	local long = if size.Y >= size.X and size.Y >= size.Z then Vector3.yAxis elseif size.X >= size.Z then Vector3.xAxis else Vector3.zAxis
-	local grip = tool.Grip.Position
-	local u = if grip:Dot(long) > 0.01 then -long else long -- 잡는 쪽 반대 끝에 머리
-	local a: Vector3
-	if headAxis then
-		local side = headAxis - u * headAxis:Dot(u)
-		a = if side.Magnitude > 0.05 then principal(side) else principal(u:Cross(Vector3.new(0.3, 0.2, 1)))
-	else
-		a = principal(u:Cross(Vector3.zAxis).Magnitude > 0.5 and u:Cross(Vector3.zAxis) or u:Cross(Vector3.xAxis))
-	end
-	-- 곡괭이 머리 방향 그대로면 날이 오른쪽, 손잡이 축으로 90도 돌리면 왼쪽을 봤다 (플레이 테스트, 2026-10-09)
-	-- 2번 돌려도 왼쪽이라 3번 돌린다 (BLADE_TURNS = 손잡이 축 기준 90도 회전 횟수)
-	for _ = 1, BLADE_TURNS do
-		a = principal(u:Cross(a))
-	end
-	if FLIP_BLADE then
-		a = -a
-	end
-	local half = math.abs(size:Dot(long)) / 2
-	local headCenter = u * (half - 0.3)
+	-- 도끼 머리 좌표계: X = 날 방향, Y = 자루 방향, Z = 두께 방향 (곡괭이 머리와 같은 자리·방향)
+	local frame = CFrame.fromMatrix(center, edge, shaft)
 
-	-- 손잡이 기준 위치·축으로 부품을 붙인다. sizes = (a 방향, u 방향, w 방향)
-	local function attach(name: string, center: Vector3, sizes: Vector3, color: Color3, material: Enum.Material, className: string?)
-		local localCf = CFrame.fromMatrix(center, a, u)
+	-- 머리 기준으로 날 방향 offset만큼 떨어진 곳에 부품을 붙인다. sizes = (날 방향, 자루 방향, 두께)
+	local function attach(name: string, offset: number, sizes: Vector3, color: Color3, material: Enum.Material)
 		local p = part({
-			ClassName = className,
 			Name = name,
 			Size = sizes,
 			Color = color,
@@ -204,7 +235,7 @@ local function buildAxe(spec): Tool
 			CanQuery = false,
 			CanTouch = false,
 			Massless = true,
-			CFrame = handle.CFrame * localCf,
+			CFrame = frame * CFrame.new(offset, 0, 0),
 		}, tool)
 		local weld = Instance.new("WeldConstraint")
 		weld.Part0 = handle
@@ -214,12 +245,13 @@ local function buildAxe(spec): Tool
 	end
 
 	local bladeStart = 0.2
-	attach("Collar", headCenter, Vector3.new(0.5, 0.6, 0.5), spec.Head:Lerp(Color3.new(0, 0, 0), 0.25), spec.Material)
-	local blade = attach("Blade", headCenter + a * (bladeStart + spec.BladeLen / 2), Vector3.new(spec.BladeLen, spec.BladeH, 0.2), spec.Head, spec.Material)
-	attach("Edge", headCenter + a * (bladeStart + spec.BladeLen + 0.07), Vector3.new(0.14, spec.BladeH * 1.25, 0.12), spec.Edge, if spec.Sparkle then Enum.Material.Neon else spec.Material)
-	-- 양날 도끼: 반대쪽에도 같은 날을 달아 머리가 손잡이 가운데에 오게 한다 (한쪽 날은 한쪽으로 쏠려 보였다, 2026-10-09)
-	attach("Blade2", headCenter - a * (bladeStart + spec.BladeLen / 2), Vector3.new(spec.BladeLen, spec.BladeH, 0.2), spec.Head, spec.Material)
-	attach("Edge2", headCenter - a * (bladeStart + spec.BladeLen + 0.07), Vector3.new(0.14, spec.BladeH * 1.25, 0.12), spec.Edge, if spec.Sparkle then Enum.Material.Neon else spec.Material)
+	local edgeMaterial = if spec.Sparkle then Enum.Material.Neon else spec.Material
+	attach("Collar", 0, Vector3.new(0.5, 0.6, 0.5), spec.Head:Lerp(Color3.new(0, 0, 0), 0.25), spec.Material)
+	-- 양날 도끼: 양쪽에 같은 날을 달아 머리가 자루 가운데에 온다
+	local blade = attach("Blade", bladeStart + spec.BladeLen / 2, Vector3.new(spec.BladeLen, spec.BladeH, 0.2), spec.Head, spec.Material)
+	attach("Edge", bladeStart + spec.BladeLen + 0.07, Vector3.new(0.14, spec.BladeH * 1.25, 0.12), spec.Edge, edgeMaterial)
+	attach("Blade2", -(bladeStart + spec.BladeLen / 2), Vector3.new(spec.BladeLen, spec.BladeH, 0.2), spec.Head, spec.Material)
+	attach("Edge2", -(bladeStart + spec.BladeLen + 0.07), Vector3.new(0.14, spec.BladeH * 1.25, 0.12), spec.Edge, edgeMaterial)
 
 	-- 좋은 도끼: 휘두를 때 날 끝 궤적 (SwingAnimation이 휘두르는 동안만 켠다)
 	if spec.Trail then
@@ -288,7 +320,7 @@ for _, spec in AXES do
 	end
 	iconFromTool(tool, spec.Id).Parent = iconFolder
 end
-print("[BuildTreesAndAxes] (버전 7, 양날) 도끼 4종 완료")
+print("[BuildTreesAndAxes] (버전 8, 곡괭이 머리 자리) 도끼 4종 완료")
 
 ---------------------------------------------------------------- 2. 나무
 local LEAF_MATERIAL = Enum.Material.LeafyGrass
