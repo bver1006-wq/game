@@ -189,6 +189,16 @@ function InputController.releaseAttack()
 	release(true)
 end
 
+-- 스킬(강하게 찍기)이 걸린 뒤 바로 한 번 휘두른다 (SkillController). 모으던 것은 취소. 서버에 요청을 보냈으면 true
+function InputController.skillSwing(): boolean
+	if not bound or FeverController.isActive() then
+		return false
+	end
+	cancelPress()
+	local isTouch = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+	return swing(isTouch, 0, 0)
+end
+
 -- 클라이언트 시작 시 한 번 호출
 function InputController.init()
 	swingRemote = Remotes.get(Remotes.Names.SwingRequest)

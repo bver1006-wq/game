@@ -62,6 +62,7 @@ src/
 │     ├─ MobService.luau        몹 생성·AI·체력·처치 보상 (2026-10-09 추가)
 │     ├─ CombatService.luau     무기 공격 검증·데미지, 사냥꾼 무기 판매 (2026-10-09 추가)
 │     ├─ OwnershipService.luau  바위·나무·몹 주인 정하기 (2026-10-09 추가)
+│     ├─ SkillService.luau      구르기·무기별 스킬 검증 (2026-10-09 추가)
 │     └─ TrophyService.luau     (MVP-1) 트로피, 뱃지
 ├─ client/                      → StarterPlayerScripts
 │  ├─ Main.client.luau
@@ -73,7 +74,8 @@ src/
 │     ├─ HitFeelController.luau 히트스톱, 카메라, 파티클, 소리
 │     ├─ RockHUD.luau           바위 체력바, 판정 문구, 획득량 (BillboardGui)
 │     ├─ FeverController.luau   피버 연출, 연타 입력
-│     └─ CombatController.luau  무기 공격·몹 조준·타격/처치 연출·몹 체력바 (2026-10-09 추가)
+│     ├─ CombatController.luau  무기 공격·몹 조준·타격/처치 연출·몹 체력바 (2026-10-09 추가)
+│     └─ SkillController.luau   구르기(Q)·스킬 칸(F) 버튼·입력·연출 (2026-10-09 추가)
 └─ shared/                      → ReplicatedStorage/Shared
    ├─ Config.luau               모든 밸런스 수치
    ├─ OreDefs.luau              자원 노드(광석·나무) 정의
@@ -391,6 +393,17 @@ src/
   - 길 횃불(나무 기둥 + 쇠 그릇 + 불꽃·Fire): 마을 둘레 RoadScanRadius를 RoadScanStep 격자로 아래로 쏴서 길 칸 = 지형 돌길(Cobblestone·Pavement·Brick·Asphalt·Concrete·WoodPlanks) / 이름에 Road·Path·Street·길·도로가 든 납작한 부품 / 좁은 흙(Ground·Mud) 띠(DirtRoadMaxWidth). 마을에서 가까운 길부터 RoadSpacing 간격, 길 가장자리 바깥에. 물·지붕·건물·광산 구역·도착점·생성 자리·원래 있던 불빛 근처는 피함
   - 길을 거의 못 찾으면(RouteFallbackMin) 마을 → 광산 입구 직선을 따라 지그재그. Output에 개수·못 세운 이유 요약
   - 서버 TorchService가 Lighting.ClockTime을 보고 해 지기 LightBefore시간 전 ~ 해 뜨고 LightAfter시간 뒤에만 불을 켠다 (편집 상태에선 켜진 채)
+- [x] 구르기·무기별 스킬 (2026-10-09 사용자 요청)
+  - 버튼: 모바일은 공격 버튼 둘레(MobileControls.ringPosition, 각도 Config.MobileControls.JumpAngle·RollAngle·SkillAngle, 지름 SmallSize) = 왼쪽 점프 / 왼쪽 위 🌀 구르기 / 위 스킬 칸(위에 스킬 이름). PC는 오른쪽 아래에 작게(PcSize) [Q] 구르기·[F] 스킬. 패드 X·Y. E키는 ProximityPrompt가 써서 F
+  - 쿨다운은 버튼 위 어두운 덮개가 아래로 줄고 남은 초 숫자. 마나가 모자라면 흐리게 (클라 SkillController)
+  - 구르기(Config.Roll): 움직이는 쪽(가만히면 바라보는 쪽)으로 Distance 12스터드를 Duration 0.3초에 (클라가 LinearVelocity로 수평 속도만, 벽은 레이로 보고 그 앞까지). 몸통 뿌리 관절(R15 Root·R6 RootJoint) C0를 앞으로 한 바퀴 + 흙먼지 + "휙". 서버 SkillService가 RollRequest(방향)를 받아 쿨다운 1.2초·마나 4를 확인하고 IFrame 0.4초 무적, 다른 사람에게 SkillEffect "Roll"로 구르는 모습
+  - 스킬 칸(Config.Skills, Kind로 들고 있는 도구 종류에 맞춤, 아무것도 안 들면 빈 칸). 클라는 SkillRequest(대상)만, 서버 SkillService가 종류·마나·쿨다운·거리·주인·장비 벽·피버를 확인하고 SkillEffect(kind, userId, position, data)를 보내면 연출·쿨다운 시작
+    - 칼 🛡 방패 막기(Block): 마나 12·쿨 6초, 1.5초 동안 몹 피해 80% 줄임. 캐릭터 둘레 파란 ForceField 공
+    - 방망이 💥 내려찍기(Slam): 마나 15·쿨 7초, 둘레 8스터드 몹에게 무기 데미지 ×1.8 + 밀쳐 내기 6 + 기절 1.5초(MobService.stun: 안 움직이고 공격 안 함). 충격파 고리·흙먼지·쿵 소리·카메라 흔들림, 몹 머리 위 💫. 남의 몹·흠집 못 내는 몹(장비 벽)은 기절 안 함
+    - 활 🏹 연사(RapidFire): 마나 12·쿨 6초, 노리는 몹에게 화살 3발을 0.15초 간격(화살 3개 씀, 한 발 ×0.8). 화살은 CombatEffect 11번째 인자 fromSkill로 내 화면에서도 날아감
+    - 곡괭이·도끼 ⚒ 강하게 찍기(PowerStrike): 마나 10·쿨 6초, 가까운 바위·나무를 확인하고(맞는 도구·거리·주인·단계) 5초 안의 다음 한 번이 ×3 (MiningService.armPowerStrike, HitEffect "Charged" 연출). 걸리자마자 클라가 한 번 휘두른다
+  - 몹 공격 막기: MobService.protect(player, 출처, 줄이는 비율, 초)를 공격 때 확인. MobAttack 4번째 인자 guarded → 클라 "피함!"(0)·"막음! -X"
+  - 데미지 계산은 CombatService applyHit 하나로 (보통 공격·CombatService.skillHit 공통: 장비 공격·치명타·장비 벽·연출)
 - [ ] 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)
