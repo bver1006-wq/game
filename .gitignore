@@ -1,0 +1,5 @@
+# 각자 PC에 내려받은 Rojo 프로그램·압축 파일은 올리지 않는다
+rojo
+rojo.exe
+rojo-*/
+*.zip
