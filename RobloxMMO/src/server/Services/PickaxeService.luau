@@ -17,7 +17,6 @@ local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 local DataService = require(script.Parent.DataService)
 local InventoryService = require(script.Parent.InventoryService)
 
-local STARTER_TOOLS = { "StonePickaxe", "StoneAxe", "WoodenSword" }
 -- 테스트 지급(Config.Debug.GiveAllPickaxes)용 모든 도구: 종류 → 단계 순 (단계가 늘어도 PickaxeDefs만 고치면 된다)
 local KIND_ORDER: { [string]: number } = { Pickaxe = 1, Axe = 2, Sword = 3, Bow = 4, Club = 5 }
 local ALL_TOOLS: { string } = {}
@@ -228,7 +227,7 @@ function PickaxeService.init()
 		end
 		-- 시작 도구: 그 종류 도구가 하나도 없을 때만 준다 (조합에 써서 더 좋은 도구가 있으면 안 준다)
 		updateTier(player)
-		for _, id in STARTER_TOOLS do
+		for _, id in Config.StarterTools do
 			if PickaxeService.getTier(player, PickaxeDefs[id].Kind) == 0 then
 				PickaxeService.giveIfMissing(player, id)
 			end

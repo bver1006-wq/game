@@ -420,6 +420,7 @@ src/
   - 장비 겉모습(GearVisualService, Config.GearVisual.HighTiers): 미스릴 = 은빛 파란 금속 + 파랗게 빛나는 테두리·가슴 V자 빛줄·이마 빛줄, 오리하르콘 = 금빛 + 주황 보석·큰 볏·투구 큰 날개 두 겹·어깨 뿔·발목 날개·반짝이
   - 타격 연출: Config.HitFeel.TierEffects·AxeTierEffects·Combat.TierEffects [5]·[6]. 오리하르콘은 두 번째 금빛 고리(DoubleRing) + 번쩍임(Flash)
 - [x] 조합 개수 줄이기 (2026-10-09): 4단계(다이아)부터는 아래 단계 2개 (2·3단계는 3개). 6단계 하나에 1단계 108개
+- [x] 시작 지급 (2026-10-09): 처음엔 돌 곡괭이 하나만(Config.StarterTools). 돌을 캐서 상인에게 팔고 → 돌 도끼(5G + 돌 5) → 통나무로 나머지. Studio 테스트 지급(Config.Debug)도 전부 끔, Studio 저장소는 PlayerData_Studio_v2로 새로 시작
 - [ ] 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)
