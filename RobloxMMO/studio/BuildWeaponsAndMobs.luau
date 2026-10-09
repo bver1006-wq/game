@@ -1,14 +1,14 @@
 --!nocheck
--- Studio 제작 스크립트 2: 무기 12종·몹 5종 모델(슬라임·스켈레톤·좀비·케르베로스·사이클롭스), 아이콘, 몹 구역·생성 자리.
+-- Studio 제작 스크립트 2: 무기 18종(5·6단계 미스릴·오리하르콘 포함, 2026-10-09)·몹 5종 모델(슬라임·스켈레톤·좀비·케르베로스·사이클롭스), 아이콘, 몹 구역·생성 자리.
 -- Rojo가 ServerStorage/StudioTools/BuildWeaponsAndMobs(ModuleScript)로 넣고, 서버(Main.server)가 게임을 시작할 때마다 실행한다.
 -- 편집 상태에서 직접 실행하려면 명령 모음에: require(game.ServerStorage.StudioTools.BuildWeaponsAndMobs:Clone())
 --
 -- 만드는 것
---   1. 무기 Tool 12종 → ServerStorage/Templates/Pickaxes/<무기 Id> (곡괭이·도끼와 같은 폴더, PickaxeService가 지급)
+--   1. 무기 Tool 18종 → ServerStorage/Templates/Pickaxes/<무기 Id> (곡괭이·도끼와 같은 폴더, PickaxeService가 지급)
 --      돌 곡괭이 Tool의 쥐는 각도(Grip)를 그대로 쓰고 모양은 숨긴 뒤, 부품으로 칼·활·방망이를 짓는다.
 --      좌표: x = 앞(곡괭이 머리 방향), y = 자루를 따라 위, 원점 = 손이 쥐는 점
 --   2. 몹 모델 5종 → ServerStorage/Templates/Mobs/<몹> (고정된 Root 부품 + 용접된 몸, 앞 = -Z, 기준점 = 발밑)
---   3. 아이콘 → ReplicatedStorage/ItemIcons (무기 12종 + 전리품 5종 + 음식 3종)
+--   3. 아이콘 → ReplicatedStorage/ItemIcons (무기 18종 + 전리품 8종 + 미스릴·오리하르콘괴 + 음식 3종 + 장비 36종)
 --   4. 몹 생성 자리 → Workspace/MobSpawns (속성 MobType·Zone·BossSpot). Config.MobZones의 구역(마을 둘레 부채꼴)마다
 --      주인 몹 + Mix 확률로 이웃 단계 몹. 마을에서 멀수록 센 몹, 띠끼리 거리가 조금 겹친다.
 --      마을 안전지대(TownArrival·ShopNPC 둘레 Config.MobAI.SafeZoneRadius) 바깥에만 둔다
@@ -102,6 +102,14 @@ local GLASS = Enum.Material.Glass
 local LEATHER = Enum.Material.Leather
 local C = Color3.fromRGB
 local GOLD = C(225, 180, 75)
+-- 5·6단계 색 (2026-10-09): 미스릴 = 은빛 파랑 금속 + 파란 빛 / 오리하르콘 = 금빛 금속 + 주황 빛
+local MITHRIL = C(175, 205, 240)
+local MITHRIL_DARK = C(40, 50, 78)
+local MITHRIL_GLOW = C(110, 185, 255)
+local ORI = C(240, 182, 58)
+local ORI_LIGHT = C(255, 222, 130)
+local ORI_DARK = C(85, 35, 25)
+local EMBER = C(255, 130, 30)
 
 -- 곡괭이가 없을 때 쓸 기본 Tool
 local function fallbackTool(): Tool
@@ -265,6 +273,24 @@ local function newWeapon(id: string)
 		sparkles.SpreadAngle = Vector2.new(180, 180)
 		sparkles.Parent = a
 	end
+	-- 오리하르콘 무기: 위로 날아오르는 불티 (2026-10-09)
+	function kit.embers(position: Vector3, color: Color3, color2: Color3)
+		local a = Instance.new("Attachment")
+		a.Name = "Embers"
+		a.Parent = handle
+		a.WorldPosition = position
+		local embers = Instance.new("ParticleEmitter")
+		embers.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		embers.Color = ColorSequence.new(color, color2)
+		embers.LightEmission = 1
+		embers.Size = NumberSequence.new(0.25, 0)
+		embers.Lifetime = NumberRange.new(0.5, 1)
+		embers.Rate = 10
+		embers.Speed = NumberRange.new(0.5, 1.5)
+		embers.SpreadAngle = Vector2.new(180, 180)
+		embers.Acceleration = Vector3.new(0, 4, 0)
+		embers.Parent = a
+	end
 	return kit
 end
 
@@ -326,6 +352,47 @@ WEAPONS.DiamondSword = function(k)
 	k.plate({ V(-0.07, 0.9), V(0.07, 0.9), V(0.07, 3.8), V(-0.07, 3.8) }, 0.22, C(170, 240, 255), NEON)
 	k.trail(k.at(0, 4.6), k.at(0, 1.0), C(110, 235, 255), 0.26)
 	k.glow(k.at(0, 2.6), C(120, 230, 255))
+end
+WEAPONS.MithrilSword = function(k) -- 미스릴 검: 가늘고 긴 은빛 날 + 파랗게 빛나는 홈, 초승달 코등이 (가볍고 날렵)
+	k.rod("Grip", -0.8, 0.5, 0.24, MITHRIL_DARK, LEATHER)
+	for i = 0, 3 do
+		k.rod("Wrap", -0.7 + i * 0.32, -0.7 + i * 0.32 + 0.06, 0.28, MITHRIL, METAL)
+	end
+	k.block("Pommel", 0, -0.92, Vector3.new(0.34, 0.34, 0.34), MITHRIL_GLOW, NEON, Enum.PartType.Ball)
+	k.plate({ V(0.15, 0.62), V(0.95, 0.98), V(1.05, 0.82), V(0.15, 0.5) }, 0.22, MITHRIL, METAL) -- 초승달 코등이
+	k.plate(mirror({ V(0.15, 0.62), V(0.95, 0.98), V(1.05, 0.82), V(0.15, 0.5) }), 0.22, MITHRIL, METAL)
+	k.block("Guard", 0, 0.58, Vector3.new(0.6, 0.2, 0.3), MITHRIL, METAL)
+	k.block("GuardGem", 0, 0.58, Vector3.new(0.26, 0.26, 0.26), MITHRIL_GLOW, NEON, Enum.PartType.Ball)
+	k.plate({ V(-0.2, 0.66), V(0.2, 0.66), V(0.22, 3.9), V(0, 4.8), V(-0.22, 3.9) }, 0.12, C(205, 222, 245), METAL)
+	k.plate({ V(-0.05, 0.85), V(0.05, 0.85), V(0.05, 4.0), V(-0.05, 4.0) }, 0.16, MITHRIL_GLOW, NEON) -- 빛나는 홈
+	k.trail(k.at(0, 4.8), k.at(0, 1.0), C(130, 200, 255), 0.3)
+	k.glow(k.at(0, 2.6), C(130, 200, 255))
+end
+WEAPONS.OrichalcumSword = function(k) -- 오리하르콘 성검: 넓은 금빛 날 + 불꽃 같은 톱니, 두 겹 날개 코등이, 주황 태양 보석 (묵직하고 화려)
+	k.rod("Grip", -1.0, 0.6, 0.32, ORI_DARK, LEATHER)
+	for i = 0, 3 do
+		k.rod("Band", -0.9 + i * 0.42, -0.9 + i * 0.42 + 0.08, 0.36, ORI_LIGHT, METAL)
+	end
+	k.block("Pommel", 0, -1.12, Vector3.new(0.45, 0.45, 0.45), EMBER, NEON, Enum.PartType.Ball)
+	local wing = { V(0.35, 0.8), V(1.4, 1.3), V(1.55, 0.95), V(0.35, 0.55) }
+	local wing2 = { V(0.35, 0.62), V(1.1, 0.48), V(1.25, 0.28), V(0.35, 0.45) }
+	k.plate(wing, 0.32, ORI, METAL)
+	k.plate(mirror(wing), 0.32, ORI, METAL)
+	k.plate(wing2, 0.28, ORI_LIGHT, METAL)
+	k.plate(mirror(wing2), 0.28, ORI_LIGHT, METAL)
+	k.block("Guard", 0, 0.68, Vector3.new(0.95, 0.3, 0.4), ORI, METAL)
+	k.block("Sun", 0, 0.68, Vector3.new(0.44, 0.44, 0.44), EMBER, NEON, Enum.PartType.Ball)
+	k.plate({ V(-0.5, 0.82), V(0.5, 0.82), V(0.55, 3.9), V(0, 5.2), V(-0.55, 3.9) }, 0.2, C(250, 205, 95), METAL)
+	for _, side in { 1, -1 } do
+		for i = 0, 3 do
+			local y = 1.2 + i * 0.7
+			k.plate({ V(0.5 * side, y), V(0.8 * side, y + 0.25), V(0.52 * side, y + 0.55) }, 0.16, C(255, 175, 60), METAL) -- 불꽃 톱니
+		end
+	end
+	k.plate({ V(-0.08, 1.0), V(0.08, 1.0), V(0.08, 4.2), V(-0.08, 4.2) }, 0.26, EMBER, NEON)
+	k.trail(k.at(0, 5.2), k.at(0, 1.0), C(255, 190, 80), 0.32)
+	k.glow(k.at(0, 2.8), C(255, 170, 70))
+	k.embers(k.at(0, 3.0), EMBER, ORI_LIGHT)
 end
 
 -- 방망이 -------------------------------------------------------------
@@ -401,6 +468,38 @@ WEAPONS.DiamondMace = function(k) -- 다이아 철퇴: 빛나는 핵 + 날개 6�
 	k.trail(k.at(0, 3.9), k.at(0, 2.2), C(110, 235, 255), 0.26)
 	k.glow(k.at(0, 2.75), C(120, 230, 255))
 end
+WEAPONS.MithrilHammer = function(k) -- 미스릴 전투망치: 가는 자루, 양쪽 빛나는 망치 면 (가볍고 빠름)
+	k.rod("Shaft", -0.8, 2.5, 0.22, MITHRIL_DARK, METAL)
+	k.rod("Grip", -0.7, 0.35, 0.27, MITHRIL_DARK:Lerp(C(0, 0, 0), 0.2), LEATHER)
+	k.block("Pommel", 0, -0.92, Vector3.new(0.34, 0.34, 0.34), MITHRIL_GLOW, NEON, Enum.PartType.Ball)
+	k.rod("Rune", 2.3, 2.38, 0.3, MITHRIL_GLOW, NEON)
+	k.rod("Rune", 1.6, 1.66, 0.28, MITHRIL_GLOW, NEON)
+	k.block("HammerHead", 0, 2.75, Vector3.new(1.5, 0.62, 0.62), MITHRIL, METAL)
+	for _, side in { 1, -1 } do
+		k.block("Face", 0.8 * side, 2.75, Vector3.new(0.12, 0.75, 0.75), MITHRIL_GLOW, NEON)
+	end
+	k.plate({ V(-0.15, 3.05), V(0, 3.6), V(0.15, 3.05) }, 0.18, C(205, 222, 245), METAL) -- 위 가시
+	k.trail(k.at(0.8, 3.1), k.at(0.8, 2.4), C(130, 200, 255), 0.26)
+	k.glow(k.at(0, 2.75), C(130, 200, 255))
+end
+WEAPONS.OrichalcumHammer = function(k) -- 오리하르콘 거인망치: 굵은 금 고리 자루, 커다란 금빛 머리, 주황 보석, 왕관 가시 (묵직하고 화려)
+	k.rod("Shaft", -1.0, 2.5, 0.3, ORI_DARK, METAL)
+	for i = 0, 4 do
+		k.rod("Band", -0.85 + i * 0.6, -0.85 + i * 0.6 + 0.09, 0.36, ORI_LIGHT, METAL)
+	end
+	k.block("Pommel", 0, -1.15, Vector3.new(0.5, 0.5, 0.5), EMBER, NEON, Enum.PartType.Ball)
+	k.block("HammerHead", 0, 2.95, Vector3.new(1.9, 1.0, 1.0), ORI, METAL)
+	for _, side in { 1, -1 } do
+		k.block("Cap", 1.0 * side, 2.95, Vector3.new(0.22, 1.2, 1.2), ORI_LIGHT, METAL)
+		k.block("Core", 0, 2.95, Vector3.new(0.5, 0.5, 0.5), EMBER, NEON, Enum.PartType.Ball, nil, 0.5 * side) -- 옆면 보석
+	end
+	for _, x in { -0.6, 0, 0.6 } do
+		k.plate({ V(x - 0.15, 3.45), V(x, 3.95), V(x + 0.15, 3.45) }, 0.3, ORI_LIGHT, METAL) -- 왕관 가시
+	end
+	k.trail(k.at(1.0, 3.5), k.at(1.0, 2.4), C(255, 190, 80), 0.3)
+	k.glow(k.at(0, 2.95), C(255, 170, 70))
+	k.embers(k.at(0, 3.2), EMBER, ORI_LIGHT)
+end
 
 -- 활 ----------------------------------------------------------------
 -- 활대: y = -half~half, 끝이 뒤(-x)로 휜다. recurve > 0이면 끝이 다시 앞으로 말린다
@@ -457,6 +556,34 @@ WEAPONS.DiamondBow = function(k) -- 빛나는 수정 활대 + 날개 장식. 다
 	k.plate({ V(0.12 * S, 0), V(0.32 * S, 0.2 * S), V(0.12 * S, 0.4 * S), V(0.0, 0.2 * S) }, 0.2 * S, C(210, 250, 255), NEON)
 	bowString(k, top, bottom, C(200, 245, 255))
 	k.glow(k.at(0, 0), C(120, 230, 255))
+end
+WEAPONS.MithrilBow = function(k) -- 미스릴 활: 가늘고 긴 은빛 리커브, 빛나는 룬 고리·끝 (가볍고 빠름)
+	local top, bottom = bowLimbs(k, 2.4, 0.55, 0.3, 0.17, 0.1, MITHRIL, METAL)
+	k.rod("Grip", -0.3, 0.3, 0.27, MITHRIL_DARK, LEATHER)
+	k.rod("Rune", 0.36, 0.42, 0.24, MITHRIL_GLOW, NEON)
+	k.rod("Rune", -0.42, -0.36, 0.24, MITHRIL_GLOW, NEON)
+	k.block("Tip", top.X, top.Y, Vector3.new(0.22, 0.22, 0.22), MITHRIL_GLOW, NEON, Enum.PartType.Ball)
+	k.block("Tip", bottom.X, bottom.Y, Vector3.new(0.22, 0.22, 0.22), MITHRIL_GLOW, NEON, Enum.PartType.Ball)
+	for _, y in { 1, -1 } do
+		k.plate({ V(0, 0.45 * y), V(0.35, 0.85 * y), V(-0.1, 1.15 * y) }, 0.1, C(205, 222, 245), METAL) -- 잎 모양 날개
+	end
+	bowString(k, top, bottom, C(150, 215, 255))
+	k.glow(k.at(0, 0), C(130, 200, 255))
+end
+WEAPONS.OrichalcumBow = function(k) -- 오리하르콘 태양궁: 크고 굵은 금빛 활대, 금 날개, 앞에 주황 태양 원반 (25% 크게)
+	local S = 1.25
+	local top, bottom = bowLimbs(k, 2.2 * S, 0.65 * S, 0.3 * S, 0.24 * S, 0.13 * S, ORI, METAL)
+	k.rod("Grip", -0.3 * S, 0.3 * S, 0.3 * S, ORI_DARK, LEATHER)
+	for _, y in { 1, -1 } do
+		k.plate({ V(-0.05 * S, 0.35 * y * S), V(0.6 * S, 0.8 * y * S), V(0.35 * S, 1.25 * y * S), V(-0.2 * S, 1.0 * y * S) }, 0.12 * S, ORI_LIGHT, METAL)
+	end
+	k.block("SunRing", 0.28 * S, 0, Vector3.new(0.12, 0.75, 0.75) * S, ORI_LIGHT, METAL, Enum.PartType.Cylinder)
+	k.block("Sun", 0.3 * S, 0, Vector3.new(0.42, 0.42, 0.42) * S, EMBER, NEON, Enum.PartType.Ball)
+	k.block("Tip", top.X, top.Y, Vector3.new(0.26, 0.26, 0.26), EMBER, NEON, Enum.PartType.Ball)
+	k.block("Tip", bottom.X, bottom.Y, Vector3.new(0.26, 0.26, 0.26), EMBER, NEON, Enum.PartType.Ball)
+	bowString(k, top, bottom, C(255, 220, 150))
+	k.glow(k.at(0.3 * S, 0), C(255, 170, 70))
+	k.embers(k.at(0.3 * S, 0), EMBER, ORI_LIGHT)
 end
 
 -- 도구를 아이콘용 모델로 (보이는 부품만)
@@ -734,7 +861,60 @@ end
 print(`[BuildWeaponsAndMobs] 몹 {mobCount}종 완료`)
 
 ---------------------------------------------------------------- 3. 전리품·음식 아이콘
+-- 괴 모양 아이콘 (아래 넓은 판 + 위 좁은 판 + 도장). 미스릴·오리하르콘괴 (2026-10-09)
+local function ingotIcon(m: Model, color: Color3, stamp: Color3, round: boolean)
+	part({ Name = "Base", Size = Vector3.new(1.6, 0.32, 0.8), Color = color, Material = METAL }, m)
+	part({ Name = "Top", Size = Vector3.new(1.3, 0.26, 0.58), CFrame = CFrame.new(0, 0.29, 0), Color = color:Lerp(C(255, 255, 255), 0.15), Material = METAL }, m)
+	if round then
+		part({ Name = "Stamp", Shape = Enum.PartType.Ball, Size = Vector3.new(0.26, 0.26, 0.26), CFrame = CFrame.new(0, 0.44, 0), Color = stamp, Material = NEON }, m)
+	else
+		for _, angle in { 25, -25 } do
+			part({ Name = "Rune", Size = Vector3.new(0.7, 0.05, 0.07), CFrame = CFrame.new(0, 0.43, 0) * CFrame.Angles(0, math.rad(angle), 0), Color = stamp, Material = NEON }, m)
+		end
+	end
+end
+
 local LOOT_ICONS = {
+	-- 두 번째 전리품·보스 전리품 (2026-10-09)
+	CerberusHide = function(m) -- 케르베로스 털가죽: 검붉은 털 가죽 한 장 + 꼬리 불꽃
+		local fur = C(85, 65, 72)
+		part({ Name = "Pelt", Size = Vector3.new(1.6, 0.14, 1.2), CFrame = CFrame.Angles(0, 0, math.rad(6)), Color = fur, Material = Enum.Material.Fabric }, m)
+		part({ Name = "Belly", Size = Vector3.new(0.9, 0.16, 0.6), CFrame = CFrame.new(0, 0.03, 0) * CFrame.Angles(0, 0, math.rad(6)), Color = C(130, 105, 112), Material = Enum.Material.Fabric }, m)
+		for _, x in { 0.8, -0.8 } do
+			for _, z in { 0.5, -0.5 } do
+				part({ Name = "Leg", Size = Vector3.new(0.35, 0.1, 0.35), CFrame = CFrame.new(x * 1.05, x * 0.08, z * 1.15) * CFrame.Angles(0, math.rad(x * z * 40), 0), Color = fur, Material = Enum.Material.Fabric }, m)
+			end
+		end
+		part({ Name = "Flame", Shape = Enum.PartType.Ball, Size = Vector3.new(0.32, 0.32, 0.32), CFrame = CFrame.new(-1.0, 0, 0), Color = C(255, 140, 50), Material = NEON }, m)
+	end,
+	CyclopsHide = function(m) -- 사이클롭스 가죽: 둘둘 만 두꺼운 가죽 + 끈 + 눈 도장
+		local hide = C(165, 170, 115)
+		part({ Name = "Roll", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.6, 0.7, 0.7), Color = hide, Material = Enum.Material.Leather }, m)
+		part({ Name = "Flap", Size = Vector3.new(1.5, 0.08, 0.55), CFrame = CFrame.new(0, -0.3, -0.45) * CFrame.Angles(math.rad(-20), 0, 0), Color = hide:Lerp(C(0, 0, 0), 0.1), Material = Enum.Material.Leather }, m)
+		for _, x in { 0.5, -0.5 } do
+			part({ Name = "Tie", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.12, 0.74, 0.74), CFrame = CFrame.new(x, 0, 0), Color = C(90, 60, 35), Material = Enum.Material.Leather }, m)
+		end
+		part({ Name = "EyeMark", Shape = Enum.PartType.Ball, Size = Vector3.new(0.22, 0.22, 0.22), CFrame = CFrame.new(0, 0.05, -0.33), Color = C(230, 120, 30) }, m)
+	end,
+	BossToken = function(m) -- 보스의 증표: 금 메달 + 왕관 + 빨간 보석 + 리본
+		local face = CFrame.Angles(0, math.rad(90), 0) -- 원판이 앞(카메라 쪽)을 본다
+		part({ Name = "Ribbon", Size = Vector3.new(0.3, 0.9, 0.05), CFrame = CFrame.new(-0.25, -0.75, 0.08) * CFrame.Angles(0, 0, math.rad(-12)), Color = C(200, 40, 50), Material = Enum.Material.Fabric }, m)
+		part({ Name = "Ribbon", Size = Vector3.new(0.3, 0.9, 0.05), CFrame = CFrame.new(0.25, -0.75, 0.08) * CFrame.Angles(0, 0, math.rad(12)), Color = C(200, 40, 50), Material = Enum.Material.Fabric }, m)
+		part({ Name = "Coin", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 1.4, 1.4), CFrame = face, Color = C(240, 190, 60), Material = METAL }, m)
+		part({ Name = "Rim", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.24, 1.15, 1.15), CFrame = face, Color = C(255, 220, 120), Material = METAL }, m)
+		part({ Name = "Inner", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.28, 0.95, 0.95), CFrame = face, Color = C(230, 175, 50), Material = METAL }, m)
+		for i, x in { -0.25, 0, 0.25 } do
+			part({ Name = "Crown", Size = Vector3.new(0.14, if i == 2 then 0.36 else 0.26, 0.06), CFrame = CFrame.new(x, 0.12, -0.16), Color = C(255, 225, 130), Material = METAL }, m)
+		end
+		part({ Name = "CrownBase", Size = Vector3.new(0.66, 0.12, 0.06), CFrame = CFrame.new(0, -0.05, -0.16), Color = C(255, 225, 130), Material = METAL }, m)
+		part({ Name = "Gem", Shape = Enum.PartType.Ball, Size = Vector3.new(0.2, 0.2, 0.2), CFrame = CFrame.new(0, -0.28, -0.16), Color = C(255, 60, 70), Material = NEON }, m)
+	end,
+	MithrilIngot = function(m)
+		ingotIcon(m, C(175, 205, 240), C(90, 170, 255), false)
+	end,
+	OrichalcumIngot = function(m)
+		ingotIcon(m, C(240, 182, 58), C(255, 130, 30), true)
+	end,
 	SlimeJelly = function(m)
 		local p = part({ Name = "Jelly", Size = Vector3.new(1.2, 0.9, 1.2), Color = C(110, 225, 160), Material = GLASS, Transparency = 0.2 }, m)
 		Instance.new("SpecialMesh", p).MeshType = Enum.MeshType.Sphere
@@ -839,6 +1019,8 @@ local EQUIPMENT_ICONS = {
 		end
 	end,
 }
+-- 단계별 장식 색: 1~2 몸 색을 어둡게 / 3~4 금 / 5 미스릴 파란 빛 / 6 오리하르콘 주황 빛 (5단계부터 장식이 빛난다, 2026-10-09)
+local HIGH_ACCENTS = { [5] = MITHRIL_GLOW, [6] = EMBER }
 for _, id in EquipmentDefs.Order do
 	local def = EquipmentDefs.Items[id]
 	local old = iconFolder:FindFirstChild(id)
@@ -847,8 +1029,17 @@ for _, id in EquipmentDefs.Order do
 	end
 	local m = Instance.new("Model")
 	m.Name = id
-	local accent = if def.Tier >= 3 then GOLD else def.Color:Lerp(Color3.new(0, 0, 0), 0.3)
+	local high = HIGH_ACCENTS[math.min(def.Tier, 6)]
+	local accent = if def.Tier >= 5 and high then high elseif def.Tier >= 3 then GOLD else def.Color:Lerp(Color3.new(0, 0, 0), 0.3)
 	EQUIPMENT_ICONS[def.Slot](m, def.Color, accent)
+	if def.Tier >= 5 then
+		-- 장식 부품(장식 색)을 빛나게
+		for _, p in m:GetChildren() do
+			if p:IsA("BasePart") and math.abs(p.Color.R - accent.R) + math.abs(p.Color.G - accent.G) + math.abs(p.Color.B - accent.B) < 0.02 then
+				p.Material = NEON
+			end
+		end
+	end
 	m:SetAttribute("GeneratedBy", GENERATED)
 	m.Parent = iconFolder
 end

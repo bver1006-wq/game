@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
+local TierDefs = require(ReplicatedStorage.Shared.TierDefs)
 
 type EquipmentDef = EquipmentDefs.EquipmentDef
 
@@ -35,6 +36,12 @@ type Style = {
 	Accent: Color3, -- 단추·버클·징 같은 작은 장식
 	AccentMat: Enum.Material,
 	Tier: number,
+	Gem: Color3, -- 보석 빛·볏 색 (4단계 다이아 하늘색, 5 미스릴 파랑, 6 오리하르콘 주황)
+	GlowBrightness: number,
+	GlowRange: number,
+	Sparkle: number, -- 반짝이 입자 (1초에 몇 개, 0이면 없음)
+	Wings: boolean, -- 투구 큰 날개·장화 발목 날개 (6단계)
+	Shoulder: boolean, -- 어깨 뿔 (6단계)
 }
 
 type Ctx = {
@@ -59,9 +66,21 @@ local function gv(): any
 	return Config.GearVisual :: any
 end
 
--- 단계별 재질·색 정하기 (1 가죽·뼈·나무 / 2 구리 / 3 철 / 4 다이아몬드)
+-- 단계별 재질·색 정하기 (1 가죽·뼈·나무 / 2 구리 / 3 철 / 4 다이아몬드 / 5 미스릴 / 6 오리하르콘)
+-- 5단계부터는 Config.GearVisual.HighTiers (표에 없는 더 높은 단계는 가장 높은 아래 단계 값)
 local function styleFor(def: EquipmentDef): Style
 	local tier = def.Tier
+	local base = { Gem = gv().GemColor, GlowBrightness = gv().GlowBrightness, GlowRange = gv().GlowRange }
+	local high = if tier >= 5 then TierDefs.pick(gv().HighTiers, tier) else nil
+	if high then
+		return {
+			Main = def.Color, MainMat = Enum.Material.Metal, MainAlpha = 0,
+			Trim = high.Trim, TrimMat = high.TrimMat,
+			Accent = high.Accent, AccentMat = Enum.Material.Neon, Tier = tier,
+			Gem = high.Gem, GlowBrightness = high.GlowBrightness, GlowRange = high.GlowRange,
+			Sparkle = high.Sparkle, Wings = high.Wings == true, Shoulder = high.Shoulder == true,
+		}
+	end
 	if tier <= 1 then
 		local mat = Enum.Material.Leather
 		if def.Slot == "Bracelet" then
@@ -73,24 +92,32 @@ local function styleFor(def: EquipmentDef): Style
 			Main = def.Color, MainMat = mat, MainAlpha = 0,
 			Trim = C(95, 62, 38), TrimMat = Enum.Material.Fabric,
 			Accent = C(225, 185, 95), AccentMat = Enum.Material.SmoothPlastic, Tier = tier,
+		Gem = base.Gem, GlowBrightness = base.GlowBrightness, GlowRange = base.GlowRange,
+			Sparkle = 0, Wings = false, Shoulder = false,
 		}
 	elseif tier == 2 then
 		return {
 			Main = def.Color, MainMat = Enum.Material.Metal, MainAlpha = 0,
 			Trim = C(150, 80, 42), TrimMat = Enum.Material.Metal,
 			Accent = C(240, 170, 95), AccentMat = Enum.Material.Metal, Tier = tier,
+		Gem = base.Gem, GlowBrightness = base.GlowBrightness, GlowRange = base.GlowRange,
+			Sparkle = 0, Wings = false, Shoulder = false,
 		}
 	elseif tier == 3 then
 		return {
 			Main = def.Color, MainMat = Enum.Material.Metal, MainAlpha = 0,
 			Trim = C(105, 110, 122), TrimMat = Enum.Material.Metal,
 			Accent = C(225, 228, 236), AccentMat = Enum.Material.Metal, Tier = tier,
+		Gem = base.Gem, GlowBrightness = base.GlowBrightness, GlowRange = base.GlowRange,
+			Sparkle = 0, Wings = false, Shoulder = false,
 		}
 	end
 	return {
 		Main = def.Color, MainMat = Enum.Material.Glass, MainAlpha = 0.1,
 		Trim = C(235, 245, 255), TrimMat = Enum.Material.Metal,
 		Accent = gv().GemColor, AccentMat = Enum.Material.Neon, Tier = tier,
+		Gem = base.Gem, GlowBrightness = base.GlowBrightness, GlowRange = base.GlowRange,
+		Sparkle = 0, Wings = false, Shoulder = false,
 	}
 end
 
@@ -175,14 +202,31 @@ local function gem(ctx: Ctx, body: BasePart, name: string, size: number, offset:
 	return piece(ctx, body, name, BLOCK, Vector3.new(size, size, size * 0.5), offset * CFrame.Angles(0, 0, math.pi / 4), style.Accent, mat)
 end
 
--- 다이아몬드 장비의 은은한 빛
-local function glow(p: BasePart)
+-- 다이아몬드 이상 장비의 은은한 빛 (색·밝기는 단계 모양 style)
+local function glow(p: BasePart, style: Style)
 	local light = Instance.new("PointLight")
-	light.Color = gv().GemColor
-	light.Brightness = gv().GlowBrightness
-	light.Range = gv().GlowRange
+	light.Color = style.Gem
+	light.Brightness = style.GlowBrightness
+	light.Range = style.GlowRange
 	light.Shadows = false
 	light.Parent = p
+end
+
+-- 5단계 이상: 보석에서 반짝이 입자가 조금씩 튄다 (style.Sparkle = 1초에 몇 개)
+local function sparkle(p: BasePart, style: Style)
+	if style.Sparkle <= 0 then
+		return
+	end
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	emitter.Color = ColorSequence.new(style.Gem, Color3.new(1, 1, 1))
+	emitter.LightEmission = 1
+	emitter.Size = NumberSequence.new(0.18, 0)
+	emitter.Lifetime = NumberRange.new(0.4, 0.8)
+	emitter.Speed = NumberRange.new(0.3, 1)
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.Rate = style.Sparkle
+	emitter.Parent = p
 end
 
 ---------------------------------------------------------------- 헬멧
@@ -235,16 +279,38 @@ local function buildHelmet(ctx: Ctx, def: EquipmentDef)
 
 	if tier >= 4 then
 		-- 다이아몬드 투구: 빛나는 볏, 양옆 작은 날개, 이마 보석
-		wedge(ctx, head, "HelmetCrest", Vector3.new(m * 0.09, hy * 0.42, m * 0.6), CFrame.new(0, topY + hy * 0.12, hz * 0.15), gv().GemColor, Enum.Material.Neon)
+		-- (5단계 미스릴은 파란 볏, 6단계 오리하르콘은 더 큰 주황 볏 + 큰 금빛 날개 두 겹)
+		local crestScale = if tier >= 6 then 1.35 else 1
+		wedge(ctx, head, "HelmetCrest", Vector3.new(m * 0.09, hy * 0.42 * crestScale, m * 0.6 * crestScale), CFrame.new(0, topY + hy * 0.12 * crestScale, hz * 0.15), style.Gem, Enum.Material.Neon)
 		for _, side in { -1, 1 } do
-			wedge(
-				ctx, head, "HelmetWing", Vector3.new(hx * 0.06, hy * 0.42, hz * 0.5),
-				CFrame.new(side * hx * 0.66, hy * 0.42, hz * 0.18) * CFrame.Angles(0, 0, -side * 0.3),
-				style.Trim, style.TrimMat
-			)
+			if style.Wings then
+				wedge(
+					ctx, head, "HelmetWing", Vector3.new(hx * 0.07, hy * 0.85, hz * 0.85),
+					CFrame.new(side * hx * 0.7, hy * 0.6, hz * 0.28) * CFrame.Angles(0, 0, -side * 0.45),
+					style.Trim, style.TrimMat
+				)
+				wedge(
+					ctx, head, "HelmetWingInner", Vector3.new(hx * 0.06, hy * 0.6, hz * 0.6),
+					CFrame.new(side * hx * 0.66, hy * 0.42, hz * 0.32) * CFrame.Angles(0, 0, -side * 0.75),
+					style.Main, style.MainMat
+				)
+			else
+				wedge(
+					ctx, head, "HelmetWing", Vector3.new(hx * 0.06, hy * 0.42, hz * 0.5),
+					CFrame.new(side * hx * 0.66, hy * 0.42, hz * 0.18) * CFrame.Angles(0, 0, -side * 0.3),
+					style.Trim, style.TrimMat
+				)
+			end
 		end
-		local g = gem(ctx, head, "HelmetGem", m * gv().GemSize * 1.4, CFrame.new(0, brimY, -brimD / 2 - hz * 0.02), style)
-		glow(g)
+		local g = gem(ctx, head, "HelmetGem", m * gv().GemSize * (if tier >= 5 then 1.7 else 1.4), CFrame.new(0, brimY, -brimD / 2 - hz * 0.02), style)
+		glow(g, style)
+		sparkle(g, style)
+		if tier >= 5 then
+			-- 보석 양옆으로 빛나는 줄 (눈썹처럼)
+			for _, side in { -1, 1 } do
+				piece(ctx, head, "HelmetBrowLine", BLOCK, Vector3.new(m * 0.3, hy * 0.05, hz * 0.05), CFrame.new(side * m * 0.24, brimY + hy * 0.08, -brimD / 2) * CFrame.Angles(0, 0, side * 0.18), style.Gem, Enum.Material.Neon)
+			end
+		end
 	end
 end
 
@@ -261,7 +327,8 @@ end
 -- 어깨 보호대 (3단계 이상)
 local function buildPauldrons(ctx: Ctx, style: Style)
 	local names = if ctx.R15 then { "LeftUpperArm", "RightUpperArm" } else { "Left Arm", "Right Arm" }
-	local scale = gv().PauldronScale[if style.Tier >= 4 then 2 else 1] or 1.5
+	local scales = gv().PauldronScale
+	local scale = scales[math.clamp(style.Tier - 2, 1, #scales)] or 1.5 -- 3단계 = 첫 값, 단계마다 다음 값
 	for i, name in names do
 		local arm = bodyPart(ctx.Character, name)
 		if arm then
@@ -276,6 +343,14 @@ local function buildPauldrons(ctx: Ctx, style: Style)
 				-- 바깥쪽 빛나는 징
 				local g = d * 0.22
 				piece(ctx, arm, "PauldronStud", BALL, Vector3.new(g, g, g), CFrame.new(side * (a.X * 0.12 + d * 0.48), y + d * 0.05, 0), style.Accent, Enum.Material.Neon)
+			end
+			if style.Shoulder then
+				-- 6단계: 위로·바깥으로 솟은 금빛 뿔 + 빛나는 끝
+				local spikeLen = d * 0.55
+				local spike = CFrame.new(side * (a.X * 0.12 + d * 0.18), y + d * 0.42, 0) * CFrame.Angles(0, 0, -side * 0.45)
+				piece(ctx, arm, "PauldronSpike", CYLINDER, Vector3.new(spikeLen, d * 0.16, d * 0.16), spike * CFrame.new(0, spikeLen / 2, 0) * AXIS_Y, style.Trim, style.TrimMat)
+				local tip = d * 0.16
+				piece(ctx, arm, "PauldronSpikeTip", BALL, Vector3.new(tip, tip, tip), spike * CFrame.new(0, spikeLen, 0), style.Accent, Enum.Material.Neon)
 			end
 		end
 	end
@@ -318,9 +393,16 @@ local function buildArmor(ctx: Ctx, def: EquipmentDef)
 		end
 		if tier >= 4 then
 			-- 가슴 보석 (빛)
-			local g = gem(ctx, torso, "ChestGem", tx * gv().GemSize * 1.6, CFrame.new(0, -ty * 0.12, front - plateT - plateT * 0.4), style)
-			glow(g)
-			if gv().DiamondSparkles then
+			local g = gem(ctx, torso, "ChestGem", tx * gv().GemSize * (if tier >= 5 then 2 else 1.6), CFrame.new(0, -ty * 0.12, front - plateT - plateT * 0.4), style)
+			glow(g, style)
+			sparkle(g, style)
+			if tier >= 5 then
+				-- 가슴판 위 빛나는 V자 줄 (미스릴 파랑 / 오리하르콘 주황)
+				for _, side in { -1, 1 } do
+					piece(ctx, torso, "ChestRune", BLOCK, Vector3.new(tx * 0.05, ty * 0.42, plateT * 0.4), CFrame.new(side * tx * 0.2, ty * 0.14, front - plateT - plateT * 0.2) * CFrame.Angles(0, 0, side * 0.4), style.Gem, Enum.Material.Neon)
+				end
+			end
+			if tier == 4 and gv().DiamondSparkles then
 				local s = Instance.new("Sparkles")
 				s.SparkleColor = gv().GemColor
 				s.Parent = g
@@ -375,6 +457,11 @@ local function buildBoots(ctx: Ctx, def: EquipmentDef)
 				end
 				if tier >= 4 then
 					gem(ctx, leg, "BootGem", l.X * gv().GemSize * 2, CFrame.new(0, -l.Y * 0.3, -d / 2 - l.Z * 0.02), style)
+				end
+				if style.Wings then
+					-- 6단계: 발목 바깥쪽 작은 날개
+					local outward = if side == "Left" then -1 else 1
+					wedge(ctx, leg, "BootWing", Vector3.new(l.X * 0.06, l.Y * 0.32, l.Z * 0.7), CFrame.new(outward * d * 0.52, -l.Y * 0.22, l.Z * 0.15) * CFrame.Angles(0, 0, -outward * 0.35), style.Trim, style.TrimMat)
 				end
 			end
 		else
@@ -477,8 +564,8 @@ local function buildNecklace(ctx: Ctx, def: EquipmentDef)
 	local cordW = tx * 0.035
 	local cordT = tz * 0.05
 	local z = -front - cordT / 2
-	local cordColor = if tier == 1 then C(110, 70, 40) elseif tier == 2 then C(150, 80, 42) elseif tier == 3 then C(95, 100, 110) else C(235, 245, 255)
-	local cordMat = if tier == 1 then Enum.Material.Fabric else Enum.Material.Metal
+	local cordColor = if tier == 1 then C(110, 70, 40) elseif tier == 2 then C(150, 80, 42) elseif tier == 3 then C(95, 100, 110) elseif tier == 4 then C(235, 245, 255) else style.Trim
+	local cordMat = if tier == 1 then Enum.Material.Fabric elseif tier >= 5 then style.TrimMat else Enum.Material.Metal
 
 	-- 어깨 위 줄 (앞에서 뒤까지)과 뒷목 줄
 	local topY = ty * 0.5 + cordT / 2
@@ -519,7 +606,7 @@ local function buildNecklace(ctx: Ctx, def: EquipmentDef)
 		end
 	else
 		-- 동그란 메달 (앞을 보는 원판)
-		local dd = tx * (if tier == 2 then 0.15 elseif tier == 3 then 0.18 else 0.2)
+		local dd = tx * (if tier == 2 then 0.15 elseif tier == 3 then 0.18 elseif tier == 4 then 0.2 else 0.23)
 		local thick = cordT * 1.6
 		piece(ctx, torso, "Pendant", CYLINDER, Vector3.new(thick, dd, dd), CFrame.new(0, py, pz) * AXIS_Z, style.Main, if tier >= 4 then Enum.Material.Metal else style.MainMat)
 		if tier == 2 then
@@ -529,7 +616,8 @@ local function buildNecklace(ctx: Ctx, def: EquipmentDef)
 			piece(ctx, torso, "PendantStud", BALL, Vector3.new(s, s, s), CFrame.new(0, py, pz - thick * 0.4), style.Accent, style.AccentMat)
 		else
 			piece(ctx, torso, "PendantFrame", CYLINDER, Vector3.new(thick * 1.1, dd * 0.8, dd * 0.8), CFrame.new(0, py, pz) * AXIS_Z, style.Trim, style.TrimMat)
-			gem(ctx, torso, "PendantGem", dd * 0.5, CFrame.new(0, py, pz - thick * 0.6), style)
+			local pendantGem = gem(ctx, torso, "PendantGem", dd * 0.5, CFrame.new(0, py, pz - thick * 0.6), style)
+			sparkle(pendantGem, style)
 		end
 	end
 end
@@ -604,7 +692,7 @@ local function buildQuiver(ctx: Ctx, def: EquipmentDef)
 	local backZ = if armored then tz * gv().ArmorDepth / 2 else tz / 2
 	local frontZ = if armored then armorFrontDepth(tz, ctx.ArmorTier) else tz / 2
 
-	local rimColor = if tier >= 3 then C(170, 176, 188) else C(205, 160, 75)
+	local rimColor = if tier >= 5 then C(150, 200, 255) elseif tier >= 3 then C(170, 176, 188) else C(205, 160, 75) -- 5 미스릴 / 3 철 / 1 황동
 	local rimMat = Enum.Material.Metal
 	local leather = def.Color
 	local dark = leather:Lerp(Color3.new(0, 0, 0), 0.35)
@@ -642,7 +730,7 @@ local function buildQuiver(ctx: Ctx, def: EquipmentDef)
 	local count = math.clamp(math.floor(ctx.Arrows), 0, Config.Quiver.VisibleArrows)
 	local arrowLen = len * 0.5
 	local thick = dia * 0.08
-	local vaneA = if tier >= 3 then C(70, 130, 230) else C(215, 60, 55)
+	local vaneA = if tier >= 5 then C(90, 170, 255) elseif tier >= 3 then C(70, 130, 230) else C(215, 60, 55)
 	local vaneB = C(248, 246, 238)
 	local baseY = len / 2 - len * 0.2
 	for i = 1, count do
