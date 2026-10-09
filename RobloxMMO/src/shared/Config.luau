@@ -110,7 +110,7 @@ Config.Inventory = {
 
 -- 테스트용 설정 (Studio에서만 적용)
 Config.Debug = {
-	GiveAllPickaxes = false, -- true면 들어올 때 곡괭이·도끼를 전부 지급 (테스트용)
+	GiveAllPickaxes = true, -- true면 들어올 때 곡괭이·도끼를 전부 지급 (테스트용, 2026-10-09 사용자 요청으로 켬)
 	GiveReturnScrolls = 5, -- 들어오면 귀환 주문서를 이만큼 지급. 테스트 끝나면 0
 }
 
