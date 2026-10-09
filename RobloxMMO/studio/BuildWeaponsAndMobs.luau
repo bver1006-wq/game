@@ -8,7 +8,7 @@
 --      돌 곡괭이 Tool의 쥐는 각도(Grip)를 그대로 쓰고 모양은 숨긴 뒤, 부품으로 칼·활·방망이를 짓는다.
 --      좌표: x = 앞(곡괭이 머리 방향), y = 자루를 따라 위, 원점 = 손이 쥐는 점
 --   2. 몹 모델 5종 → ServerStorage/Templates/Mobs/<몹> (고정된 Root 부품 + 용접된 몸, 앞 = -Z, 기준점 = 발밑)
---   3. 아이콘 → ReplicatedStorage/ItemIcons (무기 12종 + 전리품 5종)
+--   3. 아이콘 → ReplicatedStorage/ItemIcons (무기 12종 + 전리품 5종 + 음식 3종)
 --   4. 몹 생성 자리 → Workspace/MobSpawns (속성 MobType). 마을(TownArrival)에서 Config.Mobs의 거리 띠 안 땅에 고른다
 
 local CollectionService = game:GetService("CollectionService")
@@ -684,7 +684,7 @@ for id, build in MOBS do
 end
 print(`[BuildWeaponsAndMobs] 몹 {mobCount}종 완료`)
 
----------------------------------------------------------------- 3. 전리품 아이콘
+---------------------------------------------------------------- 3. 전리품·음식 아이콘
 local LOOT_ICONS = {
 	SlimeJelly = function(m)
 		local p = part({ Name = "Jelly", Size = Vector3.new(1.2, 0.9, 1.2), Color = C(110, 225, 160), Material = GLASS, Transparency = 0.2 }, m)
@@ -705,6 +705,25 @@ local LOOT_ICONS = {
 	CerberusFang = function(m)
 		triangle(m, Vector3.new(-0.3, 0, 0), Vector3.new(0.3, 0, 0), Vector3.new(0.05, -1.4, 0), 0.3, C(250, 245, 230), Enum.Material.SmoothPlastic, nil, true)
 		part({ Name = "Root", Size = Vector3.new(0.65, 0.25, 0.35), CFrame = CFrame.new(0, 0.1, 0), Color = C(200, 60, 70) }, m)
+	end,
+	-- 음식
+	Bread = function(m)
+		local loaf = part({ Name = "Loaf", Size = Vector3.new(1.6, 0.9, 1.0), Color = C(210, 160, 90) }, m)
+		Instance.new("SpecialMesh", loaf).MeshType = Enum.MeshType.Sphere
+		for i = -1, 1 do
+			part({ Name = "Cut", Size = Vector3.new(0.08, 0.12, 0.7), CFrame = CFrame.new(i * 0.4, 0.42, 0) * CFrame.Angles(0, math.rad(20), 0), Color = C(245, 215, 150) }, m)
+		end
+	end,
+	ManaBerry = function(m)
+		for i, offset in { Vector3.new(0, 0, 0), Vector3.new(0.45, 0.1, 0.1), Vector3.new(-0.4, 0.05, 0.15), Vector3.new(0.05, 0.4, 0.05) } do
+			part({ Name = "Berry", Shape = Enum.PartType.Ball, Size = Vector3.new(0.55, 0.55, 0.55), CFrame = CFrame.new(offset), Color = C(90, 130, 255), Material = if i == 4 then Enum.Material.Neon else Enum.Material.SmoothPlastic }, m)
+		end
+		part({ Name = "Leaf", Size = Vector3.new(0.5, 0.06, 0.25), CFrame = CFrame.new(0.1, 0.7, 0) * CFrame.Angles(0, 0, math.rad(25)), Color = C(90, 180, 80) }, m)
+	end,
+	LunchBox = function(m)
+		part({ Name = "Box", Size = Vector3.new(1.5, 0.7, 1.0), Color = C(220, 70, 70) }, m)
+		part({ Name = "Lid", Size = Vector3.new(1.55, 0.2, 1.05), CFrame = CFrame.new(0, 0.42, 0), Color = C(245, 240, 230) }, m)
+		part({ Name = "Band", Size = Vector3.new(0.2, 0.75, 1.07), CFrame = CFrame.new(0, 0.05, 0), Color = C(250, 200, 60) }, m)
 	end,
 	BugbearFur = function(m)
 		for i = 0, 4 do

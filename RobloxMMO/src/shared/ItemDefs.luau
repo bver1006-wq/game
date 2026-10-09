@@ -38,6 +38,10 @@ local ItemDefs: { [string]: ItemDef } = {
 	OldCloth = { Id = "OldCloth", DisplayName = "낡은 천", Category = "Etc", Stackable = true, Icon = "OldCloth", Color = Color3.fromRGB(90, 110, 150) },
 	CerberusFang = { Id = "CerberusFang", DisplayName = "케르베로스 송곳니", Category = "Etc", Stackable = true, Icon = "CerberusFang", Color = Color3.fromRGB(250, 245, 230) },
 	BugbearFur = { Id = "BugbearFur", DisplayName = "버그베어 털", Category = "Etc", Stackable = true, Icon = "BugbearFur", Color = Color3.fromRGB(140, 95, 60) },
+	-- 도구: 음식 (먹으면 체력·마나를 채운다, 수치는 Config.Foods)
+	Bread = { Id = "Bread", DisplayName = "빵", Category = "Tool", Stackable = true, Usable = true, Icon = "Bread", Color = Color3.fromRGB(210, 160, 90) },
+	ManaBerry = { Id = "ManaBerry", DisplayName = "마나 베리", Category = "Tool", Stackable = true, Usable = true, Icon = "ManaBerry", Color = Color3.fromRGB(90, 130, 255) },
+	LunchBox = { Id = "LunchBox", DisplayName = "모험가 도시락", Category = "Tool", Stackable = true, Usable = true, Icon = "LunchBox", Color = Color3.fromRGB(220, 70, 70) },
 	-- 도구: 소모품
 	ReturnScroll = { Id = "ReturnScroll", DisplayName = "귀환 주문서", Category = "Tool", Stackable = true, Usable = true, Icon = "ReturnScroll", Color = Color3.fromRGB(235, 215, 160) },
 	-- 도구: 곡괭이 (실제 Tool은 PickaxeService가 가방에 넣는다)
@@ -71,7 +75,7 @@ local ORDER = {
 	"WoodenBow", "CopperBow", "IronBow", "DiamondBow",
 	"BaseballBat", "GoblinClub", "MorningStar", "DiamondMace",
 	"StonePickaxe", "CopperPickaxe", "IronPickaxe", "SteelPickaxe",
-	"StoneAxe", "CopperAxe", "IronAxe", "DiamondAxe", "ReturnScroll",
+	"StoneAxe", "CopperAxe", "IronAxe", "DiamondAxe", "ReturnScroll", "Bread", "ManaBerry", "LunchBox",
 	"Stone", "Coal", "CopperOre", "IronOre", "CopperIngot", "IronIngot", "SteelIngot",
 	"Pine", "Oak", "Birch", "Maple", "Ebony",
 	"SlimeJelly", "Bone", "OldCloth", "CerberusFang", "BugbearFur",

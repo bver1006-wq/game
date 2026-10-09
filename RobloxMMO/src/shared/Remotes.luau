@@ -22,6 +22,7 @@ Remotes.Names = table.freeze({
 	ShopAction = "ShopAction", -- 클라 → 서버: (shopId, action, ...) 판매·제련·곡괭이 구매 요청
 	Notify = "Notify", -- 서버 → 클라: (message, kind) 화면 알림 ("good" | "bad" | "info")
 	UseItem = "UseItem", -- 클라 → 서버: (itemId) 귀환 주문서 같은 소모품 쓰기
+	SetSprint = "SetSprint", -- 클라 → 서버: (on) 달리기 모드 켜기·끄기
 	AttackRequest = "AttackRequest", -- 클라 → 서버: (targetMob) 무기로 몹 공격
 	CombatEffect = "CombatEffect", -- 서버 → 클라: (mob, damage, isCrit, weaponKind, tier, attackerUserId, fromPosition, hitPosition)
 	MobAttack = "MobAttack", -- 서버 → 클라: (mob, targetUserId, damage) 몹이 플레이어를 때렸다

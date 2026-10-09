@@ -99,6 +99,29 @@ Config.Pickaxes = {
 	},
 }
 
+-- 마나: 스킬·차징 스매시·달리기에 쓴다 (스킬·차징은 나중에). 플레이어 속성 Mana·MaxMana·Sprinting
+Config.Mana = {
+	Max = 100,
+	Regen = 5, -- 1초에 차는 양 (달리는 중이 아닐 때)
+	RegenDelay = 1.5, -- 마나를 쓴 뒤 이만큼 지나야 다시 찬다(초)
+}
+
+-- 이동: 달리기 모드 (오른쪽 버튼으로 켜고 끈다. 움직이는 동안 마나가 계속 준다)
+Config.Movement = {
+	WalkSpeed = 16, -- 평소 속도 (Roblox 기본)
+	SprintSpeed = 26, -- 달리기 속도
+	SprintManaPerSecond = 8, -- 달리는 동안 1초에 쓰는 마나
+	MovingThreshold = 2, -- 이 속도(스터드/초)보다 빠르면 움직이는 중으로 본다
+}
+
+-- 음식: 먹으면 체력(Hp)·마나(Mana)를 채운다. 나중에 요리로 만든다 (지금은 상인 잡화에서 판다)
+Config.Foods = {
+	Bread = { Hp = 30 },
+	ManaBerry = { Mana = 30 },
+	LunchBox = { Hp = 60, Mana = 60 },
+}
+Config.FoodCooldown = 0.6 -- 연달아 먹는 간격(초)
+
 -- 무기: 데미지·쿨다운(초)·사거리(스터드)·대장장이 아닌 사냥꾼 판매 가격
 -- 칼은 빠르고, 방망이는 느리지만 세고 밀쳐 내고, 활은 약하지만 멀리서 쏜다
 -- TODO(미정): 수치와 가격은 임시값. 플레이테스트로 조정
@@ -127,6 +150,8 @@ Config.Combat = {
 	ArrowSpeed = 140, -- 화살 날아가는 연출 속도(스터드/초)
 	MobBroadcastRange = 120, -- 전투 연출을 받을 거리(스터드)
 	HpBarRange = 45, -- 이 거리 안의 몹에 체력바 표시(스터드)
+	BowAimAngle = 40, -- 활: 화면 가운데에서 이 각도(도) 안의 몹을 먼저 노린다
+	CritBurnTime = 0.7, -- 치명타 불꽃이 타는 시간(초)
 	-- 무기 티어별 타격 연출 (도끼 표와 같은 항목)
 	TierEffects = {
 		[1] = { Color = Color3.fromRGB(255, 240, 200), Chunks = 0, Ring = 2.5, Shake = 1, Sparkle = false, Sparks = 4, Slash = false },
@@ -176,6 +201,7 @@ Config.Debug = {
 	GiveAllPickaxes = true, -- true면 들어올 때 곡괭이·도끼를 전부 지급 (테스트용, 2026-10-09 사용자 요청으로 켬)
 	GiveReturnScrolls = 5, -- 들어오면 귀환 주문서를 이만큼 지급. 테스트 끝나면 0
 	StartSlots = 30, -- Studio 테스트 때 가방 칸 수 (도구·무기를 전부 받으면 21칸이 필요하다)
+	GiveFoods = 5, -- Studio에서 들어오면 음식을 종류마다 이만큼 지급. 테스트 끝나면 0
 }
 
 -- 귀환 주문서: 쓰면 CastTime초 뒤 마을(태그 TownArrival)로 돌아간다. 그사이 움직이면 취소
@@ -187,6 +213,9 @@ Config.ReturnScroll = {
 -- 상인이 파는 잡화 (순서대로 표시). TODO(미정): 가격은 임시값
 Config.MerchantGoods = {
 	{ ItemId = "ReturnScroll", Price = 15 },
+	{ ItemId = "Bread", Price = 8 },
+	{ ItemId = "ManaBerry", Price = 8 },
+	{ ItemId = "LunchBox", Price = 25 },
 }
 
 -- 상인에게 파는 가격(골드). 여기 없는 아이템은 팔 수 없다
@@ -384,6 +413,9 @@ Config.Sounds = {
 	ArrowHit = "rbxassetid://9120950231", -- 화살 꽂힘 (Wood Chop)
 	PlayerHurt = "rbxassetid://9118608146", -- 몹에게 맞음
 	MobDie = "rbxassetid://17779566040", -- 몹이 펑 사라짐 (pop click을 낮게)
+	BowShoot = "rbxassetid://9113443901", -- 활 쏘는 "슉" (Bird Flying을 높게). TODO: 활 전용 소리
+	CritBurn = "rbxassetid://3406813517", -- 치명타 불꽃 (Power_Up을 높게)
+	Eat = "rbxassetid://17779566040", -- 먹기 (pop click)
 	TreeBreak = "rbxassetid://9120963881", -- 나무가 갈라지며 쓰러지는 소리 (ProSoundEffects)
 	JudgmentPop = "rbxassetid://17779566040", -- minimal pop click
 	RockBreak = "rbxassetid://9118587698", -- Rock Drop On Concrete Breaks (ProSoundEffects)
