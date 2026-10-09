@@ -20,10 +20,10 @@ start "Rojo" cmd /k rojo serve
 
 echo 자동 업데이트를 시작해요. 30초마다 새 코드를 확인해요.
 :loop
-for /f %%H in ('"%GIT%" rev-parse HEAD') do set "BEFORE=%%H"
+for /f %%H in ('call "%GIT%" rev-parse HEAD') do set "BEFORE=%%H"
 "%GIT%" pull --ff-only -q >nul 2>nul
 if errorlevel 1 echo [%time%] 새 코드를 못 받았어요. GitHub Desktop에서 Pull origin을 한 번 눌러 확인해 주세요.
-for /f %%H in ('"%GIT%" rev-parse HEAD') do set "AFTER=%%H"
+for /f %%H in ('call "%GIT%" rev-parse HEAD') do set "AFTER=%%H"
 if not "%BEFORE%"=="%AFTER%" echo [%time%] 새 코드를 받았어요! Studio에서 정지 후 다시 플레이하세요.
 timeout /t 30 /nobreak >nul
 goto loop
