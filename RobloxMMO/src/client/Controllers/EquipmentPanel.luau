@@ -1,14 +1,15 @@
 --!strict
 -- 장비 창 (가방 창 왼쪽, 2026-10-09 사용자 요청으로 새로 그림): 똑바로 선 로블록스 사람 그림 + 몸 위치마다 장비 칸 네모.
--- 사람 그림: 내 캐릭터를 복제해 ViewportFrame에 정면으로 세운다 (애니메이션 없이 관절 기본 자세 = 차렷).
+-- 사람 그림: 내 캐릭터(입은 장비 모양 포함)를 복제해 ViewportFrame에 세운다 (지금 서 있는 자세 그대로).
 --   복제가 안 되면(캐릭터 없음 등) 둥근 네모로 만든 블록 사람(노란 머리·팔, 파란 몸, 초록 다리)을 대신 그린다
 -- 칸: 헬멧=머리, 목걸이=목, 갑옷=가슴, 방패(화살통)=등·왼쪽 어깨, 장갑=왼손, 팔찌=오른 손목, 무기=오른손, 신발=발.
---   정면에서 보므로 캐릭터의 오른손은 화면 왼쪽이다. 칸에서 몸까지 가는 선을 긋는다
+--   칸은 양옆에 네모로 (2026-10-09: 이음선 삭제). 가운데 캐릭터는 장착 모습 그대로, 카메라가 천천히 둘레를 돈다
 -- 칸을 한 번 누르면 그 아이템 상세 창, 두 번 빠르게 누르면 장비를 뺀다 (무기 칸은 빼지 않음). 아래에 전투력·능력치
 -- 모든 위치는 정사각형에 가까운 무대(stage) 비율 좌표라 휴대폰에서도 같이 줄어든다. 수치는 Config.EquipFigure
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
@@ -30,30 +31,7 @@ local ROW_Y = { 0.11, 0.37, 0.63, 0.89 } -- 칸 줄 높이 (무대 높이 비율
 local FIG_X, FIG_Y, FIG_W, FIG_H = 0.25, 0.04, 0.5, 0.86
 local FIG_ASPECT = FIG_W / (FIG_H / STAGE_ASPECT) -- 그 상자의 실제 너비/높이
 
--- 몸 위치 이름 → 블록 사람 그림에서의 위치 (무대 비율). 복제 캐릭터면 실제 부품 위치로 바꾼다
-local FALLBACK_ANCHORS: { [string]: Vector2 } = {
-	Head = Vector2.new(0.43, 0.155),
-	Neck = Vector2.new(0.53, 0.228),
-	Chest = Vector2.new(0.42, 0.36),
-	Back = Vector2.new(0.70, 0.27),
-	RightWrist = Vector2.new(0.315, 0.455),
-	RightHand = Vector2.new(0.315, 0.505),
-	LeftHand = Vector2.new(0.685, 0.505),
-	Feet = Vector2.new(0.5625, 0.835),
-}
 
--- 복제 캐릭터에서 몸 위치 찾기: 부품 이름 후보(R15 먼저, R6 다음)와 부품 안 위치(크기 비율, +X = 캐릭터 오른쪽, +Z = 등 쪽)
-type AnchorPart = { Name: string, Offset: Vector3 }
-local CHARACTER_ANCHORS: { [string]: { AnchorPart } } = {
-	Head = { { Name = "Head", Offset = Vector3.new(0.35, 0, 0) } },
-	Neck = { { Name = "Head", Offset = Vector3.new(-0.15, -0.55, 0) } },
-	Chest = { { Name = "UpperTorso", Offset = Vector3.new(0.25, 0, 0) }, { Name = "Torso", Offset = Vector3.new(0.25, 0.1, 0) } },
-	Back = { { Name = "UpperTorso", Offset = Vector3.new(-0.45, 0.35, 0.3) }, { Name = "Torso", Offset = Vector3.new(-0.45, 0.4, 0.3) } },
-	RightWrist = { { Name = "RightLowerArm", Offset = Vector3.new(0, -0.35, 0) }, { Name = "Right Arm", Offset = Vector3.new(0, -0.25, 0) } },
-	RightHand = { { Name = "RightHand", Offset = Vector3.zero }, { Name = "Right Arm", Offset = Vector3.new(0, -0.45, 0) } },
-	LeftHand = { { Name = "LeftHand", Offset = Vector3.zero }, { Name = "Left Arm", Offset = Vector3.new(0, -0.45, 0) } },
-	Feet = { { Name = "LeftFoot", Offset = Vector3.zero }, { Name = "Left Leg", Offset = Vector3.new(0, -0.4, 0) } },
-}
 
 -- 칸 배치: 어느 줄(왼쪽/오른쪽, 몇 번째)에 두고 몸 어디와 잇는지
 type SlotPlace = { Side: number, Row: number, Anchor: string } -- Side -1 = 화면 왼쪽, 1 = 오른쪽
@@ -80,11 +58,10 @@ local EquipmentPanel = {}
 local panel: Frame
 local stage: Frame
 local figureHolder: Frame -- 사람 그림(복제 또는 블록)을 넣는 곳
-local lineLayer: Frame
+local spinConnection: RBXScriptConnection? = nil -- 캐릭터 둘레를 도는 카메라
 local powerLabel: TextLabel
 local statsLabel: TextLabel
 local slotViews: { [string]: SlotView } = {}
-local anchors: { [string]: Vector2 } = table.clone(FALLBACK_ANCHORS)
 local showDetail: (itemId: string) -> () = function(_itemId: string) end
 
 -- 칸 가운데 (무대 비율)
@@ -150,60 +127,6 @@ local function drawBlockFigure()
 	mouthCorner.Parent = mouth
 end
 
--- 복제본을 관절 기본 자세(차렷)로 다시 세운다: 루트에서 시작해 관절(C0·C1)·용접을 따라 부품 위치를 정한다
--- 애니메이션(Transform)은 무시되므로 팔다리가 곧게 내려온다. 이어지지 않은 부품은 지운다
-local function poseNeutral(clone: Model, root: BasePart)
-	local original: { [BasePart]: CFrame } = {}
-	for _, descendant in clone:GetDescendants() do
-		if descendant:IsA("BasePart") then
-			original[descendant] = descendant.CFrame
-		end
-	end
-	type Link = { Part: BasePart, Offset: CFrame }
-	local links: { [BasePart]: { Link } } = {}
-	local function link(a: BasePart, b: BasePart, offset: CFrame) -- b = a * offset
-		links[a] = links[a] or {}
-		table.insert(links[a], { Part = b, Offset = offset })
-		links[b] = links[b] or {}
-		table.insert(links[b], { Part = a, Offset = offset:Inverse() })
-	end
-	for _, descendant in clone:GetDescendants() do
-		if descendant:IsA("JointInstance") then
-			local p0, p1 = descendant.Part0, descendant.Part1
-			if p0 and p1 and original[p0] and original[p1] then
-				link(p0, p1, descendant.C0 * descendant.C1:Inverse())
-			end
-		elseif descendant:IsA("WeldConstraint") then
-			local p0, p1 = descendant.Part0, descendant.Part1
-			if p0 and p1 and original[p0] and original[p1] then
-				link(p0, p1, original[p0]:Inverse() * original[p1])
-			end
-		end
-	end
-	local placed: { [BasePart]: CFrame } = { [root] = CFrame.new() } -- 루트는 원점, 앞(-Z)을 본다
-	local queue: { BasePart } = { root }
-	local index = 1
-	while index <= #queue do
-		local part = queue[index]
-		index += 1
-		for _, item in links[part] or {} do
-			if not placed[item.Part] then
-				placed[item.Part] = placed[part] * item.Offset
-				table.insert(queue, item.Part)
-			end
-		end
-	end
-	for part in original do
-		local cframe = placed[part]
-		if cframe then
-			part.Anchored = true
-			part.CFrame = cframe
-		else
-			part:Destroy()
-		end
-	end
-end
-
 -- 내 캐릭터 복제본을 만든다 (스크립트·도구·소리 등은 지움). 안 되면 nil
 local function cloneCharacter(): (Model?, BasePart?)
 	local character = localPlayer.Character
@@ -247,11 +170,19 @@ local function cloneCharacter(): (Model?, BasePart?)
 		return nil, nil
 	end
 	root.Transparency = 1
-	poseNeutral(clone, root)
+	-- 지금 자세(서 있는 모습) 그대로 굳히고, 루트가 원점에서 앞(-Z)을 보도록 옮긴다
+	-- (예전엔 관절로 차렷 자세를 다시 세웠는데, 부품이 지워지거나 안 보이는 경우가 있어 2026-10-09 뺐다)
+	local toOrigin = root.CFrame:Inverse()
+	for _, descendant in clone:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = true
+			descendant.CFrame = toOrigin * descendant.CFrame
+		end
+	end
 	return clone, root
 end
 
--- 복제 캐릭터 그림: 정면 카메라를 몸 크기에 맞추고, 몸 위치(anchors)를 화면 위치로 계산한다
+-- 복제 캐릭터 그림: 카메라를 몸 크기에 맞추고 둘레를 천천히 돈다
 local function drawCharacterFigure(): boolean
 	local clone = cloneCharacter()
 	if not clone then
@@ -272,72 +203,34 @@ local function drawCharacterFigure(): boolean
 	local camera = Instance.new("Camera")
 	camera.FieldOfView = Config.EquipFigure.FieldOfView
 	local tanV = math.tan(math.rad(camera.FieldOfView / 2))
-	local halfHeight = boxSize.Y / 2 * 1.04
-	local halfWidth = math.max(boxSize.X, boxSize.Z) / 2 * 1.04
-	local distance = math.max(halfHeight / tanV, halfWidth / (tanV * FIG_ASPECT)) + boxSize.Z / 2
-	-- 캐릭터는 -Z를 본다 → 카메라는 -Z 쪽에서 +Z를 본다 (캐릭터 오른손이 화면 왼쪽)
-	local cameraCFrame = CFrame.lookAt(center + Vector3.new(0, 0, -distance), center)
-	camera.CFrame = cameraCFrame
+	local halfHeight = boxSize.Y / 2 * 1.06
+	local halfWidth = math.max(boxSize.X, boxSize.Z) / 2 * 1.06
+	local distance = math.max(halfHeight / tanV, halfWidth / (tanV * FIG_ASPECT)) + math.max(boxSize.X, boxSize.Z) / 2
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera
 	clone.Parent = viewport
 
-	-- 몸 위치를 무대 비율 좌표로 (원근 투영)
-	for anchorName, candidates in CHARACTER_ANCHORS do
-		for _, candidate in candidates do
-			local part = clone:FindFirstChild(candidate.Name, true)
-			if part and part:IsA("BasePart") then
-				local world = part.CFrame:PointToWorldSpace(part.Size * candidate.Offset)
-				local relative = cameraCFrame:PointToObjectSpace(world)
-				local depth = -relative.Z
-				if depth > 0.01 then
-					local u = 0.5 + relative.X / (depth * tanV * FIG_ASPECT) / 2
-					local v = 0.5 - relative.Y / (depth * tanV) / 2
-					anchors[anchorName] = Vector2.new(FIG_X + u * FIG_W, FIG_Y + v * FIG_H)
-				end
-				break
+	-- 카메라가 캐릭터 둘레를 천천히 돈다 (앞 → 옆 → 등의 화살통까지 장착 모습이 다 보이게). 0이면 정면 고정
+	local spinSeconds = Config.EquipFigure.SpinSeconds
+	local started = os.clock()
+	local function place()
+		local angle = if spinSeconds > 0 then (os.clock() - started) / spinSeconds * math.pi * 2 else 0
+		-- 캐릭터는 -Z를 본다 → 처음엔 -Z 쪽(정면)에서 본다
+		local offset = Vector3.new(math.sin(angle), 0, -math.cos(angle)) * distance
+		camera.CFrame = CFrame.lookAt(center + offset, center)
+	end
+	place()
+	if spinConnection then
+		spinConnection:Disconnect()
+	end
+	if spinSeconds > 0 then
+		spinConnection = RunService.RenderStepped:Connect(function()
+			if viewport.Parent and panel and panel.Visible then
+				place()
 			end
-		end
+		end)
 	end
 	return true
-end
-
--- 칸에서 몸 위치까지 선을 긋는다 (무대 픽셀 크기가 바뀔 때마다)
-local function drawLines()
-	for _, child in lineLayer:GetChildren() do
-		child:Destroy()
-	end
-	local size = stage.AbsoluteSize
-	if size.X <= 0 or size.Y <= 0 then
-		return
-	end
-	for _, place in SLOT_PLACES do
-		local center = slotCenter(place)
-		local fromScale = Vector2.new(center.X - place.Side * SLOT_W / 2, center.Y) -- 몸 쪽 칸 가장자리
-		local toScale = anchors[place.Anchor] or FALLBACK_ANCHORS[place.Anchor]
-		local from = fromScale * size
-		local to = toScale * size
-		local delta = to - from
-		local line = Instance.new("Frame")
-		line.AnchorPoint = Vector2.new(0.5, 0.5)
-		line.Position = UDim2.fromScale((fromScale.X + toScale.X) / 2, (fromScale.Y + toScale.Y) / 2)
-		line.Size = UDim2.fromOffset(delta.Magnitude, 2)
-		line.Rotation = math.deg(math.atan2(delta.Y, delta.X))
-		line.BackgroundColor3 = UiKit.Colors.Gold
-		line.BackgroundTransparency = 0.35
-		line.BorderSizePixel = 0
-		line.Parent = lineLayer
-		local dot = Instance.new("Frame")
-		dot.AnchorPoint = Vector2.new(0.5, 0.5)
-		dot.Position = UDim2.fromScale(toScale.X, toScale.Y)
-		dot.Size = UDim2.fromOffset(7, 7)
-		dot.BackgroundColor3 = UiKit.Colors.Gold
-		dot.BorderSizePixel = 0
-		dot.Parent = lineLayer
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(1, 0)
-		corner.Parent = dot
-	end
 end
 
 -- 사람 그림을 다시 만든다 (창을 열 때·장비가 바뀔 때). 캐릭터 복제가 안 되면 블록 사람
@@ -348,7 +241,6 @@ function EquipmentPanel.rebuildFigure()
 	for _, child in figureHolder:GetChildren() do
 		child:Destroy()
 	end
-	anchors = table.clone(FALLBACK_ANCHORS)
 	local ok = false
 	if Config.EquipFigure.UseCharacter then
 		local success, result = pcall(drawCharacterFigure)
@@ -357,13 +249,11 @@ function EquipmentPanel.rebuildFigure()
 			for _, child in figureHolder:GetChildren() do
 				child:Destroy()
 			end
-			anchors = table.clone(FALLBACK_ANCHORS)
-		end
+				end
 	end
 	if not ok then
 		drawBlockFigure()
 	end
-	drawLines()
 end
 
 -- 지금 이 칸에 끼운 아이템 Id (없으면 nil)
@@ -530,19 +420,12 @@ function EquipmentPanel.build(parent: Instance, onShowDetail: (itemId: string) -
 	figureHolder.Size = UDim2.fromScale(1, 1)
 	figureHolder.ZIndex = 1
 	figureHolder.Parent = stage
-	lineLayer = Instance.new("Frame")
-	lineLayer.Name = "Lines"
-	lineLayer.BackgroundTransparency = 1
-	lineLayer.Size = UDim2.fromScale(1, 1)
-	lineLayer.ZIndex = 2
-	lineLayer.Parent = stage
 	for _, slot in EquipmentDefs.Slots do
 		local place = SLOT_PLACES[slot.Id]
 		if place then
 			buildSlot(slot.Id, slot.Title, place)
 		end
 	end
-	stage:GetPropertyChangedSignal("AbsoluteSize"):Connect(drawLines)
 
 	-- 그림 아래: 전투력 + 능력치
 	powerLabel = UiKit.label(panel, "⚔ 전투력 0", UDim2.new(1, -16, 0, 22), UDim2.new(0, 8, 1, -60), Color3.fromRGB(255, 220, 120), 16)
@@ -551,7 +434,6 @@ function EquipmentPanel.build(parent: Instance, onShowDetail: (itemId: string) -
 	statsLabel.TextXAlignment = Enum.TextXAlignment.Center
 
 	drawBlockFigure()
-	drawLines()
 	EquipmentPanel.refresh()
 	return panel
 end

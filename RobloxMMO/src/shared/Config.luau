@@ -531,6 +531,7 @@ Config.ItemDetail = {
 Config.EquipFigure = {
 	UseCharacter = true, -- false면 복제하지 않고 네모 블록 사람 그림만
 	FieldOfView = 20, -- 캐릭터를 비추는 카메라 시야(작을수록 납작하게)
+	SpinSeconds = 14, -- 카메라가 캐릭터 둘레를 한 바퀴 도는 시간(초). 0이면 정면 고정 (2026-10-09)
 	PanelWidth = 250, -- 장비 창 너비(px)
 	MinHeight = 300, -- 장비 창 최소 높이(px). 가방 창과 같은 높이를 쓰되 이보다 작아지지 않게
 }
