@@ -1,7 +1,7 @@
 --!strict
 -- 손그림 지도 ("지도" 버튼 또는 M 키). 북쪽(-Z)이 위. (2026-10-09 손그림 지도로 바뀜)
 --   큰 지도: 화면 가운데 창. ✕로 닫고, "작게"를 누르면 오른쪽 위 작은 지도(내 위치가 가운데)로, 작은 지도를 누르면 다시 크게
---   밖: 양피지 위에 지형(물·풀·모래·바위·흙길), 언덕 ^, 나무·집 그림, 몹 구역, NPC(아이콘 + 이름), 광산 입구
+--   밖: 양피지 위에 지형(물·풀·모래·바위·흙길), 언덕 ^, 나무·집 그림, 몹 사는 곳(구역마다 큰 손그림 얼굴 하나 + 이름), NPC(아이콘 + 이름), 광산 입구
 --   광산: 그 층 미로 벽 전체, 안 가 본 칸은 어둡게, 출구 ↑ · 아래층 ↓ · 잠긴 층 🔒
 -- 자료(지형 격자·미로 벽)는 MapData가 처음 열 때 한 번 계산해 기억한다.
 -- 그림은 층이 바뀌거나 화면 크기가 바뀔 때만 다시 그리고, 매 프레임은 화살표·다른 플레이어 점만 옮긴다.
@@ -48,6 +48,7 @@ local loadingLabel: TextLabel
 local layers: { [string]: Frame } = {}
 local arrow: TextLabel
 local otherDots: { [Player]: Frame } = {}
+local habitats: { { Scale: UIScale, Label: TextLabel } } = {} -- 몹 사는 곳 얼굴 (작은 지도에서 줄이고 이름표 숨김)
 
 -- 상태
 local mode: Mode = "Closed"
@@ -181,6 +182,7 @@ local function clearCanvas()
 	end
 	table.clear(placed)
 	table.clear(fogFrames)
+	table.clear(habitats)
 	for _, dot in otherDots do
 		dot:Destroy()
 	end
@@ -421,45 +423,312 @@ local function drawTown(rng: Random)
 	end
 end
 
--- 몹 구역: 생성 자리(MobSpawns, 속성 Zone)를 구역별로 묶어 옅은 색 동그라미 + 이름
-local function drawMobZones()
+-- 몹 사는 곳: 생성 자리(MobSpawns, 속성 Zone)를 구역별로 묶어, 가운데에 그 구역 주인 몹의 큰 손그림 얼굴 하나 + 구역 이름
+-- (몹 하나하나는 지도에 안 그린다. 아이들이 "여기 슬라임 산다"를 한눈에 알게)
+
+-- 얼굴 조각 하나. 좌표·크기는 얼굴 상자에 대한 비율(0~1), 가운데 기준
+type PartOpts = { Corner: number?, Rotation: number?, Stroke: number?, Transparency: number? }
+local function facePart(parent: Instance, cx: number, cy: number, w: number, h: number, color: Color3, z: number, opts: PartOpts?): Frame
+	local o: PartOpts = opts or {}
+	local frame = Instance.new("Frame")
+	frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	frame.Position = UDim2.fromScale(cx, cy)
+	frame.Size = UDim2.fromScale(w, h)
+	frame.BackgroundColor3 = color
+	frame.BackgroundTransparency = o.Transparency or 0
+	frame.BorderSizePixel = 0
+	frame.Rotation = o.Rotation or 0
+	frame.ZIndex = z
+	frame.Parent = parent
+	local cornerScale = o.Corner or 0.5
+	if cornerScale > 0 then
+		round(frame, cornerScale)
+	end
+	if o.Stroke then
+		outline(frame, COLORS.Ink, o.Stroke)
+	end
+	return frame
+end
+
+-- 얼굴 위 기호 글자 (세모 코 등). size = 상자 비율
+local function faceGlyph(parent: Instance, text: string, cx: number, cy: number, size: number, color: Color3, z: number): TextLabel
+	local label = Instance.new("TextLabel")
+	label.AnchorPoint = Vector2.new(0.5, 0.5)
+	label.Position = UDim2.fromScale(cx, cy)
+	label.Size = UDim2.fromScale(size, size)
+	label.BackgroundTransparency = 1
+	label.Font = Config.Minimap.Font
+	label.Text = text
+	label.TextScaled = true
+	label.TextColor3 = color
+	label.ZIndex = z
+	label.Parent = parent
+	return label
+end
+
+-- 실루엣: 조각 여러 개를 합친 모양에 잉크 테두리 하나 (잉크색 조각을 조금 크게 깔고 그 위에 색 조각)
+-- 그래서 조각끼리 겹친 자리에는 선이 안 생긴다. z = 잉크, z+1 = 색
+type Piece = { X: number, Y: number, W: number, H: number, Corner: number?, Rot: number?, Color: Color3? }
+local function silhouette(parent: Instance, pieces: { Piece }, color: Color3, z: number)
+	local inkPx = Config.Minimap.HabitatInkWidth
+	for _, p in pieces do
+		local back = facePart(parent, p.X, p.Y, p.W, p.H, COLORS.Ink, z, { Corner = p.Corner, Rotation = p.Rot })
+		back.Size = UDim2.new(p.W, inkPx * 2, p.H, inkPx * 2)
+	end
+	for _, p in pieces do
+		facePart(parent, p.X, p.Y, p.W, p.H, p.Color or color, z + 1, { Corner = p.Corner, Rotation = p.Rot })
+	end
+end
+
+-- 반짝이는 큰 눈 (흰자 + 눈동자 + 빛 점)
+local function shinyEye(parent: Instance, cx: number, cy: number, w: number, h: number, pupil: Color3, z: number)
+	local inkPx = Config.Minimap.HabitatInkWidth * 0.75
+	facePart(parent, cx, cy, w, h, Color3.new(1, 1, 1), z, { Stroke = inkPx })
+	facePart(parent, cx + w * 0.08, cy + h * 0.1, w * 0.6, h * 0.62, pupil, z + 1)
+	facePart(parent, cx - w * 0.06, cy - h * 0.08, w * 0.26, w * 0.26, Color3.new(1, 1, 1), z + 2)
+end
+
+-- 웃는 입: 어두운 타원 위에 얼굴색 타원을 살짝 위로 덮어 초승달 모양
+local function smile(parent: Instance, cx: number, cy: number, w: number, skin: Color3, z: number)
+	facePart(parent, cx, cy, w, w * 0.5, COLORS.Ink, z)
+	facePart(parent, cx, cy - w * 0.12, w * 1.1, w * 0.42, skin, z + 1)
+end
+
+-- 몹 종류별 얼굴 그리기 (face = 얼굴 상자, 정사각형)
+local FACES: { [string]: (face: Frame) -> () } = {}
+
+-- 슬라임: 아래가 넓은 초록 젤리 + 반짝 큰 눈 + 작은 미소 + 빛 점
+FACES.Slime = function(face: Frame)
+	local jelly = Color3.fromRGB(120, 215, 120)
+	silhouette(face, {
+		{ X = 0.5, Y = 0.16, W = 0.18, H = 0.18, Corner = 0.25, Rot = 45 }, -- 물방울 꼭지
+		{ X = 0.5, Y = 0.42, W = 0.6, H = 0.58 },
+		{ X = 0.5, Y = 0.68, W = 1, H = 0.56 },
+	}, jelly, 1)
+	facePart(face, 0.3, 0.32, 0.14, 0.08, Color3.new(1, 1, 1), 3, { Rotation = -35, Transparency = 0.15 }) -- 빛 점
+	shinyEye(face, 0.36, 0.56, 0.2, 0.25, Color3.fromRGB(30, 40, 30), 4)
+	shinyEye(face, 0.64, 0.56, 0.2, 0.25, Color3.fromRGB(30, 40, 30), 4)
+	facePart(face, 0.2, 0.72, 0.12, 0.07, Color3.fromRGB(255, 140, 150), 3, { Transparency = 0.35 }) -- 볼
+	facePart(face, 0.8, 0.72, 0.12, 0.07, Color3.fromRGB(255, 140, 150), 3, { Transparency = 0.35 })
+	smile(face, 0.5, 0.77, 0.18, jelly, 3)
+end
+
+-- 스켈레톤: 미색 해골 + 동그란 눈구멍 + 세모 코 + 이빨 줄
+FACES.Skeleton = function(face: Frame)
+	local bone = Color3.fromRGB(246, 240, 224)
+	local dark = Color3.fromRGB(55, 42, 40)
+	silhouette(face, {
+		{ X = 0.5, Y = 0.42, W = 0.86, H = 0.76 },
+		{ X = 0.5, Y = 0.77, W = 0.54, H = 0.3, Corner = 0.3 },
+	}, bone, 1)
+	facePart(face, 0.32, 0.45, 0.25, 0.27, dark, 3)
+	facePart(face, 0.68, 0.45, 0.25, 0.27, dark, 3)
+	facePart(face, 0.35, 0.42, 0.07, 0.07, Color3.new(1, 1, 1), 4) -- 눈 속 작은 빛 (귀엽게)
+	facePart(face, 0.71, 0.42, 0.07, 0.07, Color3.new(1, 1, 1), 4)
+	faceGlyph(face, "▼", 0.5, 0.63, 0.16, dark, 3)
+	facePart(face, 0.5, 0.8, 0.4, 0.035, dark, 3, { Corner = 0 }) -- 이빨 사이 가로줄
+	for _, x in { 0.38, 0.46, 0.54, 0.62 } do
+		facePart(face, x, 0.8, 0.03, 0.15, dark, 3, { Corner = 0 })
+	end
+	facePart(face, 0.66, 0.15, 0.03, 0.14, dark, 3, { Corner = 0, Rotation = 25 }) -- 금
+	facePart(face, 0.7, 0.24, 0.03, 0.08, dark, 3, { Corner = 0, Rotation = -20 })
+end
+
+-- 좀비: 회색빛 초록 얼굴 + 처진 눈 하나·X 눈 하나 + 삐뚤어진 꿰맨 입 + 머리카락 몇 가닥
+FACES.Zombie = function(face: Frame)
+	local skin = Color3.fromRGB(150, 182, 132)
+	local dark = Color3.fromRGB(55, 45, 38)
+	silhouette(face, {
+		{ X = 0.5, Y = 0.54, W = 0.8, H = 0.84, Corner = 0.4 },
+	}, skin, 1)
+	facePart(face, 0.42, 0.13, 0.035, 0.18, dark, 3, { Corner = 0, Rotation = -22 }) -- 머리카락
+	facePart(face, 0.52, 0.11, 0.035, 0.2, dark, 3, { Corner = 0, Rotation = 6 })
+	facePart(face, 0.61, 0.14, 0.035, 0.16, dark, 3, { Corner = 0, Rotation = 30 })
+	-- 처진 눈: 흰자 + 아래로 처진 눈동자 + 무거운 눈꺼풀
+	facePart(face, 0.34, 0.47, 0.22, 0.22, Color3.new(1, 1, 1), 3, { Stroke = Config.Minimap.HabitatInkWidth * 0.75 })
+	facePart(face, 0.35, 0.52, 0.09, 0.09, dark, 4)
+	facePart(face, 0.34, 0.4, 0.27, 0.12, skin, 5, { Corner = 0.3 })
+	facePart(face, 0.34, 0.455, 0.25, 0.035, dark, 6, { Corner = 0, Rotation = 8 })
+	-- X 눈
+	facePart(face, 0.67, 0.47, 0.2, 0.045, dark, 3, { Corner = 0, Rotation = 45 })
+	facePart(face, 0.67, 0.47, 0.2, 0.045, dark, 3, { Corner = 0, Rotation = -45 })
+	-- 삐뚤어진 입 + 꿰맨 자국
+	facePart(face, 0.52, 0.75, 0.38, 0.05, dark, 3, { Corner = 0, Rotation = -8 })
+	for i, x in { 0.4, 0.52, 0.64 } do
+		facePart(face, x, 0.765 - (i - 1) * 0.017, 0.03, 0.11, dark, 3, { Corner = 0, Rotation = -8 })
+	end
+	-- 볼에 꿰맨 자국
+	facePart(face, 0.75, 0.62, 0.14, 0.03, dark, 3, { Corner = 0, Rotation = 15 })
+	facePart(face, 0.72, 0.62, 0.025, 0.07, dark, 3, { Corner = 0, Rotation = 15 })
+	facePart(face, 0.79, 0.63, 0.025, 0.07, dark, 3, { Corner = 0, Rotation = 15 })
+end
+
+-- 케르베로스: 짙은 갈색 개 머리 + 뾰족 귀 + 빨간 눈 + 주둥이, 양옆에 작은 머리 둘
+FACES.Cerberus = function(face: Frame)
+	local fur = Color3.fromRGB(78, 60, 58)
+	local muzzle = Color3.fromRGB(135, 105, 92)
+	local red = Color3.fromRGB(235, 55, 45)
+	-- 옆 머리 (뒤)
+	for _, x in { 0.12, 0.88 } do
+		silhouette(face, {
+			{ X = x, Y = 0.5, W = 0.13, H = 0.13, Corner = 0.15, Rot = 45 },
+			{ X = x, Y = 0.64, W = 0.3, H = 0.28 },
+		}, fur, 1)
+		facePart(face, x + (if x < 0.5 then -0.03 else 0.03), 0.62, 0.06, 0.06, red, 3)
+	end
+	-- 가운데 머리
+	silhouette(face, {
+		{ X = 0.29, Y = 0.2, W = 0.24, H = 0.24, Corner = 0.15, Rot = 45 },
+		{ X = 0.71, Y = 0.2, W = 0.24, H = 0.24, Corner = 0.15, Rot = 45 },
+		{ X = 0.5, Y = 0.52, W = 0.72, H = 0.68 },
+		{ X = 0.5, Y = 0.73, W = 0.42, H = 0.3, Color = muzzle },
+	}, fur, 4)
+	facePart(face, 0.29, 0.24, 0.1, 0.1, Color3.fromRGB(160, 80, 80), 6, { Corner = 0.15, Rotation = 45 }) -- 귀 안쪽
+	facePart(face, 0.71, 0.24, 0.1, 0.1, Color3.fromRGB(160, 80, 80), 6, { Corner = 0.15, Rotation = 45 })
+	facePart(face, 0.37, 0.48, 0.15, 0.15, red, 6, { Stroke = Config.Minimap.HabitatInkWidth * 0.75 })
+	facePart(face, 0.63, 0.48, 0.15, 0.15, red, 6, { Stroke = Config.Minimap.HabitatInkWidth * 0.75 })
+	facePart(face, 0.39, 0.46, 0.05, 0.05, Color3.new(1, 1, 1), 7)
+	facePart(face, 0.65, 0.46, 0.05, 0.05, Color3.new(1, 1, 1), 7)
+	facePart(face, 0.35, 0.37, 0.16, 0.04, COLORS.Ink, 7, { Corner = 0, Rotation = 20 }) -- 화난 눈썹
+	facePart(face, 0.65, 0.37, 0.16, 0.04, COLORS.Ink, 7, { Corner = 0, Rotation = -20 })
+	facePart(face, 0.5, 0.65, 0.15, 0.09, Color3.fromRGB(25, 20, 20), 7) -- 코
+	facePart(face, 0.43, 0.83, 0.06, 0.06, Color3.new(1, 1, 1), 7, { Corner = 0.1, Rotation = 45, Stroke = 1 }) -- 송곳니
+	facePart(face, 0.57, 0.83, 0.06, 0.06, Color3.new(1, 1, 1), 7, { Corner = 0.1, Rotation = 45, Stroke = 1 })
+end
+
+-- 사이클롭스: 큰 살색 머리 + 주황 눈동자 외눈 + 작은 뿔 + 화난 눈썹 + 엄니
+FACES.Cyclops = function(face: Frame)
+	local skin = Color3.fromRGB(232, 182, 140)
+	local ivory = Color3.fromRGB(245, 232, 200)
+	local dark = Color3.fromRGB(60, 40, 30)
+	silhouette(face, { { X = 0.5, Y = 0.1, W = 0.16, H = 0.16, Corner = 0.2, Rot = 45 } }, ivory, 1) -- 뿔
+	silhouette(face, { { X = 0.5, Y = 0.55, W = 0.92, H = 0.86 } }, skin, 3)
+	facePart(face, 0.5, 0.46, 0.46, 0.4, Color3.new(1, 1, 1), 5, { Stroke = Config.Minimap.HabitatInkWidth })
+	facePart(face, 0.5, 0.48, 0.25, 0.25, Color3.fromRGB(240, 140, 40), 6)
+	facePart(face, 0.5, 0.48, 0.12, 0.12, Color3.fromRGB(25, 20, 15), 7)
+	facePart(face, 0.46, 0.43, 0.06, 0.06, Color3.new(1, 1, 1), 8)
+	facePart(face, 0.37, 0.23, 0.28, 0.06, dark, 8, { Corner = 0.4, Rotation = 18 }) -- 화난 눈썹
+	facePart(face, 0.63, 0.23, 0.28, 0.06, dark, 8, { Corner = 0.4, Rotation = -18 })
+	facePart(face, 0.5, 0.8, 0.42, 0.09, dark, 5)
+	facePart(face, 0.36, 0.76, 0.09, 0.09, ivory, 6, { Corner = 0.15, Rotation = 45, Stroke = 1 }) -- 엄니
+	facePart(face, 0.64, 0.76, 0.09, 0.09, ivory, 6, { Corner = 0.15, Rotation = 45, Stroke = 1 })
+end
+
+-- 모르는 몹: 양피지 동그라미 + "?"
+local function unknownFace(face: Frame)
+	silhouette(face, { { X = 0.5, Y = 0.5, W = 0.86, H = 0.86 } }, COLORS.House, 1)
+	faceGlyph(face, "?", 0.5, 0.5, 0.6, COLORS.Ink, 3)
+end
+
+-- 구역의 주인 몹: Config.MobZones에 같은 이름이 있으면 그 MobType, 없으면 가장 많은 MobType
+local function mainMobType(zoneName: string, counts: { [string]: number }): string?
+	for _, def in Config.MobZones :: { any } do
+		if def.Name == zoneName and typeof(def.MobType) == "string" then
+			return def.MobType
+		end
+	end
+	local best: string? = nil
+	local bestCount = 0
+	for mobType, count in counts do
+		if count > bestCount or (count == bestCount and best ~= nil and mobType < best) then
+			best = mobType
+			bestCount = count
+		end
+	end
+	return best
+end
+
+local function drawHabitats(rng: Random)
+	local cfg = Config.Minimap
 	local folder = Workspace:FindFirstChild("MobSpawns")
 	if not folder then
 		return
 	end
-	type Zone = { Name: string, MobType: string?, Points: { Vector3 } }
+	type Zone = { Sum: Vector3, Count: number, Types: { [string]: number } }
 	local zones: { [string]: Zone } = {}
+	local names: { string } = {}
 	for _, child in folder:GetChildren() do
 		local name = child:GetAttribute("Zone")
 		local position = MapData.positionOf(child)
 		if typeof(name) == "string" and position and MapData.isSurface(position) then
 			local zone = zones[name]
 			if not zone then
-				local mobType = child:GetAttribute("MobType")
-				zone = { Name = name, MobType = if typeof(mobType) == "string" then mobType else nil, Points = {} }
+				zone = { Sum = Vector3.zero, Count = 0, Types = {} }
 				zones[name] = zone
+				table.insert(names, name)
 			end
-			table.insert(zone.Points, position)
+			zone.Sum += position
+			zone.Count += 1
+			local mobType = child:GetAttribute("MobType")
+			if typeof(mobType) == "string" then
+				zone.Types[mobType] = (zone.Types[mobType] or 0) + 1
+			end
 		end
 	end
-	for _, zone in zones do
-		local sum = Vector3.zero
-		for _, p in zone.Points do
-			sum += p
+	table.sort(names) -- 늘 같은 순서 (기울기 난수가 열 때마다 같게)
+	local size = cfg.HabitatFaceSize
+	local labelSize = cfg.HabitatLabelSize
+	local labelHeight = labelSize + 8
+	for _, name in names do
+		local zone = zones[name]
+		local mobType = mainMobType(name, zone.Types)
+		local raw = toCanvas(zone.Sum / zone.Count)
+		local center = Vector2.new(
+			math.clamp(raw.X, size / 2 + 4, math.max(size / 2 + 4, canvasSize.X - size / 2 - 4)),
+			math.clamp(raw.Y, size / 2 + 4, math.max(size / 2 + 4, canvasSize.Y - size / 2 - labelHeight - 4))
+		)
+		-- 묶음 상자 (작은 지도에서 UIScale로 줄인다)
+		local holder = Instance.new("Frame")
+		holder.Name = "Habitat"
+		holder.AnchorPoint = Vector2.new(0.5, 0.5)
+		holder.Position = UDim2.fromOffset(center.X, center.Y)
+		holder.Size = UDim2.fromOffset(size, size)
+		holder.BackgroundTransparency = 1
+		holder.ZIndex = 1
+		holder.Parent = layers.Icons
+		local scale = Instance.new("UIScale")
+		scale.Parent = holder
+		-- 얼굴 (손으로 그린 듯 살짝 기울임)
+		local face = Instance.new("Frame")
+		face.Name = "Face"
+		face.Size = UDim2.fromScale(1, 1)
+		face.BackgroundTransparency = 1
+		face.Rotation = rng:NextNumber(-cfg.HabitatTilt, cfg.HabitatTilt)
+		face.ZIndex = 1
+		face.Parent = holder
+		local draw = if mobType then FACES[mobType] else nil
+		if draw then
+			draw(face)
+		else
+			unknownFace(face)
 		end
-		local middle = sum / #zone.Points
-		local radius = 0
-		for _, p in zone.Points do
-			radius = math.max(radius, ((p - middle) * Vector3.new(1, 0, 1)).Magnitude)
-		end
-		radius = math.clamp(radius + 8, 20, 90)
-		local color = if zone.MobType then (Config.Minimap.ZoneColors :: { [string]: Color3 })[zone.MobType] else nil
-		local center = toCanvas(middle)
-		local blob = rect(layers.Deco, center, Vector2.new(radius * 2, radius * 1.8) * viewScale, color or COLORS.Hill, 0.7)
-		blob.ZIndex = 0
-		round(blob)
-		outline(blob, color or COLORS.Ink, 2, 0.35)
-		placeLabel(zone.Name, center, 0, 13, COLORS.Ink)
+		-- 이름표 (양피지 쪽지)
+		local tag = Instance.new("TextLabel")
+		tag.Name = "Label"
+		tag.AnchorPoint = Vector2.new(0.5, 0)
+		tag.Position = UDim2.new(0.5, 0, 1, 3)
+		tag.Size = UDim2.fromOffset(0, 0)
+		tag.AutomaticSize = Enum.AutomaticSize.XY
+		tag.BackgroundColor3 = COLORS.Parchment
+		tag.BorderSizePixel = 0
+		tag.Font = cfg.Font
+		tag.Text = name
+		tag.TextSize = labelSize
+		tag.TextColor3 = COLORS.Ink
+		tag.Rotation = rng:NextNumber(-cfg.HabitatTilt * 0.5, cfg.HabitatTilt * 0.5)
+		tag.ZIndex = 2
+		tag.Parent = holder
+		round(tag, 0, 6)
+		outline(tag, COLORS.Ink, 1.5)
+		local padding = Instance.new("UIPadding")
+		padding.PaddingLeft = UDim.new(0, 6)
+		padding.PaddingRight = UDim.new(0, 6)
+		padding.PaddingTop = UDim.new(0, 1)
+		padding.PaddingBottom = UDim.new(0, 1)
+		padding.Parent = tag
+		local box = Vector2.new(math.max(size, textWidth(name, labelSize) + 16), size + labelHeight + 3)
+		reserve(center + Vector2.new(0, (labelHeight + 3) / 2), box)
+		table.insert(habitats, { Scale = scale, Label = tag })
 	end
 end
 
@@ -519,7 +788,7 @@ local function drawOutdoor(gen: number): boolean
 	local rng = Random.new(20261009)
 	drawTerrain(samples, rng)
 	drawDoodles(samples, rng)
-	drawMobZones()
+	drawHabitats(rng)
 	drawTrees(rng)
 	drawTown(rng)
 	drawNpcs()
@@ -836,6 +1105,12 @@ local function step()
 	end
 	arrow.Position = UDim2.fromOffset(me.X, me.Y)
 	arrow.Size = UDim2.fromOffset(26 / s, 26 / s)
+	-- 몹 사는 곳 얼굴: 작은 지도에서는 작게 + 이름표 숨김
+	local faceScale = if mode == "Small" then Config.Minimap.HabitatCornerScale / s else 1
+	for _, habitat in habitats do
+		habitat.Scale.Scale = faceScale
+		habitat.Label.Visible = mode ~= "Small"
+	end
 	local look = root.CFrame.LookVector
 	arrow.Rotation = math.deg(math.atan2(look.X, -look.Z))
 	updateOthers(root.Position)

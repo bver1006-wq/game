@@ -602,13 +602,12 @@ Config.Minimap = {
 	-- 글꼴·아이콘
 	Font = Enum.Font.Cartoon,
 	NpcIcons = { Blacksmith = "⚒", Merchant = "💰", Hunter = "🏹" },
-	ZoneColors = {
-		Slime = Color3.fromRGB(120, 200, 110),
-		Skeleton = Color3.fromRGB(200, 200, 190),
-		Zombie = Color3.fromRGB(120, 150, 90),
-		Cerberus = Color3.fromRGB(210, 110, 70),
-		Cyclops = Color3.fromRGB(170, 120, 200),
-	},
+	-- 몹 사는 곳: 구역(MobSpawns Zone)마다 주인 몹의 큰 손그림 얼굴 하나 + 이름표 (몹 하나하나는 안 그림)
+	HabitatFaceSize = 52, -- 큰 지도 얼굴 크기(픽셀)
+	HabitatLabelSize = 14, -- 이름표 글자 크기
+	HabitatInkWidth = 2, -- 얼굴 잉크 테두리 굵기(픽셀)
+	HabitatTilt = 6, -- 손그림처럼 얼굴을 이만큼까지 기울임(도). 이름표는 절반
+	HabitatCornerScale = 0.6, -- 작은 지도에서 얼굴 크기 배율 (이름표는 숨김)
 	Colors = {
 		Parchment = Color3.fromRGB(238, 222, 184),
 		ParchmentEdge = Color3.fromRGB(120, 80, 40), -- 가장자리 그늘
