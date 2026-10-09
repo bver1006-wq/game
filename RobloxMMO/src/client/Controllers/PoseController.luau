@@ -224,7 +224,7 @@ local function update(dt: number)
 		local grip = if handle and handle:IsA("BasePart") then handle.CFrame:PointToWorldSpace(current.Tool.Grip.Position) else middle
 		local back = middle - grip
 		back = if back.Magnitude > 0.01 then back.Unit else -cf.LookVector
-		local pull = middle + back * (0.25 + current.Draw * 1.1)
+		local pull = middle + back * (Config.Charge.BowPullStart + current.Draw * Config.Charge.BowPullDistance)
 		placeRod(current.Upper, top, pull)
 		placeRod(current.Lower, bottom, pull)
 		placeRod(current.Arrow, pull, pull - back * 2.2)

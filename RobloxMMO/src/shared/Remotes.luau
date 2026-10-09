@@ -14,10 +14,10 @@ local Remotes = {}
 Remotes.Names = table.freeze({
 	SwingRequest = "SwingRequest", -- 클라 → 서버: (targetRock, clientTime, isTouch)
 	HitEffect = "HitEffect", -- 서버 → 클라: (rock, judgment, hitPosition, attackerUserId, hitTime, ghostDuration, pickaxeTier, special "Lightning"|"Charged"|"Blocked"|nil)
-	RockBroken = "RockBroken", -- 서버 → 클라: (position, oreType, rewards {[userId 문자열]=개수}, feverBonus)
+	RockBroken = "RockBroken", -- 서버 → 클라: (position, oreType, rewards {[userId 문자열]=개수}, feverMultiplier 피버 배수·아니면 1)
 	FeverStart = "FeverStart", -- 서버 → 피버 발동자: (rock, startTime)
 	FeverTap = "FeverTap", -- 클라 → 서버: 연타 1회
-	FeverResult = "FeverResult", -- 서버 → 피버 발동자: (rock, bonus, acceptedTaps)
+	FeverResult = "FeverResult", -- 서버 → 피버 발동자: (rock, multiplier 보상 배수, acceptedTaps)
 	InventoryChanged = "InventoryChanged", -- 서버 → 클라: ({ Items = {[itemId]=개수}, Gold, Capacity })
 	ShopAction = "ShopAction", -- 클라 → 서버: (shopId, action, ...) 판매·제련·곡괭이 구매 요청
 	Notify = "Notify", -- 서버 → 클라: (message, kind) 화면 알림 ("good" | "bad" | "info")

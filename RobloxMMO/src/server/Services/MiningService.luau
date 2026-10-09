@@ -18,6 +18,7 @@ local InventoryService = require(script.Parent.InventoryService)
 local ManaService = require(script.Parent.ManaService)
 local NotifyService = require(script.Parent.NotifyService)
 local OreService = require(script.Parent.OreService)
+local OwnershipService = require(script.Parent.OwnershipService)
 local PickaxeService = require(script.Parent.PickaxeService)
 local TimingService = require(script.Parent.TimingService)
 
@@ -41,8 +42,8 @@ local function fireNearby(remote: RemoteEvent, position: Vector3, ...: any)
 end
 
 -- 바위 하나의 플레이어별 산출량을 계산한다
--- 랜덤 BaseMin~BaseMax개를 기여 비율대로 나누고, 피버 보너스는 피버를 연 사람에게 더한다
-local function computeRewards(state: RockState, feverPlayer: Player?, feverBonus: number): { [number]: number }
+-- 랜덤 BaseMin~BaseMax개를 기여 비율대로 나누고, 피버를 연 사람은 자기 몫에 피버 배수를 곱한다
+local function computeRewards(state: RockState, feverPlayer: Player?, feverMultiplier: number): { [number]: number }
 	local reward = Config.Reward
 	local base = random:NextInteger(reward.BaseMin, reward.BaseMax)
 
@@ -56,15 +57,16 @@ local function computeRewards(state: RockState, feverPlayer: Player?, feverBonus
 		local share = if totalDamage > 0 then damage / totalDamage else 0
 		rewards[userId] = math.max(math.round(base * share), reward.MinPerContributor)
 	end
-	if feverPlayer and feverBonus > 0 then
-		rewards[feverPlayer.UserId] = (rewards[feverPlayer.UserId] or 0) + feverBonus
+	if feverPlayer and feverMultiplier > 1 then
+		local own = rewards[feverPlayer.UserId] or reward.MinPerContributor
+		rewards[feverPlayer.UserId] = math.max(math.round(own * feverMultiplier), own + 1)
 	end
 	return rewards
 end
 
 -- 바위를 깨뜨린다: 보상 계산 → 연출 알림 → 제거·리스폰 예약
-local function finishRock(state: RockState, feverPlayer: Player?, feverBonus: number)
-	local rewards = computeRewards(state, feverPlayer, feverBonus)
+local function finishRock(state: RockState, feverPlayer: Player?, feverMultiplier: number)
+	local rewards = computeRewards(state, feverPlayer, feverMultiplier)
 	TimingService.clearRock(state.Rock)
 	OreService.breakRock(state)
 
@@ -87,14 +89,14 @@ local function finishRock(state: RockState, feverPlayer: Player?, feverBonus: nu
 	for userId, amount in rewards do
 		rewardsByKey[tostring(userId)] = amount
 	end
-	fireNearby(rockBrokenRemote, state.Position, state.Position, state.OreType, rewardsByKey, feverBonus)
+	fireNearby(rockBrokenRemote, state.Position, state.Position, state.OreType, rewardsByKey, feverMultiplier)
 
 	-- 테스트 확인용 로그
 	for userId, amount in rewards do
 		local counts = state.Judgments[userId]
 		print(
 			`[MiningService] 바위 깨짐 userId={userId} 획득 {amount}개`
-				.. ` (Nice {counts and counts.Nice or 0}, Perfect {counts and counts.Perfect or 0}, 피버 보너스 +{feverBonus})`
+				.. ` (Nice {counts and counts.Nice or 0}, Perfect {counts and counts.Perfect or 0}, 피버 x{feverMultiplier})`
 		)
 	end
 end
@@ -157,6 +159,11 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 	if not AntiCheatService.isInRange(player, state.Position) then
 		return
 	end
+	-- 다른 사람이 캐는 중이면 못 친다
+	if not OwnershipService.canHit(state, player) then
+		OwnershipService.notifyBlocked(player, if oreDef.Kind == "Tree" then "다른 사람이 베고 있는 나무예요." else "다른 사람이 캐고 있는 바위예요.")
+		return
+	end
 	if not AntiCheatService.tryConsumeSwing(player) then
 		return
 	end
@@ -200,11 +207,11 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 
 	if depleted then
 		if FeverService.roll() then
-			FeverService.start(player, rock, function(bonus)
-				finishRock(state, player, bonus)
+			FeverService.start(player, rock, function(multiplier)
+				finishRock(state, player, multiplier)
 			end)
 		else
-			finishRock(state, nil, 0)
+			finishRock(state, nil, 1)
 		end
 	end
 end

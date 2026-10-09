@@ -20,6 +20,7 @@ local EquipmentService = require(script.Parent.EquipmentService)
 local FeverService = require(script.Parent.FeverService)
 local InventoryService = require(script.Parent.InventoryService)
 local NotifyService = require(script.Parent.NotifyService)
+local OwnershipService = require(script.Parent.OwnershipService)
 
 -- 몹 하나의 서버 상태
 export type MobState = {
@@ -42,6 +43,8 @@ export type MobState = {
 	LungeUntil: number,
 	Phase: number, -- 걷기·통통 튀기 흔들림 위상
 	LastHit: number, -- 마지막으로 맞은 시각 (자연 회복용)
+	Owner: number?, -- 주인 UserId (OwnershipService)
+	OwnerAt: number,
 	Dead: boolean,
 }
 
@@ -157,6 +160,8 @@ local function spawnMob(spawnPart: BasePart)
 		LungeUntil = 0,
 		Phase = random:NextNumber(0, math.pi * 2),
 		LastHit = 0,
+		Owner = nil,
+		OwnerAt = 0,
 		Dead = false,
 	}
 end
@@ -175,12 +180,14 @@ local function stepMob(state: MobState, dt: number, now: number)
 			state.Target = nil
 		end
 	end
-	-- 가까이 온 플레이어를 알아챈다 (집 근처에 있을 때만)
+	-- 가까이 온 플레이어를 알아챈다 (집 근처에 있을 때만). 주인이 있으면 주인만 노린다 (남은 반격을 못 하니까)
+	OwnershipService.expire(state, state.Model, now)
+	local owner = OwnershipService.ownerOf(state)
 	if not state.Target and (state.Position - state.Home).Magnitude < ai.Leash * 0.6 then
 		local best, bestDistance = nil, config.Aggro
 		for _, player in Players:GetPlayers() do
 			local root = aliveRoot(player)
-			if root then
+			if root and (owner == nil or owner == player.UserId) then
 				local distance = (root.Position - state.Position).Magnitude
 				if distance < bestDistance then
 					best, bestDistance = player, distance
@@ -318,6 +325,7 @@ function MobService.damage(mob: Model, player: Player, amount: number, direction
 	end
 	state.Hp = math.max(state.Hp - amount, 0)
 	mob:SetAttribute("Hp", state.Hp)
+	OwnershipService.claim(state, mob, player) -- 데미지를 준 사람이 주인 (흠집도 못 내면 주인이 안 된다)
 	state.Target = player -- 때린 사람을 쫓는다
 	if knockback and knockback > 0 then
 		local time = Config.MobAI.KnockbackTime

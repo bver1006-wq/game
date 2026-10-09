@@ -23,7 +23,7 @@ local localPlayer = Players.LocalPlayer
 local LIGHT_COLOR = Color3.fromRGB(255, 220, 120)
 local RAY_COUNT = 8
 local RAY_LENGTH = 6
-local GAUGE_MAX_TAPS = 46 -- 게이지가 가득 차는 탭 수 (마지막 보너스 기준보다 조금 크게)
+local GAUGE_MAX_TAPS = 28 -- 게이지가 가득 차는 탭 수 (마지막 배수 기준보다 조금 크게)
 local TAP_INPUTS = {
 	[Enum.UserInputType.MouseButton1] = true,
 	[Enum.UserInputType.Touch] = true,
@@ -64,14 +64,14 @@ function FeverController.isActive(): boolean
 	return session ~= nil
 end
 
--- 탭 수에 맞는 보너스 개수 (서버와 같은 표를 쓴다. 표시용)
-local function bonusFor(taps: number): number
+-- 탭 수에 맞는 보상 배수 (서버와 같은 표를 쓴다. 표시용)
+local function multiplierFor(taps: number): number
 	for _, tier in Config.Fever.Tiers do
 		if taps >= tier.MinTaps then
-			return tier.Bonus
+			return tier.Multiplier
 		end
 	end
-	return 0
+	return 1
 end
 
 -- 서버 시각으로 target까지 기다린다 (중간에 피버가 끝나면 false)
@@ -159,7 +159,7 @@ local function createGui(): (ScreenGui, Frame, TextLabel)
 			markLabel.Size = UDim2.new(0, 40, 1.2, 0)
 			markLabel.BackgroundTransparency = 1
 			markLabel.Font = Enum.Font.FredokaOne
-			markLabel.Text = `+{tier.Bonus}`
+			markLabel.Text = `x{tier.Multiplier}`
 			markLabel.TextScaled = true
 			markLabel.TextColor3 = Color3.new(1, 1, 1)
 			markLabel.Parent = mark
@@ -288,7 +288,7 @@ local function onTap(current: Session)
 
 	local ratio = math.min(current.LocalTaps / GAUGE_MAX_TAPS, 1)
 	TweenService:Create(current.GaugeFill, TweenInfo.new(0.06), { Size = UDim2.fromScale(ratio, 1) }):Play()
-	current.MultiplierLabel.Text = `+{bonusFor(current.LocalTaps)}`
+	current.MultiplierLabel.Text = `x{multiplierFor(current.LocalTaps)}`
 	current.Light.Brightness = 3 + ratio * 7
 	setRayLength(current, 0.5 + ratio * 0.5)
 end
@@ -403,7 +403,7 @@ local function runFever(rock: Model, startTime: number)
 	-- 4. 연타: 게이지와 보너스 표시
 	local gauge = gui:FindFirstChild("Gauge") :: Frame
 	gauge.Visible = true
-	multiplierLabel.Text = `+{bonusFor(0)}`
+	multiplierLabel.Text = `x{multiplierFor(0)}`
 	local hint = makeBigText(gui, "연타!", Color3.new(1, 1, 1), 0.2)
 	hint.Size = UDim2.fromScale(0.3, 0.08)
 	if not waitUntil(current, current.TapEnd) then
@@ -413,8 +413,8 @@ local function runFever(rock: Model, startTime: number)
 	-- 결과(FeverResult)를 기다린다. 5단계는 onFeverResult에서 진행
 end
 
--- 서버의 FeverResult: 최종 보너스 표시 후 폭발, 정리
-local function onFeverResult(_rock: Model?, bonus: number, _taps: number)
+-- 서버의 FeverResult: 최종 배수 표시 후 폭발, 정리
+local function onFeverResult(_rock: Model?, multiplier: number, _taps: number)
 	local current = session
 	if not current then
 		return
@@ -424,7 +424,7 @@ local function onFeverResult(_rock: Model?, bonus: number, _taps: number)
 		gauge:Destroy()
 	end
 	current.MultiplierLabel.Text = ""
-	makeBigText(current.Gui, `+{bonus}개!`, Color3.fromRGB(255, 230, 120), 0.4)
+	makeBigText(current.Gui, `x{multiplier}배!`, Color3.fromRGB(255, 230, 120), 0.4)
 
 	-- 5. 폭발: 빛이 확 터졌다가 사라진다
 	HitFeelController.playSound(Config.Sounds.FeverBurst, current.RockPosition, 1, 0.8)

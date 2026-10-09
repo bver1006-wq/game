@@ -248,8 +248,8 @@ function RockHUD.showJudgment(rock: Model, judgment: string)
 	end)
 end
 
--- 획득량 숫자를 위치 위에 띄운다 ("+5 돌", 피버면 보너스도 함께)
-function RockHUD.showReward(position: Vector3, amount: number, oreName: string, feverBonus: number)
+-- 획득량 숫자를 위치 위에 띄운다 ("+5 돌", 피버면 배수도 함께)
+function RockHUD.showReward(position: Vector3, amount: number, oreName: string, feverMultiplier: number)
 	local duration = 1.6
 	local anchor = makeAnchor(position, duration + 0.1)
 
@@ -276,8 +276,8 @@ function RockHUD.showReward(position: Vector3, amount: number, oreName: string, 
 		stroke.Parent = label
 		table.insert(labels, label)
 	end
-	if feverBonus > 0 then
-		addLine(`FEVER +{feverBonus}`, Color3.fromRGB(255, 120, 40), 0, 0.4)
+	if feverMultiplier > 1 then
+		addLine(`FEVER x{feverMultiplier}`, Color3.fromRGB(255, 120, 40), 0, 0.4)
 	end
 	addLine(`+{amount} {oreName}`, Color3.fromRGB(255, 245, 160), 0.4, 0.6)
 
