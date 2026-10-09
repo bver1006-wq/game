@@ -118,7 +118,11 @@ function MapData.worldBounds(): Bounds
 		local folder = Workspace:FindFirstChild(folderName)
 		if folder then
 			for _, child in folder:GetChildren() do
-				add(MapData.positionOf(child))
+				-- 광산 층 광석 자리(속성 Floor 1 이상)는 빼고
+				local floor = child:GetAttribute("Floor")
+				if not (typeof(floor) == "number" and floor >= 1) then
+					add(MapData.positionOf(child))
+				end
 			end
 		end
 	end
@@ -346,6 +350,11 @@ function MapData.getMaze(floor: number): Maze?
 		mazeCache[floor] = maze
 	end
 	return maze
+end
+
+-- 이 층 미로를 광선으로 다 확인해서 기억해 두었는지
+function MapData.isMazeCached(floor: number): boolean
+	return mazeCache[floor] ~= nil
 end
 
 -- 미로에서 이 위치와 가장 가까운 칸과 수평 거리
