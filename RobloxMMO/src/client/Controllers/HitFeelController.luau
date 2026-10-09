@@ -245,8 +245,9 @@ local function spawnOreChunks(position: Vector3, color: Color3, amount: number, 
 end
 
 -- 좋은 곡괭이 타격 연출: 충격파 고리 + 사방으로 튀는 광석 조각 (+ 다이아몬드는 반짝이)
-local function tierImpact(rock: Model?, hitPosition: Vector3, color: Color3, tier: number, judgment: string, material: Enum.Material)
-	local effect = Config.HitFeel.TierEffects[tier]
+-- effects: 곡괭이는 Config.HitFeel.TierEffects, 도끼는 AxeTierEffects (도끼 표에는 불꽃·베는 빛줄기가 더 있다)
+local function tierImpact(rock: Model?, hitPosition: Vector3, color: Color3, tier: number, judgment: string, material: Enum.Material, effects: { [number]: any })
+	local effect = effects[tier]
 	if not effect then
 		return
 	end
@@ -302,6 +303,56 @@ local function tierImpact(rock: Model?, hitPosition: Vector3, color: Color3, tie
 		end)
 		task.delay(1.25, function()
 			chunk:Destroy()
+		end)
+	end
+
+	-- 도끼: 사방으로 튀는 불꽃 (좋은 도끼일수록 많이)
+	local sparkCount = (effect.Sparks or 0) + (if judgment == "Perfect" and (effect.Sparks or 0) > 0 then 8 else 0)
+	if sparkCount > 0 then
+		local attachment = Instance.new("Attachment")
+		attachment.WorldPosition = hitPosition + outward * 0.2
+		attachment.Parent = Workspace.Terrain
+		local emitter = Instance.new("ParticleEmitter")
+		emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		emitter.Color = ColorSequence.new(effect.Color, Color3.new(1, 1, 1))
+		emitter.LightEmission = 1
+		emitter.Size = NumberSequence.new(0.25, 0)
+		emitter.Lifetime = NumberRange.new(0.15, 0.35)
+		emitter.Speed = NumberRange.new(14, 26)
+		emitter.SpreadAngle = Vector2.new(50, 50)
+		emitter.Acceleration = Vector3.new(0, -40, 0)
+		emitter.Rate = 0
+		emitter.Parent = attachment
+		emitter.EmissionDirection = Enum.NormalId.Top
+		attachment.WorldCFrame = CFrame.lookAt(attachment.WorldPosition, attachment.WorldPosition + outward) * CFrame.Angles(math.rad(-90), 0, 0)
+		emitter:Emit(sparkCount)
+		task.delay(0.8, function()
+			attachment:Destroy()
+		end)
+	end
+
+	-- 도끼: 줄기를 가로로 베는 빛줄기
+	if effect.Slash then
+		local slash = Instance.new("Part")
+		slash.Material = Enum.Material.Neon
+		slash.Color = effect.Color
+		slash.Anchored = true
+		slash.CanCollide = false
+		slash.CanQuery = false
+		slash.CanTouch = false
+		slash.CastShadow = false
+		slash.Transparency = 0.1
+		local tangent = Vector3.yAxis:Cross(outward)
+		local length = effect.Ring * (if judgment == "Perfect" then 1.3 else 1)
+		slash.Size = Vector3.new(0.08, 0.12, length * 0.3)
+		slash.CFrame = CFrame.lookAt(hitPosition + outward * 0.15, hitPosition + outward * 0.15 + tangent) * CFrame.Angles(0, 0, math.rad(random:NextNumber(-20, 20)))
+		slash.Parent = effectsFolder
+		TweenService:Create(slash, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = Vector3.new(0.04, 0.35, length),
+			Transparency = 1,
+		}):Play()
+		task.delay(0.25, function()
+			slash:Destroy()
 		end)
 	end
 
@@ -472,7 +523,10 @@ local function onHitEffect(
 		local chopPitch = pitch * (if judgment == "Perfect" then 1.15 elseif judgment == "Nice" then 1.07 else 1)
 		HitFeelController.playSound(Config.Sounds.WoodChop, hitPosition, chopPitch, treeFeel.ChopVolume * (if judgment == "Perfect" then 1.2 else 1))
 		if rock then
-			dropLeaves(rock, rock:GetPivot().Position, (def :: OreDefs.OreDef).LeafColor or DEFAULT_LEAF_COLOR, treeFeel.LeafCount)
+			-- 좋은 도끼일수록 잎이 더 많이 떨어진다
+			local axeEffect = Config.HitFeel.AxeTierEffects[pickaxeTier or 1]
+			local leafCount = math.round(treeFeel.LeafCount * (if axeEffect then axeEffect.Leaves else 1))
+			dropLeaves(rock, rock:GetPivot().Position, (def :: OreDefs.OreDef).LeafColor or DEFAULT_LEAF_COLOR, leafCount)
 		end
 	else
 		if judgment == "Perfect" then
@@ -493,7 +547,8 @@ local function onHitEffect(
 	end
 
 	local tier = pickaxeTier or 1
-	tierImpact(rock, hitPosition, color, tier, judgment, material)
+	local tierTable = if isTree then Config.HitFeel.AxeTierEffects else Config.HitFeel.TierEffects
+	tierImpact(rock, hitPosition, color, tier, judgment, material, tierTable)
 
 	-- 나무의 마지막 일격: 원본이 지워지기 전에 쓰러뜨릴 복제본을 만들어 둔다
 	local hp = if rock then rock:GetAttribute("Hp") else nil
@@ -504,7 +559,7 @@ local function onHitEffect(
 	if isMine then
 		SwingAnimation.freeze((Config.HitFeel.HitStop :: any)[judgment] or Config.HitFeel.HitStop.Normal)
 		local shake = Config.HitFeel.CameraShake
-		local tierEffect = Config.HitFeel.TierEffects[tier]
+		local tierEffect = tierTable[tier]
 		local tierShake = if tierEffect then tierEffect.Shake else 1
 		HitFeelController.cameraShake(shake.Magnitude * tierShake * (if judgment == "Perfect" then shake.PerfectMultiplier else 1), shake.Duration)
 	end

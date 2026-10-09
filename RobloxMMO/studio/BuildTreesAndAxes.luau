@@ -7,8 +7,8 @@
 --
 -- 만드는 것
 --   1. 도끼 Tool 4종  → ServerStorage/Templates/Pickaxes/{StoneAxe, CopperAxe, IronAxe, DiamondAxe}
---      같은 티어 곡괭이 Tool을 복제해 손잡이·쥐는 각도(Grip)는 그대로 쓰고, 머리(쥐는 점에서 가장 먼 부품)
---      자리에 같은 방향으로 양날 도끼날을 단다.
+--      같은 티어 곡괭이 Tool을 복제해 쥐는 각도(Grip)는 그대로 쓰고, 곡괭이 모양은 숨긴 뒤 곡괭이 머리 방향에 맞춰
+--      단계마다 다른 도끼를 부품으로 짓는다: 돌 한날 손도끼 / 구리 바이킹 수염 도끼 / 철 양날 전투도끼 / 다이아 대형 양날 도끼
 --   2. 나무 템플릿 5종 → ServerStorage/Templates/Ores/{Pine, Oak, Birch, Maple, Ebony}/
 --      맵에 원래 있는 나무(이름에 "Tree")를 본떠 종류별로 잎·줄기 색만 바꾼다. 맵 나무가 없으면 부품으로 만든다.
 --      기준점(Pivot)은 줄기 밑동 가운데, 잰 줄기 반지름은 속성 HitRadius (잔상 고리가 줄기에 딱 맞게).
@@ -91,11 +91,35 @@ local oreFolder = folder(templates, "Ores")
 local iconFolder = folder(ReplicatedStorage, "ItemIcons")
 
 ---------------------------------------------------------------- 1. 도끼
+local AXE_EDGE_SIGN = 1 -- 한날 도끼의 날이 뒤를 보면 -1로 (플레이 테스트로 맞춘다)
+
+-- 도끼 4종 설계. 단위는 스터드, 머리 좌표계: x = 날 방향(앞), y = 자루 방향(위), 원점 = 머리 가운데
+-- Scale: 머리 크기 배수, Reach: 자루 길이 배수(곡괭이 기준), Shaft: 자루 굵기
+local METAL = Enum.Material.Metal
 local AXES = {
-	{ Id = "StoneAxe", From = "StonePickaxe", Head = Color3.fromRGB(150, 145, 140), Edge = Color3.fromRGB(190, 185, 180), Material = Enum.Material.Slate, BladeLen = 1.0, BladeH = 1.0 },
-	{ Id = "CopperAxe", From = "CopperPickaxe", Head = Color3.fromRGB(205, 115, 60), Edge = Color3.fromRGB(240, 170, 110), Material = Enum.Material.Metal, BladeLen = 1.15, BladeH = 1.15, Trail = Color3.fromRGB(235, 140, 70) },
-	{ Id = "IronAxe", From = "IronPickaxe", Head = Color3.fromRGB(170, 170, 175), Edge = Color3.fromRGB(235, 235, 240), Material = Enum.Material.Metal, BladeLen = 1.3, BladeH = 1.3, Trail = Color3.fromRGB(225, 230, 240) },
-	{ Id = "DiamondAxe", From = "SteelPickaxe", Head = Color3.fromRGB(110, 220, 255), Edge = Color3.fromRGB(220, 250, 255), Material = Enum.Material.Glass, BladeLen = 1.5, BladeH = 1.5, Trail = Color3.fromRGB(110, 235, 255), Sparkle = true },
+	{
+		Id = "StoneAxe", From = "StonePickaxe", Scale = 1.0, Reach = 1.0, Shaft = 0.26,
+		Head = Color3.fromRGB(120, 118, 115), Edge = Color3.fromRGB(200, 198, 192), Material = Enum.Material.Slate,
+		ShaftColor = Color3.fromRGB(150, 105, 65), ShaftMaterial = Enum.Material.Wood,
+	},
+	{
+		Id = "CopperAxe", From = "CopperPickaxe", Scale = 1.2, Reach = 1.08, Shaft = 0.28,
+		Head = Color3.fromRGB(196, 112, 58), Edge = Color3.fromRGB(245, 185, 125), Material = METAL,
+		ShaftColor = Color3.fromRGB(80, 55, 40), ShaftMaterial = Enum.Material.Wood,
+		Trail = Color3.fromRGB(255, 150, 70), TrailLife = 0.16,
+	},
+	{
+		Id = "IronAxe", From = "IronPickaxe", Scale = 1.35, Reach = 1.15, Shaft = 0.3,
+		Head = Color3.fromRGB(150, 152, 158), Edge = Color3.fromRGB(235, 238, 245), Material = METAL,
+		ShaftColor = Color3.fromRGB(70, 72, 78), ShaftMaterial = METAL, Gold = Color3.fromRGB(215, 170, 70),
+		Trail = Color3.fromRGB(230, 235, 255), TrailLife = 0.2,
+	},
+	{
+		Id = "DiamondAxe", From = "SteelPickaxe", Scale = 1.6, Reach = 1.25, Shaft = 0.34,
+		Head = Color3.fromRGB(95, 205, 245), Edge = Color3.fromRGB(215, 250, 255), Material = Enum.Material.Glass,
+		ShaftColor = Color3.fromRGB(35, 30, 45), ShaftMaterial = METAL, Gold = Color3.fromRGB(230, 185, 80),
+		Trail = Color3.fromRGB(110, 235, 255), TrailLife = 0.28, Glow = true,
+	},
 }
 
 -- 곡괭이가 없을 때 쓸 기본 손잡이 Tool
@@ -109,133 +133,168 @@ local function fallbackTool(): Tool
 	return tool
 end
 
+-- 곡괭이 Tool에서 쥐는 점·자루 방향·머리 가운데·머리 방향을 읽고, 곡괭이 부품은 전부 투명하게 한다
+-- (쥐는 각도는 곡괭이와 같아야 하므로 Tool과 Handle·Grip은 그대로 쓴다)
+local function prepareFromPickaxe(source: Tool)
+	local tool = source:Clone()
+	local handle = tool.Handle :: BasePart
+	local gripWorld = handle.CFrame:PointToWorldSpace(tool.Grip.Position) -- 손이 쥐는 점
+
+	-- 곡괭이 머리 = 쥐는 점에서 먼 쪽 부품 무리 (가장 먼 거리의 75% 넘게 떨어진 부품, 부피 가중 평균이 머리 가운데)
+	local farthest = 0
+	for _, d in tool:GetDescendants() do
+		if d:IsA("BasePart") then
+			farthest = math.max(farthest, (d.Position - gripWorld).Magnitude)
+		end
+	end
+	local weighted, totalVolume = Vector3.zero, 0
+	local headPart: BasePart = handle
+	local biggest = -1
+	for _, d in tool:GetDescendants() do
+		if d:IsA("BasePart") and (d.Position - gripWorld).Magnitude >= farthest * 0.75 then
+			local volume = d.Size.X * d.Size.Y * d.Size.Z
+			weighted += d.Position * volume
+			totalVolume += volume
+			if volume > biggest then
+				headPart, biggest = d, volume
+			end
+		end
+	end
+	local center = if totalVolume > 0 then weighted / totalVolume else headPart.Position
+	local shaft = (center - gripWorld).Unit
+
+	-- 머리 방향 = 머리 부품의 축 중 자루와 수직이면서 가장 긴 축 (곡괭이 끝이 뻗은 방향)
+	local best, bestSize = nil, -1
+	for _, pair in {
+		{ headPart.CFrame.RightVector, headPart.Size.X },
+		{ headPart.CFrame.UpVector, headPart.Size.Y },
+		{ headPart.CFrame.LookVector, headPart.Size.Z },
+	} do
+		if math.abs(pair[1]:Dot(shaft)) < 0.7 and pair[2] > bestSize then
+			best, bestSize = pair[1], pair[2]
+		end
+	end
+	local axis = (best or shaft:Cross(Vector3.yAxis)) :: Vector3
+	local edge = (axis - shaft * axis:Dot(shaft)).Unit
+
+	-- 곡괭이 모양은 숨긴다 (Handle은 Tool에 꼭 있어야 해서 지우지 않는다)
+	for _, d in tool:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Transparency = 1
+			d.CanCollide = false
+		elseif d:IsA("Decal") or d:IsA("Texture") or d:IsA("Trail") or d:IsA("ParticleEmitter") or d:IsA("Light") then
+			d:Destroy()
+		end
+	end
+	return tool, gripWorld, center, shaft, edge
+end
+
+-- 세 점으로 삼각형 판을 만든다 (쐐기 두 개). 점은 월드 좌표, thickness는 판 두께
+local function triangle(parent: Instance, a: Vector3, b: Vector3, c: Vector3, thickness: number, color: Color3, material: Enum.Material, weldTo: BasePart)
+	local ab, ac, bc = b - a, c - a, c - b
+	local abd, acd, bcd = ab:Dot(ab), ac:Dot(ac), bc:Dot(bc)
+	if abd > acd and abd > bcd then
+		c, a = a, c
+	elseif acd > bcd and acd > abd then
+		a, b = b, a
+	end
+	ab, ac, bc = b - a, c - a, c - b
+	if ac:Cross(ab).Magnitude < 1e-4 then
+		return -- 한 줄로 늘어선 점
+	end
+	local right = ac:Cross(ab).Unit
+	local up = bc:Cross(right).Unit
+	local back = bc.Unit
+	local height = math.abs(ab:Dot(up))
+	for _, w in {
+		{ Size = Vector3.new(thickness, height, math.abs(ab:Dot(back))), CFrame = CFrame.fromMatrix((a + b) / 2, right, up, back) },
+		{ Size = Vector3.new(thickness, height, math.abs(ac:Dot(back))), CFrame = CFrame.fromMatrix((a + c) / 2, -right, up, -back) },
+	} do
+		if w.Size.Y > 0.01 and w.Size.Z > 0.01 then
+			local wedge = part({
+				ClassName = "WedgePart", Name = "Blade", Size = w.Size, CFrame = w.CFrame, Color = color, Material = material,
+				Anchored = false, CanCollide = false, CanQuery = false, CanTouch = false, Massless = true,
+			}, parent)
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = weldTo
+			weld.Part1 = wedge
+			weld.Parent = wedge
+		end
+	end
+end
+
+-- 도끼 하나 만들기
 local function buildAxe(spec): Tool
 	local source = pickaxeFolder:FindFirstChild(spec.From)
-	local tool: Tool
-	local center: Vector3
-	local shaft: Vector3 -- 쥐는 점 → 머리 방향 (월드)
-	local edge: Vector3 -- 날이 뻗는 방향 (월드)
+	local tool, gripWorld, center, shaft, edge
 	if source and source:IsA("Tool") and source:FindFirstChild("Handle") then
-		-- 같은 티어 곡괭이를 복제해 손잡이·쥐는 각도는 그대로 두고, 머리만 도끼날로 바꾼다
-		tool = source:Clone()
-		local handle = tool.Handle :: BasePart
-		local gripWorld = handle.CFrame:PointToWorldSpace(tool.Grip.Position) -- 손이 쥐는 점
-
-		-- 곡괭이 머리 = 쥐는 점에서 먼 쪽 부품 무리 (손잡이 부품이 무엇이든 상관없이 찾는다)
-		-- 가장 먼 거리의 75% 넘게 떨어진 부품들을 머리로 보고, 부피 가중 평균을 머리 가운데로 쓴다 (양쪽 곡괭이 끝이 있어도 자루 위에 온다)
-		local farthest = 0
-		for _, d in tool:GetDescendants() do
-			if d:IsA("BasePart") then
-				farthest = math.max(farthest, (d.Position - gripWorld).Magnitude)
-			end
-		end
-		local headParts: { BasePart } = {}
-		local weighted, totalVolume = Vector3.zero, 0
-		local headPart: BasePart = handle
-		local biggest = -1
-		for _, d in tool:GetDescendants() do
-			if d:IsA("BasePart") and (d.Position - gripWorld).Magnitude >= farthest * 0.75 then
-				local volume = d.Size.X * d.Size.Y * d.Size.Z
-				table.insert(headParts, d)
-				weighted += d.Position * volume
-				totalVolume += volume
-				if volume > biggest then
-					headPart, biggest = d, volume
-				end
-			end
-		end
-		center = if totalVolume > 0 then weighted / totalVolume else headPart.Position
-		shaft = (center - gripWorld).Unit
-
-		-- 날 방향 = 머리 부품의 축 중 자루와 수직이면서 가장 긴 축 (곡괭이 끝이 뻗은 방향)
-		local best, bestSize = nil, -1
-		for _, pair in {
-			{ headPart.CFrame.RightVector, headPart.Size.X },
-			{ headPart.CFrame.UpVector, headPart.Size.Y },
-			{ headPart.CFrame.LookVector, headPart.Size.Z },
-		} do
-			if math.abs(pair[1]:Dot(shaft)) < 0.7 and pair[2] > bestSize then
-				best, bestSize = pair[1], pair[2]
-			end
-		end
-		local axis = (best or shaft:Cross(Vector3.yAxis)) :: Vector3
-		edge = (axis - shaft * axis:Dot(shaft)).Unit
-
-		-- 머리 부품을 치운다. 손잡이(Handle)가 머리라면 지우지 않고 투명하게
-		for _, d in headParts do
-			if d == handle then
-				d.Transparency = 1
-				for _, c in d:GetChildren() do
-					if c:IsA("Decal") or c:IsA("Texture") or c:IsA("SurfaceAppearance") then
-						c:Destroy()
-					end
-				end
-			else
-				d:Destroy()
-			end
-		end
-		for _, d in tool:GetDescendants() do
-			if d:IsA("Trail") or d:IsA("ParticleEmitter") then
-				d:Destroy() -- 곡괭이 궤적·반짝이는 도끼 것으로 새로 단다
-			end
-		end
-		-- 곡괭이가 통짜 부품 하나였으면 자루까지 안 보이게 되므로, 쥐는 점에서 머리까지 나무 자루를 새로 단다
-		local visible = 0
-		for _, d in tool:GetDescendants() do
-			if d:IsA("BasePart") and d.Transparency < 1 then
-				visible += 1
-			end
-		end
-		if visible == 0 then
-			local length = (center - gripWorld).Magnitude + 0.8
-			part({
-				Name = "Shaft",
-				Size = Vector3.new(0.3, length, 0.3),
-				CFrame = CFrame.fromMatrix(gripWorld + shaft * (length / 2 - 0.8), shaft:Cross(edge), shaft),
-				Color = Color3.fromRGB(120, 85, 55),
-				Material = Enum.Material.Wood,
-				Anchored = false,
-				CanCollide = false,
-				Massless = true,
-			}, tool)
-		end
-		-- 머리를 거쳐 붙어 있던 부품이 떨어지지 않게 남은 부품을 손잡이에 다시 붙인다
-		for _, d in tool:GetDescendants() do
-			if d:IsA("BasePart") and d ~= handle then
-				local weld = Instance.new("WeldConstraint")
-				weld.Part0 = handle
-				weld.Part1 = d
-				weld.Parent = d
-			end
-		end
+		tool, gripWorld, center, shaft, edge = prepareFromPickaxe(source)
 	else
 		tool = fallbackTool()
-		local handle = tool.Handle :: BasePart
-		center = handle.CFrame:PointToWorldSpace(Vector3.new(0, handle.Size.Y / 2 - 0.3, 0))
-		shaft = handle.CFrame.UpVector
-		edge = handle.CFrame.LookVector
+		local h = tool.Handle :: BasePart
+		gripWorld = h.CFrame:PointToWorldSpace(tool.Grip.Position)
+		center = h.CFrame:PointToWorldSpace(Vector3.new(0, h.Size.Y / 2 - 0.3, 0))
+		shaft = h.CFrame.UpVector
+		edge = h.CFrame.LookVector
 	end
 	tool.Name = spec.Id
 	tool:SetAttribute("PickaxeId", nil)
 	tool:SetAttribute("GeneratedBy", GENERATED)
 	local handle = tool.Handle :: BasePart
 
-	-- 도끼 머리 좌표계: X = 날 방향, Y = 자루 방향, Z = 두께 방향 (곡괭이 머리와 같은 자리·방향)
-	local frame = CFrame.fromMatrix(center, edge, shaft)
+	-- 자루를 곡괭이보다 Reach배 길게: 머리 가운데를 자루 방향으로 민다
+	local reach = (center - gripWorld).Magnitude * spec.Reach
+	center = gripWorld + shaft * reach
+	local s = spec.Scale
+	local frame = CFrame.fromMatrix(center, edge * AXE_EDGE_SIGN, shaft) -- x 날, y 자루, z 두께
 
-	-- 머리 기준으로 날 방향 offset만큼 떨어진 곳에 부품을 붙인다. sizes = (날 방향, 자루 방향, 두께)
-	local function attach(name: string, offset: number, sizes: Vector3, color: Color3, material: Enum.Material)
+	-- 머리 좌표(x, y)를 월드 좌표로
+	local function at(x: number, y: number, z: number?): Vector3
+		return frame:PointToWorldSpace(Vector3.new(x * s, y * s, (z or 0) * s))
+	end
+	-- 볼록 다각형 판 (점들은 머리 좌표, 둘레 순서대로)
+	local function plate(points: { Vector2 }, thickness: number, color: Color3, material: Enum.Material, z: number?)
+		local world = {}
+		for _, p in points do
+			table.insert(world, at(p.X, p.Y, z))
+		end
+		for i = 2, #world - 1 do
+			triangle(tool, world[1], world[i], world[i + 1], thickness * s, color, material, handle)
+		end
+	end
+	-- 날 끝 하이라이트: 선분마다 안쪽으로 inset만큼 들어간 띠
+	local function edgeStrip(points: { Vector2 }, inset: number, thickness: number)
+		for i = 1, #points - 1 do
+			local p, q = points[i], points[i + 1]
+			local dir = (q - p).Unit
+			local normal = Vector2.new(-dir.Y, dir.X) -- 안쪽(원점 쪽)으로
+			if normal:Dot(-(p + q) / 2) < 0 then
+				normal = -normal
+			end
+			plate({ p, q, q + normal * inset, p + normal * inset }, thickness, spec.Edge, if spec.Glow then Enum.Material.Neon else spec.Material)
+		end
+	end
+	-- 머리 좌표의 블록·원통 부품
+	local function block(name: string, x: number, y: number, size: Vector3, color: Color3, material: Enum.Material, shape: Enum.PartType?, rotation: CFrame?)
 		local p = part({
-			Name = name,
-			Size = sizes,
-			Color = color,
-			Material = material,
-			Anchored = false,
-			CanCollide = false,
-			CanQuery = false,
-			CanTouch = false,
-			Massless = true,
-			CFrame = frame * CFrame.new(offset, 0, 0),
+			Name = name, Shape = shape or Enum.PartType.Block, Size = size * s, Color = color, Material = material,
+			CFrame = (frame + (at(x, y) - frame.Position)) * (rotation or CFrame.new()),
+			Anchored = false, CanCollide = false, CanQuery = false, CanTouch = false, Massless = true,
+		}, tool)
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = handle
+		weld.Part1 = p
+		weld.Parent = p
+		return p
+	end
+	-- 자루를 따라 놓는 원통 (from~to는 쥐는 점 기준 자루 방향 거리, 스터드)
+	local SHAFT_ROT = CFrame.Angles(0, 0, math.rad(90)) -- 원통 X축을 자루 방향(y)으로
+	local function shaftPiece(name: string, from: number, to: number, diameter: number, color: Color3, material: Enum.Material)
+		local mid = gripWorld + shaft * ((from + to) / 2)
+		local p = part({
+			Name = name, Shape = Enum.PartType.Cylinder, Size = Vector3.new(to - from, diameter, diameter), Color = color, Material = material,
+			CFrame = CFrame.fromMatrix(mid, edge, shaft) * SHAFT_ROT,
+			Anchored = false, CanCollide = false, CanQuery = false, CanTouch = false, Massless = true,
 		}, tool)
 		local weld = Instance.new("WeldConstraint")
 		weld.Part0 = handle
@@ -244,45 +303,138 @@ local function buildAxe(spec): Tool
 		return p
 	end
 
-	local bladeStart = 0.2
-	local edgeMaterial = if spec.Sparkle then Enum.Material.Neon else spec.Material
-	attach("Collar", 0, Vector3.new(0.5, 0.6, 0.5), spec.Head:Lerp(Color3.new(0, 0, 0), 0.25), spec.Material)
-	-- 양날 도끼: 양쪽에 같은 날을 달아 머리가 자루 가운데에 온다
-	local blade = attach("Blade", bladeStart + spec.BladeLen / 2, Vector3.new(spec.BladeLen, spec.BladeH, 0.2), spec.Head, spec.Material)
-	attach("Edge", bladeStart + spec.BladeLen + 0.07, Vector3.new(0.14, spec.BladeH * 1.25, 0.12), spec.Edge, edgeMaterial)
-	attach("Blade2", -(bladeStart + spec.BladeLen / 2), Vector3.new(spec.BladeLen, spec.BladeH, 0.2), spec.Head, spec.Material)
-	attach("Edge2", -(bladeStart + spec.BladeLen + 0.07), Vector3.new(0.14, spec.BladeH * 1.25, 0.12), spec.Edge, edgeMaterial)
+	local V = Vector2.new
+	local d = spec.Shaft
+	local top = reach + 0.25 * s -- 자루 윗끝
+	local trailTop: Vector3, trailBottom: Vector3
 
-	-- 좋은 도끼: 휘두를 때 날 끝 궤적 (SwingAnimation이 휘두르는 동안만 켠다)
-	if spec.Trail then
-		local top = Instance.new("Attachment")
-		top.Name = "TrailTop"
-		top.Position = Vector3.new(spec.BladeLen / 2, spec.BladeH * 0.6, 0)
-		top.Parent = blade
-		local bottom = Instance.new("Attachment")
-		bottom.Name = "TrailBottom"
-		bottom.Position = Vector3.new(spec.BladeLen / 2, -spec.BladeH * 0.6, 0)
-		bottom.Parent = blade
-		local trail = Instance.new("Trail")
-		trail.Attachment0 = top
-		trail.Attachment1 = bottom
-		trail.Color = ColorSequence.new(spec.Trail)
-		trail.Transparency = NumberSequence.new(0.3, 1)
-		trail.Lifetime = 0.15
-		trail.LightEmission = 0.6
-		trail.Enabled = false
-		trail.Parent = blade
+	if spec.Id == "StoneAxe" then
+		-- 한날 손도끼: 나무 자루 + 빨간 끈 손잡이, 사다리꼴 날, 뒤쪽 뭉툭한 머리
+		shaftPiece("Shaft", -0.9, top, d, spec.ShaftColor, spec.ShaftMaterial)
+		for i = 0, 4 do
+			shaftPiece("Wrap", -0.6 + i * 0.28, -0.6 + i * 0.28 + 0.14, d + 0.07, Color3.fromRGB(190, 40, 45), Enum.Material.Fabric)
+		end
+		block("Socket", 0, 0.05, Vector3.new(0.55, 0.75, 0.42), spec.Head:Lerp(Color3.new(0, 0, 0), 0.3), spec.Material)
+		block("Poll", -0.42, 0.05, Vector3.new(0.3, 0.5, 0.38), spec.Head:Lerp(Color3.new(0, 0, 0), 0.2), spec.Material)
+		local blade = { V(0.25, 0.32), V(1.2, 0.5), V(1.32, -0.6), V(0.25, -0.22) }
+		plate(blade, 0.16, spec.Head, spec.Material)
+		edgeStrip({ V(1.2, 0.5), V(1.32, -0.6) }, 0.12, 0.18)
+		trailTop, trailBottom = at(1.2, 0.5), at(1.32, -0.6)
+	elseif spec.Id == "CopperAxe" then
+		-- 바이킹 수염 도끼: 아래로 길게 늘어진 날, 새김 무늬, 가죽 감은 자루
+		shaftPiece("Shaft", -1.0, top, d, spec.ShaftColor, spec.ShaftMaterial)
+		for i = 0, 6 do
+			shaftPiece("Leather", -0.75 + i * 0.22, -0.75 + i * 0.22 + 0.16, d + 0.06, Color3.fromRGB(110, 70, 45), Enum.Material.Leather)
+		end
+		shaftPiece("Cap", top - 0.05, top + 0.15, d + 0.12, spec.Edge, METAL)
+		block("Socket", 0, 0, Vector3.new(0.6, 0.85, 0.46), spec.Head:Lerp(Color3.new(0, 0, 0), 0.25), spec.Material)
+		plate({ V(-0.28, 0.22), V(-0.65, 0), V(-0.28, -0.22) }, 0.3, spec.Head:Lerp(Color3.new(0, 0, 0), 0.15), spec.Material) -- 뒤쪽 짧은 뿔
+		plate({ V(0.28, 0.35), V(1.3, 0.78), V(1.56, 0.2), V(1.6, -0.4), V(0.28, -0.25) }, 0.15, spec.Head, spec.Material)
+		plate({ V(0.28, -0.25), V(1.6, -0.4), V(1.35, -1.1), V(0.75, -0.62) }, 0.15, spec.Head, spec.Material)
+		edgeStrip({ V(1.3, 0.78), V(1.56, 0.2), V(1.6, -0.4), V(1.35, -1.1) }, 0.13, 0.17)
+		-- 새김 무늬: 날 위의 가는 빛나는 선
+		for _, line in { { V(0.5, 0.2), V(1.1, 0.4) }, { V(0.55, -0.1), V(1.2, -0.25) }, { V(0.85, -0.45), V(1.2, -0.85) } } do
+			local p, q = line[1], line[2]
+			local n = V(-(q - p).Unit.Y, (q - p).Unit.X) * 0.04
+			plate({ p - n, q - n, q + n, p + n }, 0.19, Color3.fromRGB(255, 170, 80), Enum.Material.Neon)
+		end
+		trailTop, trailBottom = at(1.3, 0.78), at(1.35, -1.1)
+	elseif spec.Id == "IronAxe" then
+		-- 양날 전투도끼: 넓은 날개 두 장, 위에 창끝, 금 장식, 쇠 자루와 고리
+		shaftPiece("Shaft", -1.1, top, d, spec.ShaftColor, spec.ShaftMaterial)
+		for _, ring in { -0.95, -0.2, reach - 0.65 * s } do
+			shaftPiece("Ring", ring, ring + 0.12, d + 0.12, spec.Gold, METAL)
+		end
+		shaftPiece("Pommel", -1.3, -1.1, d + 0.15, spec.Gold, METAL)
+		block("Socket", 0, 0, Vector3.new(0.5, 1.0, 0.5), spec.ShaftColor, METAL)
+		for _, side in { 1, -1 } do
+			local wing = { V(0.28, 0.3), V(1.05, 0.95), V(1.45, 0.05), V(1.05, -0.95), V(0.28, -0.3) }
+			local edgeLine = { V(1.05, 0.95), V(1.45, 0.05), V(1.05, -0.95) }
+			for i, p in wing do
+				wing[i] = V(p.X * side, p.Y)
+			end
+			for i, p in edgeLine do
+				edgeLine[i] = V(p.X * side, p.Y)
+			end
+			plate(wing, 0.15, spec.Head, spec.Material)
+			edgeStrip(edgeLine, 0.13, 0.17)
+			-- 금색 숫양 뿔 장식
+			block("Horn", 0.33 * side, 0.12, Vector3.new(0.28, 0.28, 0.34), spec.Gold, METAL, Enum.PartType.Ball)
+			block("Horn", 0.42 * side, -0.12, Vector3.new(0.2, 0.2, 0.3), spec.Gold, METAL, Enum.PartType.Ball)
+		end
+		plate({ V(0, 0.45), V(0.17, 0.95), V(0, 1.55), V(-0.17, 0.95) }, 0.14, spec.Edge, METAL) -- 창끝
+		block("Collar", 0, 0.5, Vector3.new(0.42, 0.14, 0.42), spec.Gold, METAL)
+		block("Collar", 0, -0.5, Vector3.new(0.42, 0.14, 0.42), spec.Gold, METAL)
+		trailTop, trailBottom = at(1.05, 0.95), at(1.05, -0.95)
+	else
+		-- 다이아몬드 대형 양날 도끼: 계단식 날개, 가운데 빛나는 마름모, 금 고리 감은 검은 자루
+		shaftPiece("Shaft", -1.2, top, d, spec.ShaftColor, spec.ShaftMaterial)
+		for i = 0, 7 do
+			local y = -1.0 + i * 0.38
+			if y < reach - 0.9 * s then
+				shaftPiece("GoldBand", y, y + 0.08, d + 0.06, spec.Gold, METAL)
+			end
+		end
+		shaftPiece("Pommel", -1.45, -1.2, d + 0.2, spec.Head, Enum.Material.Neon)
+		for _, side in { 1, -1 } do
+			local inner = { V(0.32, 0.5), V(1.0, 0.75), V(1.0, -0.75), V(0.32, -0.5) }
+			local wing = { V(1.0, 0.75), V(1.6, 1.2), V(1.75, 0.2), V(1.75, -0.2), V(1.6, -1.2), V(1.0, -0.75) }
+			local edgeLine = { V(1.6, 1.2), V(1.75, 0.2), V(1.75, -0.2), V(1.6, -1.2) }
+			for _, list in { inner, wing, edgeLine } do
+				for i, p in list do
+					list[i] = V(p.X * side, p.Y)
+				end
+			end
+			plate(inner, 0.2, spec.Head:Lerp(Color3.new(0, 0, 0), 0.2), spec.Material)
+			plate(wing, 0.16, spec.Head, spec.Material)
+			edgeStrip(edgeLine, 0.15, 0.2)
+		end
+		plate({ V(0, 0.75), V(0.48, 0), V(0, -0.75), V(-0.48, 0) }, 0.42, spec.Gold, METAL) -- 가운데 마름모 받침
+		plate({ V(0, 0.5), V(0.32, 0), V(0, -0.5), V(-0.32, 0) }, 0.5, spec.Edge, Enum.Material.Neon) -- 빛나는 마름모
+		trailTop, trailBottom = at(1.6, 1.2), at(1.6, -1.2)
 	end
-	if spec.Sparkle then
+
+	-- 휘두를 때 날 끝 궤적 (SwingAnimation이 휘두르는 동안만 켠다). 좋은 도끼일수록 길고 밝다
+	if spec.Trail then
+		local a0 = Instance.new("Attachment")
+		a0.Name = "TrailTop"
+		a0.Parent = handle
+		a0.WorldPosition = trailTop
+		local a1 = Instance.new("Attachment")
+		a1.Name = "TrailBottom"
+		a1.Parent = handle
+		a1.WorldPosition = trailBottom
+		local trail = Instance.new("Trail")
+		trail.Attachment0 = a0
+		trail.Attachment1 = a1
+		trail.Color = ColorSequence.new(spec.Trail)
+		trail.Transparency = NumberSequence.new(0.2, 1)
+		trail.Lifetime = spec.TrailLife
+		trail.LightEmission = if spec.Glow then 1 else 0.6
+		trail.Enabled = false
+		trail.Parent = handle
+	end
+	-- 다이아몬드: 은은한 빛과 반짝이
+	if spec.Glow then
+		local glow = Instance.new("Attachment")
+		glow.Name = "Glow"
+		glow.Parent = handle
+		glow.WorldPosition = center
+		local light = Instance.new("PointLight")
+		light.Color = spec.Head
+		light.Range = 8
+		light.Brightness = 1.5
+		light.Parent = glow
 		local sparkles = Instance.new("ParticleEmitter")
 		sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
 		sparkles.Color = ColorSequence.new(spec.Edge)
 		sparkles.LightEmission = 1
-		sparkles.Size = NumberSequence.new(0.25, 0)
-		sparkles.Lifetime = NumberRange.new(0.4, 0.8)
-		sparkles.Rate = 4
-		sparkles.Speed = NumberRange.new(0.5, 1)
-		sparkles.Parent = blade
+		sparkles.Size = NumberSequence.new(0.35, 0)
+		sparkles.Lifetime = NumberRange.new(0.4, 0.9)
+		sparkles.Rate = 6
+		sparkles.Speed = NumberRange.new(0.5, 1.2)
+		sparkles.SpreadAngle = Vector2.new(180, 180)
+		sparkles.Parent = glow
 	end
 	return tool
 end
@@ -292,7 +444,7 @@ local function iconFromTool(tool: Tool, name: string): Model
 	local model = Instance.new("Model")
 	model.Name = name
 	for _, d in tool:GetChildren() do
-		if d:IsA("BasePart") then
+		if d:IsA("BasePart") and d.Transparency < 1 then -- 숨긴 곡괭이 부품은 아이콘에서 뺀다
 			local copy = d:Clone()
 			for _, c in copy:GetChildren() do
 				if not (c:IsA("SpecialMesh") or c:IsA("SurfaceAppearance") or c:IsA("Decal") or c:IsA("Texture")) then
@@ -320,7 +472,7 @@ for _, spec in AXES do
 	end
 	iconFromTool(tool, spec.Id).Parent = iconFolder
 end
-print("[BuildTreesAndAxes] (버전 8, 곡괭이 머리 자리) 도끼 4종 완료")
+print("[BuildTreesAndAxes] (버전 9, 도끼 4종 디자인) 도끼 4종 완료")
 
 ---------------------------------------------------------------- 2. 나무
 local LEAF_MATERIAL = Enum.Material.LeafyGrass
