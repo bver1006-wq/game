@@ -21,14 +21,11 @@ local TimingService = require(Services.TimingService)
 
 Remotes.setup()
 
--- 도끼·나무 템플릿이 아직 없으면 제작 스크립트(ServerStorage/StudioTools)로 이번 실행 동안만 만든다
--- Studio 편집 상태에서 직접 실행해 저장해 두면 이 단계는 건너뛴다
-local templates = ServerStorage:FindFirstChild("Templates")
-local hasAxe = templates ~= nil and templates:FindFirstChild("Pickaxes") ~= nil and (templates :: any).Pickaxes:FindFirstChild("StoneAxe") ~= nil
-local hasTree = templates ~= nil and templates:FindFirstChild("Ores") ~= nil and (templates :: any).Ores:FindFirstChild("Pine") ~= nil
+-- 도끼·나무 템플릿·스폰 자리를 제작 스크립트(ServerStorage/StudioTools)로 매번 새로 만든다
+-- (예전에 저장된 템플릿이 남아 있어도 지금 코드 기준으로 덮어쓴다. 실행 중에 만든 것은 저장되지 않는다)
 local studioTools = ServerStorage:FindFirstChild("StudioTools")
 local builder = studioTools and studioTools:FindFirstChild("BuildTreesAndAxes")
-if not (hasAxe and hasTree) and builder and builder:IsA("ModuleScript") then
+if builder and builder:IsA("ModuleScript") then
 	local ok, err = pcall(require, builder)
 	if not ok then
 		warn(`[Server] 나무·도끼 자동 제작 실패: {err}`)

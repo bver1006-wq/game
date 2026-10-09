@@ -3,7 +3,7 @@
 -- 게임 중에는 아무도 require하지 않으므로 실행되지 않는다. 편집 상태에서 명령 모음에 아래 한 줄을 넣고 Enter:
 --   require(game.ServerStorage.StudioTools.BuildTreesAndAxes:Clone())
 -- (:Clone()을 붙여야 두 번째부터도 다시 실행된다.) 다시 실행하면 전에 만든 것을 지우고 새로 만든다.
--- 도끼·나무 템플릿이 없으면 서버(Main.server)가 게임 시작 때 자동으로 한 번 실행한다 (그때 만든 건 저장되지 않는다).
+-- 서버(Main.server)가 게임을 시작할 때마다 실행한다 (그때 만든 건 저장되지 않는다).
 --
 -- 만드는 것
 --   1. 도끼 Tool 4종  → ServerStorage/Templates/Pickaxes/{StoneAxe, CopperAxe, IronAxe, DiamondAxe}
@@ -178,6 +178,8 @@ local function buildAxe(spec): Tool
 	else
 		a = principal(u:Cross(Vector3.zAxis).Magnitude > 0.5 and u:Cross(Vector3.zAxis) or u:Cross(Vector3.xAxis))
 	end
+	-- 곡괭이 머리 방향 그대로면 날이 오른쪽을 본다 (플레이 테스트 2회, 2026-10-09). 손잡이 축으로 90도 돌려 정면으로
+	a = principal(u:Cross(a))
 	if FLIP_BLADE then
 		a = -a
 	end
@@ -280,7 +282,7 @@ for _, spec in AXES do
 	end
 	iconFromTool(tool, spec.Id).Parent = iconFolder
 end
-print("[BuildTreesAndAxes] 도끼 4종 완료")
+print("[BuildTreesAndAxes] (버전 4) 도끼 4종 완료")
 
 ---------------------------------------------------------------- 2. 나무
 local LEAF_MATERIAL = Enum.Material.LeafyGrass
