@@ -18,13 +18,20 @@ local DataService = require(script.Parent.DataService)
 local InventoryService = require(script.Parent.InventoryService)
 
 local STARTER_TOOLS = { "StonePickaxe", "StoneAxe", "WoodenSword" }
-local ALL_TOOLS = {
-	"StonePickaxe", "CopperPickaxe", "IronPickaxe", "SteelPickaxe",
-	"StoneAxe", "CopperAxe", "IronAxe", "DiamondAxe",
-	"WoodenSword", "CopperSword", "IronSword", "DiamondSword",
-	"WoodenBow", "CopperBow", "IronBow", "DiamondBow",
-	"BaseballBat", "GoblinClub", "MorningStar", "DiamondMace",
-}
+-- 테스트 지급(Config.Debug.GiveAllPickaxes)용 모든 도구: 종류 → 단계 순 (단계가 늘어도 PickaxeDefs만 고치면 된다)
+local KIND_ORDER: { [string]: number } = { Pickaxe = 1, Axe = 2, Sword = 3, Bow = 4, Club = 5 }
+local ALL_TOOLS: { string } = {}
+for id in PickaxeDefs do
+	table.insert(ALL_TOOLS, id)
+end
+table.sort(ALL_TOOLS, function(a: string, b: string): boolean
+	local da, db = PickaxeDefs[a], PickaxeDefs[b]
+	local ka, kb = KIND_ORDER[da.Kind] or 9, KIND_ORDER[db.Kind] or 9
+	if ka ~= kb then
+		return ka < kb
+	end
+	return da.Tier < db.Tier
+end)
 
 -- 종류별 티어 속성 이름
 local TIER_ATTRIBUTE: { [string]: string } = {

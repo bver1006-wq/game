@@ -12,6 +12,7 @@ local Workspace = game:GetService("Workspace")
 local Config = require(ReplicatedStorage.Shared.Config)
 local ItemDefs = require(ReplicatedStorage.Shared.ItemDefs)
 local MobDefs = require(ReplicatedStorage.Shared.MobDefs)
+local TierDefs = require(ReplicatedStorage.Shared.TierDefs)
 local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local HitFeelController = require(script.Parent.HitFeelController)
@@ -119,7 +120,7 @@ end
 
 -- 화살이 날아간다 (도착하면 onArrive)
 local function shootArrow(from: Vector3, to: Vector3, tier: number, onArrive: () -> ())
-	local effect = Config.Combat.TierEffects[tier]
+	local effect = TierDefs.pick(Config.Combat.TierEffects :: { [number]: any }, tier)
 	local arrow = Instance.new("Part")
 	arrow.Size = Vector3.new(0.12, 0.12, 2)
 	arrow.Material = if tier >= 4 then Enum.Material.Neon else Enum.Material.Wood
@@ -205,7 +206,7 @@ function CombatController.attack(def: PickaxeDefs.PickaxeDef, charge: number, he
 		-- 추가 차징(마나)까지 다 모았으면 가장 밝은 화살
 		local over = (held or 0) >= chargeConfig.Time + chargeConfig.BowOverTime
 		HitFeelController.playSound(Config.Sounds.BowShoot, from, if charge >= 1 then 0.9 else 1.15, if charge >= 1 then 0.9 else 0.6) -- "휘익"
-		shootArrow(from, to, if over then 4 elseif charge >= 1 then math.max(def.Tier, 3) else def.Tier, function() end) -- 내 화살은 바로 보여 준다 (서버 연출에서는 다시 그리지 않는다)
+		shootArrow(from, to, if over then math.max(def.Tier, 4) elseif charge >= 1 then math.max(def.Tier, 3) else def.Tier, function() end) -- 내 화살은 바로 보여 준다 (서버 연출에서는 다시 그리지 않는다)
 		return true -- 몹이 없어도 요청을 보냈다 (서버가 모으기 기록을 꺼낸다)
 	end
 	local mob = nearestMob(config.Range)
@@ -358,7 +359,7 @@ local function playImpact(mob: Model?, damage: number, isCrit: boolean, kind: st
 		popNumber(hitPosition, tostring(damage), Color3.new(1, 1, 1), 1)
 	end
 	if isMine then
-		local effect = Config.Combat.TierEffects[tier]
+		local effect = TierDefs.pick(Config.Combat.TierEffects :: { [number]: any }, tier)
 		local shake = Config.HitFeel.CameraShake
 		HitFeelController.cameraShake(shake.Magnitude * (if effect then effect.Shake else 1) * (if isCrit then 1.6 else 1), shake.Duration)
 		if kind ~= "Bow" then
@@ -442,7 +443,8 @@ local function onMobAttack(_mob: Model?, targetUserId: number, damage: number, g
 end
 
 -- 서버의 MobDied: 몹이 쓰러졌다. 펑 하고 사라지고, 내가 잡았으면 보상 표시
-local function onMobDied(position: Vector3, mobType: string, killerUserId: number, gold: number, lootId: string, lootCount: number)
+-- extras: 주 전리품 말고 더 받은 전리품 목록 { {Id, Count} } (두 번째 전리품·보스 전리품, 2026-10-09)
+local function onMobDied(position: Vector3, mobType: string, killerUserId: number, gold: number, lootId: string, lootCount: number, extras: { any }?)
 	local def = MobDefs[mobType]
 	local center = position + Vector3.new(0, 1.5, 0)
 	HitFeelController.emitDebris(center, if def then def.Color else Color3.new(1, 1, 1), 35, 1.5)
@@ -465,11 +467,21 @@ local function onMobDied(position: Vector3, mobType: string, killerUserId: numbe
 		HitFeelController.spawnPickups(center, Color3.fromRGB(255, 205, 60), math.min(gold, 8), Enum.Material.Metal, "Coin", function()
 			PickupFeed.show("Gold", gold)
 		end)
-		local loot = ItemDefs.Items[lootId]
-		if loot and lootCount > 0 then
-			HitFeelController.spawnPickups(center, loot.Color, lootCount, Enum.Material.SmoothPlastic, "Cube", function()
-				PickupFeed.show(lootId, lootCount)
-			end)
+		local drops: { { Id: string, Count: number } } = { { Id = lootId, Count = lootCount } }
+		if typeof(extras) == "table" then
+			for _, extra in extras do
+				if typeof(extra) == "table" and typeof(extra.Id) == "string" and typeof(extra.Count) == "number" then
+					table.insert(drops, { Id = extra.Id, Count = extra.Count })
+				end
+			end
+		end
+		for _, drop in drops do
+			local loot = ItemDefs.Items[drop.Id]
+			if loot and drop.Count > 0 then
+				HitFeelController.spawnPickups(center, loot.Color, drop.Count, Enum.Material.SmoothPlastic, "Cube", function()
+					PickupFeed.show(drop.Id, drop.Count)
+				end)
+			end
 		end
 	end
 end

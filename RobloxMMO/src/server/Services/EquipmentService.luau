@@ -14,6 +14,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
 local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local TierDefs = require(ReplicatedStorage.Shared.TierDefs)
 
 local DataService = require(script.Parent.DataService)
 local GearVisualService = require(script.Parent.GearVisualService)
@@ -40,7 +41,7 @@ function EquipmentService.itemStats(itemId: string): Stats
 	local def = EquipmentDefs.Items[itemId]
 	if def then
 		local base = (Config.Equipment.Base :: any)[def.Slot] or {}
-		local multiplier = Config.Equipment.TierMultiplier[def.Tier] or 1
+		local multiplier = TierDefs.pick(Config.Equipment.TierMultiplier, def.Tier) or 1 -- 표에 없는 단계는 가장 높은 아래 단계 값
 		for key in stats do
 			stats[key] = math.round((base[key] or 0) * multiplier * 10) / 10
 		end

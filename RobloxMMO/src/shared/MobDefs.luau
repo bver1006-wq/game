@@ -8,7 +8,7 @@ export type MobDef = {
 	Id: string,
 	DisplayName: string,
 	TemplateName: string,
-	LootId: string, -- 쓰러뜨리면 떨어뜨리는 전리품 아이템 Id (ItemDefs)
+	LootId: string, -- 쓰러뜨리면 떨어뜨리는 주 전리품 아이템 Id (ItemDefs). 두 번째 전리품은 Config.Mobs[몹].ExtraLoot, 보스 전리품은 Config.MobBoss.ExtraLoot
 	Color: Color3, -- 맞을 때 튀는 파편·쓰러질 때 연기 색
 	Hop: boolean?, -- true면 통통 튀며 움직인다 (슬라임)
 	Tier: number, -- 몹 단계. 무기 단계가 많이 낮으면 데미지가 안 들어간다 (Config.TierWall)

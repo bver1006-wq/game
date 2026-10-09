@@ -15,6 +15,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
 local ItemDefs = require(ReplicatedStorage.Shared.ItemDefs)
 local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
+local TierDefs = require(ReplicatedStorage.Shared.TierDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local ShopDefs = require(ReplicatedStorage.Shared.ShopDefs)
 local InventoryState = require(script.Parent.InventoryState)
@@ -221,9 +222,9 @@ local function recipeRow(order: number, itemId: string, title: string, recipe: R
 	end
 end
 
--- 별 글자 ("★★☆☆")
+-- 별 글자 ("★★☆☆☆☆", 칸 수 = 지금 있는 단계 수, TierDefs)
 local function stars(tier: number): string
-	return string.rep("★", tier) .. string.rep("☆", 4 - tier)
+	return TierDefs.stars(tier)
 end
 
 -- 조합식 줄 하나 (도구·무기·장비 공통). 1단계는 사기(1개·3개), 2단계부터 만들기
@@ -257,7 +258,7 @@ local function craftRow(order: number, itemId: string, tier: number)
 	recipeRow(order, itemId, title, recipe, buttons, note)
 end
 
--- 도구·무기 탭: 그 종류 1~4단계
+-- 도구·무기 탭: 그 종류 모든 단계 (단계 순)
 local function drawTools(kind: string)
 	local list: { PickaxeDefs.PickaxeDef } = {}
 	for _, def in PickaxeDefs do

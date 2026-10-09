@@ -36,7 +36,8 @@ Remotes.setup()
 local studioTools = ServerStorage:FindFirstChild("StudioTools")
 -- 광산을 지하로 옮기고(MoveMineUnderground, 광석 자리도 같이 옮기므로 맨 먼저), 무기·몹 템플릿과 몹 생성 자리도 만든다
 -- (BuildWeaponsAndMobs는 곡괭이 Tool이 있어야 해서 뒤에 돈다)
-for _, name in { "MoveMineUnderground", "BuildTreesAndAxes", "BuildWeaponsAndMobs", "BuildTorches" } do
+-- 광산 3층(BuildMineFloor3)은 옮긴 2층 기준으로 그 아래 옆에 지으므로 MoveMineUnderground 바로 다음
+for _, name in { "MoveMineUnderground", "BuildMineFloor3", "BuildTreesAndAxes", "BuildWeaponsAndMobs", "BuildTorches" } do
 	local builder = studioTools and studioTools:FindFirstChild(name)
 	if builder and builder:IsA("ModuleScript") then
 		local ok, err = pcall(require, builder)

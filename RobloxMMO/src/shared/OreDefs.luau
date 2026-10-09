@@ -15,7 +15,7 @@ export type OreDef = {
 	LeafColor: Color3?, -- 나무: 칠 때 떨어지는 잎 색
 }
 
--- 위치: 돌은 광산 지상, 석탄·구리는 1층, 철은 2층
+-- 위치: 돌은 광산 지상, 석탄·구리는 1층, 철은 2층, 미스릴·오리하르콘(아주 희귀)은 3층
 -- 나무: 소나무·참나무·자작나무는 맵 곳곳, 단풍나무는 산 구석에 모여서, 흑단나무는 무작위 희귀 자리
 -- 나무 모델의 기준점(Pivot)은 줄기 밑동 가운데다
 local OreDefs: { [string]: OreDef } = {
@@ -50,6 +50,23 @@ local OreDefs: { [string]: OreDef } = {
 		RequiredTier = 3,
 		TemplateName = "IronOre",
 		Color = Color3.fromRGB(175, 160, 150),
+	},
+	-- 광산 3층 (2026-10-09). 템플릿은 studio/BuildMineFloor3가 철 바위를 복제해 색을 바꿔 만든다
+	Mithril = {
+		Id = "Mithril",
+		DisplayName = "미스릴",
+		Kind = "Rock",
+		RequiredTier = 4, -- 다이아몬드 곡괭이
+		TemplateName = "Mithril",
+		Color = Color3.fromRGB(150, 200, 245), -- 은빛 파랑
+	},
+	Orichalcum = {
+		Id = "Orichalcum",
+		DisplayName = "오리하르콘",
+		Kind = "Rock",
+		RequiredTier = 5, -- 미스릴 곡괭이
+		TemplateName = "Orichalcum",
+		Color = Color3.fromRGB(255, 195, 70), -- 금빛
 	},
 	Pine = {
 		Id = "Pine",

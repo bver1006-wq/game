@@ -41,8 +41,9 @@ local function buildQuiverIcon(def: EquipmentDefs.EquipmentDef): Model
 	local model = Instance.new("Model")
 	local up = CFrame.Angles(0, 0, math.pi / 2) -- 원기둥을 세운다
 	local base = CFrame.Angles(0, 0, math.rad(-20))
-	local rim = if def.Tier >= 3 then Color3.fromRGB(170, 176, 188) else Color3.fromRGB(205, 160, 75)
-	local vane = if def.Tier >= 3 then Color3.fromRGB(70, 130, 230) else Color3.fromRGB(215, 60, 55)
+	-- 테 색: 1 황동 / 3 철 / 5 미스릴(은빛 파랑, 2026-10-09)
+	local rim = if def.Tier >= 5 then Color3.fromRGB(150, 200, 255) elseif def.Tier >= 3 then Color3.fromRGB(170, 176, 188) else Color3.fromRGB(205, 160, 75)
+	local vane = if def.Tier >= 5 then Color3.fromRGB(90, 170, 255) elseif def.Tier >= 3 then Color3.fromRGB(70, 130, 230) else Color3.fromRGB(215, 60, 55)
 	iconPart(model, Enum.PartType.Cylinder, Vector3.new(2, 0.75, 0.75), base * up, def.Color, Enum.Material.Leather)
 	iconPart(model, Enum.PartType.Cylinder, Vector3.new(0.14, 0.86, 0.86), base * CFrame.new(0, 0.95, 0) * up, rim, Enum.Material.Metal)
 	iconPart(model, Enum.PartType.Cylinder, Vector3.new(0.1, 0.8, 0.8), base * CFrame.new(0, -0.95, 0) * up, def.Color:Lerp(Color3.new(0, 0, 0), 0.35), Enum.Material.Leather)

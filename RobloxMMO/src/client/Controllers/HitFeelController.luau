@@ -14,6 +14,7 @@ local Workspace = game:GetService("Workspace")
 local Config = require(ReplicatedStorage.Shared.Config)
 local OreDefs = require(ReplicatedStorage.Shared.OreDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local TierDefs = require(ReplicatedStorage.Shared.TierDefs)
 local PickupFeed = require(script.Parent.PickupFeed)
 local RockHUD = require(script.Parent.RockHUD)
 local SwingAnimation = require(script.Parent.SwingAnimation)
@@ -291,8 +292,9 @@ end
 
 -- 좋은 곡괭이 타격 연출: 충격파 고리 + 사방으로 튀는 광석 조각 (+ 다이아몬드는 반짝이)
 -- effects: 곡괭이는 Config.HitFeel.TierEffects, 도끼는 AxeTierEffects (도끼 표에는 불꽃·베는 빛줄기가 더 있다)
+-- 표에 그 단계가 없으면 가장 높은 아래 단계 값을 쓴다 (TierDefs.pick). 6단계 오리하르콘은 이중 고리(DoubleRing)·번쩍임(Flash)이 더 있다
 local function tierImpact(rock: Model?, hitPosition: Vector3, color: Color3, tier: number, judgment: string, material: Enum.Material, effects: { [number]: any })
-	local effect = effects[tier]
+	local effect = TierDefs.pick(effects, tier)
 	if not effect then
 		return
 	end
@@ -322,6 +324,40 @@ local function tierImpact(rock: Model?, hitPosition: Vector3, color: Color3, tie
 	task.delay(0.3, function()
 		ring:Destroy()
 	end)
+
+	-- 오리하르콘: 조금 늦게 더 크게 퍼지는 두 번째 금빛 고리 (2026-10-09)
+	if effect.DoubleRing then
+		task.delay(0.07, function()
+			local second = ring:Clone()
+			second.Size = Vector3.new(0.15, 0.8, 0.8)
+			second.Transparency = 0.15
+			second.Color = effect.Color:Lerp(Color3.new(1, 1, 1), 0.35)
+			second.Parent = effectsFolder
+			TweenService:Create(second, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+				Size = Vector3.new(0.05, ringSize * 1.6, ringSize * 1.6),
+				Transparency = 1,
+			}):Play()
+			task.delay(0.4, function()
+				second:Destroy()
+			end)
+		end)
+	end
+	-- 번쩍이는 빛 (Flash = 밝기)
+	if effect.Flash and effect.Flash > 0 then
+		local flashPoint = Instance.new("Attachment")
+		flashPoint.WorldPosition = hitPosition + outward * 0.5
+		flashPoint.Parent = Workspace.Terrain
+		local light = Instance.new("PointLight")
+		light.Color = effect.Color
+		light.Brightness = effect.Flash
+		light.Range = 14
+		light.Shadows = false
+		light.Parent = flashPoint
+		TweenService:Create(light, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Brightness = 0 }):Play()
+		task.delay(0.35, function()
+			flashPoint:Destroy()
+		end)
+	end
 
 	-- 사방으로 튀는 광석 조각 (바닥에 튕긴 뒤 사라진다)
 	local count = effect.Chunks + (if judgment == "Perfect" then 3 else 0)
@@ -730,7 +766,7 @@ local function onHitEffect(
 		HitFeelController.playSound(Config.Sounds.WoodChop, hitPosition, chopPitch, treeFeel.ChopVolume * (if judgment == "Perfect" then 1.2 else 1))
 		if rock then
 			-- 좋은 도끼일수록 잎이 더 많이 떨어진다
-			local axeEffect = Config.HitFeel.AxeTierEffects[pickaxeTier or 1]
+			local axeEffect = TierDefs.pick(Config.HitFeel.AxeTierEffects :: { [number]: any }, pickaxeTier or 1)
 			local leafCount = math.round(treeFeel.LeafCount * (if axeEffect then axeEffect.Leaves else 1))
 			dropLeaves(rock, rock:GetPivot().Position, (def :: OreDefs.OreDef).LeafColor or DEFAULT_LEAF_COLOR, leafCount)
 		end
@@ -765,7 +801,7 @@ local function onHitEffect(
 	if isMine then
 		SwingAnimation.freeze((Config.HitFeel.HitStop :: any)[judgment] or Config.HitFeel.HitStop.Normal)
 		local shake = Config.HitFeel.CameraShake
-		local tierEffect = tierTable[tier]
+		local tierEffect = TierDefs.pick(tierTable :: { [number]: any }, tier)
 		local tierShake = if tierEffect then tierEffect.Shake else 1
 		HitFeelController.cameraShake(shake.Magnitude * tierShake * (if judgment == "Perfect" then shake.PerfectMultiplier else 1), shake.Duration)
 	end

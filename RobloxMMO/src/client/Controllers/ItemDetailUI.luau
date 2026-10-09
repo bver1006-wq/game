@@ -19,6 +19,7 @@ local ItemDefs = require(ReplicatedStorage.Shared.ItemDefs)
 local MobDefs = require(ReplicatedStorage.Shared.MobDefs)
 local OreDefs = require(ReplicatedStorage.Shared.OreDefs)
 local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
+local TierDefs = require(ReplicatedStorage.Shared.TierDefs)
 local InventoryState = require(script.Parent.InventoryState)
 local ItemIcon = require(script.Parent.ItemIcon)
 local RecipeView = require(script.Parent.RecipeView)
@@ -26,13 +27,7 @@ local UiKit = require(script.Parent.UiKit)
 
 local localPlayer = Players.LocalPlayer
 
--- 단계별 이름 색 (1 나무·가죽 / 2 구리 / 3 철 / 4 다이아몬드)
-local TIER_COLORS = {
-	Color3.fromRGB(215, 175, 130),
-	Color3.fromRGB(240, 150, 90),
-	Color3.fromRGB(215, 220, 235),
-	Color3.fromRGB(120, 230, 255),
-}
+-- 단계별 이름 색·별은 TierDefs (1 나무·가죽 / 2 구리 / 3 철 / 4 다이아몬드 / 5 미스릴 / 6 오리하르콘)
 local KIND_NAMES: { [string]: string } = { Pickaxe = "곡괭이", Axe = "도끼", Sword = "칼", Bow = "활", Club = "방망이" }
 local BLACKSMITH_KINDS: { [string]: boolean } = { Pickaxe = true, Axe = true }
 
@@ -81,7 +76,7 @@ local function equipmentStats(itemId: string): { Atk: number, Def: number, Hp: n
 	local def = EquipmentDefs.Items[itemId]
 	if def then
 		local base = (Config.Equipment.Base :: any)[def.Slot] or {}
-		local multiplier = Config.Equipment.TierMultiplier[def.Tier] or 1
+		local multiplier = TierDefs.pick(Config.Equipment.TierMultiplier, def.Tier) or 1
 		stats.Atk = math.round((base.Atk or 0) * multiplier * 10) / 10
 		stats.Def = math.round((base.Def or 0) * multiplier * 10) / 10
 		stats.Hp = math.round((base.Hp or 0) * multiplier * 10) / 10
@@ -109,6 +104,37 @@ end
 -- 이름 목록을 "돌, 석탄, 구리"로
 local function joinNames(names: { string }): string
 	return if #names > 0 then table.concat(names, ", ") else "없음"
+end
+
+-- 이 아이템을 떨어뜨리는 몹 이름 목록 (주 전리품 MobDefs.LootId + 두 번째 전리품 Config.Mobs ExtraLoot).
+-- 보스만 주는 전리품(Config.MobBoss.ExtraLoot)이면 둘째 값 true (2026-10-09)
+local function dropSources(itemId: string): ({ string }, boolean)
+	local names: { string } = {}
+	for id, mob in MobDefs do
+		local found = mob.LootId == itemId
+		local extra = ((Config.Mobs :: any)[id] or {}).ExtraLoot
+		if not found and typeof(extra) == "table" then
+			for _, entry in extra do
+				if entry.Id == itemId then
+					found = true
+				end
+			end
+		end
+		if found then
+			table.insert(names, mob.DisplayName)
+		end
+	end
+	local bossOnly = false
+	local bossLoot = (Config.MobBoss :: any).ExtraLoot
+	if typeof(bossLoot) == "table" then
+		for _, entry in bossLoot do
+			if entry.Id == itemId then
+				bossOnly = true
+			end
+		end
+	end
+	table.sort(names)
+	return names, bossOnly
 end
 
 -- 분류 글자와 단계 (단계가 없으면 nil)
@@ -140,10 +166,9 @@ local function describeKind(itemId: string): (string, number?)
 	if (Config.Smelting.Recipes :: any)[itemId] then
 		return "괴 · 재료", nil
 	end
-	for _, mob in MobDefs do
-		if mob.LootId == itemId then
-			return "몹 전리품 · 재료", nil
-		end
+	local sources, bossOnly = dropSources(itemId)
+	if #sources > 0 or bossOnly then
+		return "몹 전리품 · 재료", nil
 	end
 	return "아이템", nil
 end
@@ -409,12 +434,13 @@ local function drawInfo(itemId: string)
 			addHeader("얻는 법")
 			addText(if ore.Kind == "Tree" then `{josa(ore.DisplayName, "을", "를")} 도끼로 베면 나와요.` else `{ore.DisplayName} 바위를 곡괭이로 캐면 나와요.`)
 		else
-			for _, mob in MobDefs do
-				if mob.LootId == itemId then
-					addHeader("얻는 법")
-					addText(`{josa(mob.DisplayName, "을", "를")} 잡으면 나와요.`)
-					break
-				end
+			local sources, bossOnly = dropSources(itemId)
+			if #sources > 0 then
+				addHeader("얻는 법")
+				addText(`{josa(table.concat(sources, ", "), "을", "를")} 잡으면 나와요.`)
+			elseif bossOnly then
+				addHeader("얻는 법")
+				addText(`{Config.MobBoss.NamePrefix}몹(커다란 몹)을 잡으면 나와요.`)
 			end
 		end
 	end
@@ -700,8 +726,8 @@ function ItemDetailUI.open(itemId: string, hostFrame: GuiObject?, group: { GuiOb
 	currentItem = itemId
 	local kindText, tier = describeKind(itemId)
 	nameLabel.Text = def.DisplayName
-	nameLabel.TextColor3 = if tier then TIER_COLORS[tier] or UiKit.Colors.Text else UiKit.Colors.Text
-	starsLabel.Text = if tier then string.rep("★", tier) .. string.rep("☆", 4 - tier) else ""
+	nameLabel.TextColor3 = if tier then TierDefs.get(tier).TextColor else UiKit.Colors.Text
+	starsLabel.Text = if tier then TierDefs.stars(tier) else ""
 	starsLabel.Visible = tier ~= nil
 	kindLabel.Text = kindText
 	screen.Enabled = true
