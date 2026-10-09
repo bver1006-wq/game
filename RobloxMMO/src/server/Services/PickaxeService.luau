@@ -1,7 +1,7 @@
 --!strict
 -- 손에 드는 도구(곡괭이·도끼·무기) 지급·조회.
 -- 도구는 가방 아이템(도구 칸)이면서 실제 Tool로도 Backpack·StarterGear에 들어간다.
--- 산 도구는 기존 도구에 더해지고, 하단 빠른 호출 칸에서 골라 든다.
+-- 산 도구는 기존 도구에 더해지고, 하단 빠른 호출 칸에서 골라 든다. 같은 도구를 여러 개 가질 수 있다 (조합 재료, 실제 Tool은 종류마다 하나).
 -- 가진 도구 중 가장 높은 티어를 종류별로 플레이어 속성에 기록한다 (층 입장·상점 표시용)
 --   곡괭이: "PickaxeTier", 도끼: "AxeTier", 칼: "SwordTier", 활: "BowTier", 방망이: "ClubTier"
 
@@ -86,27 +86,8 @@ local function placeTool(player: Player, def: PickaxeDefs.PickaxeDef)
 	end
 end
 
--- 도구를 지급한다 (가방 칸이 있어야 한다). 성공하면 true
--- StarterGear에 넣어 두면 리스폰 때 자동으로 다시 들어온다
-function PickaxeService.give(player: Player, pickaxeId: string): boolean
-	local def = PickaxeDefs[pickaxeId]
-	if not def or InventoryService.count(player, pickaxeId) > 0 then
-		return false
-	end
-	if InventoryService.add(player, pickaxeId, 1) < 1 then
-		return false
-	end
-	placeTool(player, def)
-	updateTier(player)
-	return true
-end
-
--- 도구를 없앤다 (가방 아이템 + 실제 Tool 모두). 없앴으면 true
-function PickaxeService.remove(player: Player, pickaxeId: string): boolean
-	local def = PickaxeDefs[pickaxeId]
-	if not def or not InventoryService.remove(player, pickaxeId, InventoryService.count(player, pickaxeId)) then
-		return false
-	end
+-- 실제 Tool(가방·StarterGear·손)을 모두 없앤다. 가방 아이템 개수는 건드리지 않는다
+local function destroyTools(player: Player, pickaxeId: string)
 	local containers: { Instance? } = { player:FindFirstChildOfClass("Backpack"), player:FindFirstChild("StarterGear"), player.Character }
 	for _, container in containers do
 		if container then
@@ -117,8 +98,68 @@ function PickaxeService.remove(player: Player, pickaxeId: string): boolean
 			end
 		end
 	end
+end
+
+-- 도구를 1개 지급한다 (가방 칸이 있어야 한다). 성공하면 true
+-- 같은 도구를 여러 개 가질 수 있다 (조합식 재료, 2026-10-09). 개수는 가방 아이템으로만 세고,
+-- 실제 Tool은 도구 종류마다 하나만 둔다 (같은 도구는 똑같으니 하나를 들면 된다)
+-- StarterGear에 넣어 두면 리스폰 때 자동으로 다시 들어온다
+function PickaxeService.give(player: Player, pickaxeId: string): boolean
+	local def = PickaxeDefs[pickaxeId]
+	if not def then
+		return false
+	end
+	local hadOne = InventoryService.count(player, pickaxeId) > 0
+	if InventoryService.add(player, pickaxeId, 1) < 1 then
+		return false
+	end
+	if not hadOne then
+		placeTool(player, def)
+	end
 	updateTier(player)
 	return true
+end
+
+-- 아직 없을 때만 1개 지급한다 (시작 도구·테스트 지급용). 줬으면 true
+function PickaxeService.giveIfMissing(player: Player, pickaxeId: string): boolean
+	if InventoryService.count(player, pickaxeId) > 0 then
+		return false
+	end
+	return PickaxeService.give(player, pickaxeId)
+end
+
+-- 도구를 amount개 없앤다. 다 없어지면 실제 Tool도 없앤다 (손에 들고 있어도). 모자라면 아무것도 안 하고 false
+function PickaxeService.removeCount(player: Player, pickaxeId: string, amount: number): boolean
+	if not PickaxeDefs[pickaxeId] or amount <= 0 or not InventoryService.remove(player, pickaxeId, amount) then
+		return false
+	end
+	if InventoryService.count(player, pickaxeId) <= 0 then
+		destroyTools(player, pickaxeId)
+	end
+	updateTier(player)
+	return true
+end
+
+-- 도구를 모두 없앤다 (가방 아이템 + 실제 Tool 모두). 없앴으면 true
+function PickaxeService.remove(player: Player, pickaxeId: string): boolean
+	return PickaxeService.removeCount(player, pickaxeId, InventoryService.count(player, pickaxeId))
+end
+
+-- 가방(Backpack)에 있는 이 도구를 손에 들린다 (만든 새 도구를 바로 들 때). 들었으면 true
+function PickaxeService.hold(player: Player, pickaxeId: string): boolean
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local backpack = player:FindFirstChildOfClass("Backpack")
+	if not humanoid or not backpack then
+		return false
+	end
+	for _, child in backpack:GetChildren() do
+		if child:IsA("Tool") and child:GetAttribute("PickaxeId") == pickaxeId then
+			humanoid:EquipTool(child)
+			return true
+		end
+	end
+	return false
 end
 
 -- 그 종류 도구 중 가장 높은 티어 (없으면 0). 종류를 안 주면 곡괭이
@@ -178,9 +219,17 @@ function PickaxeService.init()
 				placeTool(player, def)
 			end
 		end
-		local giveAll = RunService:IsStudio() and Config.Debug.GiveAllPickaxes
-		for _, id in if giveAll then ALL_TOOLS else STARTER_TOOLS do
-			PickaxeService.give(player, id)
+		-- 시작 도구: 그 종류 도구가 하나도 없을 때만 준다 (조합에 써서 더 좋은 도구가 있으면 안 준다)
+		updateTier(player)
+		for _, id in STARTER_TOOLS do
+			if PickaxeService.getTier(player, PickaxeDefs[id].Kind) == 0 then
+				PickaxeService.giveIfMissing(player, id)
+			end
+		end
+		if RunService:IsStudio() and Config.Debug.GiveAllPickaxes then
+			for _, id in ALL_TOOLS do
+				PickaxeService.giveIfMissing(player, id)
+			end
 		end
 		-- 아래 테스트 지급(Studio에서만)은 처음 들어왔을 때만 (저장된 게 계속 불어나지 않게)
 		local firstTime = DataService.isNew(player)
@@ -214,7 +263,7 @@ function PickaxeService.init()
 	end
 
 	-- 테스트용 지급 통로 (Studio에서만): ServerStorage.DebugGive:Fire(플레이어 이름, 아이템 Id, 개수)
-	-- 개수가 음수면 그만큼 뺀다 (도구는 통째로 없앤다). 아이템 Id가 "Gold"면 골드를 더하거나 뺀다
+	-- 개수가 음수면 그만큼 뺀다. 아이템 Id가 "Gold"면 골드를 더하거나 뺀다
 	-- Studio 명령 줄에서 실행 중인 게임의 가방에 아이템을 넣을 때 쓴다
 	if RunService:IsStudio() then
 		local debugGive = Instance.new("BindableEvent")
@@ -235,12 +284,17 @@ function PickaxeService.init()
 				print(`[PickaxeService] 테스트 골드 {value} → {player.Name} (지금 {InventoryService.getGold(player)}G)`)
 			elseif amount and amount < 0 then
 				local ok = if PickaxeDefs[itemId]
-					then PickaxeService.remove(player, itemId)
+					then PickaxeService.removeCount(player, itemId, math.min(-amount, InventoryService.count(player, itemId)))
 					else InventoryService.remove(player, itemId, math.min(-amount, InventoryService.count(player, itemId)))
 				print(`[PickaxeService] 테스트 회수 {itemId} ← {player.Name}: {if ok then "성공" else "실패"}`)
 			elseif PickaxeDefs[itemId] then
-				local ok = PickaxeService.give(player, itemId)
-				print(`[PickaxeService] 테스트 지급 {itemId} → {player.Name}: {if ok then "성공" else "실패(이미 있거나 가방이 가득)"}`)
+				local given = 0
+				for _ = 1, math.max(math.floor(amount or 1), 1) do
+					if PickaxeService.give(player, itemId) then
+						given += 1
+					end
+				end
+				print(`[PickaxeService] 테스트 지급 {itemId} x{given} → {player.Name}`)
 			else
 				local added = InventoryService.add(player, itemId, amount or 1)
 				print(`[PickaxeService] 테스트 지급 {itemId} x{added} → {player.Name}`)

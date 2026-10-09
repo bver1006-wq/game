@@ -74,6 +74,15 @@ local function builtIconModel(itemId: string): Model?
 	return nil
 end
 
+-- 아이콘 모델 원본 (복제해서 쓸 것). 없으면 nil. 아이템 상세 창(ItemDetailUI)이 크게 돌려 보일 때 쓴다
+function ItemIcon.getModel(itemId: string): Model?
+	local def = ItemDefs.Items[itemId]
+	if not def then
+		return nil
+	end
+	return findIconModel(def.Icon) or builtIconModel(itemId)
+end
+
 -- parent를 꽉 채우는 아이콘을 만든다
 function ItemIcon.create(parent: GuiObject, itemId: string): GuiObject
 	local def = ItemDefs.Items[itemId]

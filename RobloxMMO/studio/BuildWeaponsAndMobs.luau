@@ -9,7 +9,8 @@
 --      좌표: x = 앞(곡괭이 머리 방향), y = 자루를 따라 위, 원점 = 손이 쥐는 점
 --   2. 몹 모델 5종 → ServerStorage/Templates/Mobs/<몹> (고정된 Root 부품 + 용접된 몸, 앞 = -Z, 기준점 = 발밑)
 --   3. 아이콘 → ReplicatedStorage/ItemIcons (무기 12종 + 전리품 5종 + 음식 3종)
---   4. 몹 생성 자리 → Workspace/MobSpawns (속성 MobType·Zone·BossSpot). Config.MobZones의 구역마다 한 종류씩 모아 두고,
+--   4. 몹 생성 자리 → Workspace/MobSpawns (속성 MobType·Zone·BossSpot). Config.MobZones의 구역(마을 둘레 부채꼴)마다
+--      주인 몹 + Mix 확률로 이웃 단계 몹. 마을에서 멀수록 센 몹, 띠끼리 거리가 조금 겹친다.
 --      마을 안전지대(TownArrival·ShopNPC 둘레 Config.MobAI.SafeZoneRadius) 바깥에만 둔다
 
 local CollectionService = game:GetService("CollectionService")
@@ -853,7 +854,8 @@ for _, id in EquipmentDefs.Order do
 end
 
 ---------------------------------------------------------------- 4. 몹 구역과 생성 자리
--- 구역(Config.MobZones)마다 한 종류의 몹이 모여 산다. 마을에서 멀수록 센 몹.
+-- 구역(Config.MobZones) = 마을을 둘러싼 고리의 한 조각(부채꼴). 마을에서 멀수록 센 몹이고, 띠끼리 거리가 조금 겹친다 (2026-10-09).
+-- 자리마다 Mix 확률로 이웃 단계 몹이 대신 선다. 맵이 좁으면 Config.WorldTiers 비율로 거리를 줄인다.
 -- 마을 안전지대(TownArrival·ShopNPC 둘레 Config.MobAI.SafeZoneRadius + SafeZoneSpawnMargin) 안에는 자리를 두지 않는다.
 local spawns = folder(workspace, "MobSpawns")
 for _, child in spawns:GetChildren() do
@@ -894,6 +896,18 @@ end
 local safeRadius = Config.MobAI.SafeZoneRadius + Config.MobAI.SafeZoneSpawnMargin
 local layout = Config.MobZoneLayout
 
+-- 나무·바위 생성 자리 (지상). 몹이 나무 줄기 속에 서지 않게 피한다
+local nodeSpots = {}
+local oreSpawns = workspace:FindFirstChild("OreSpawns")
+if oreSpawns then
+	for _, child in oreSpawns:GetChildren() do
+		local floor = child:GetAttribute("Floor")
+		if child:IsA("BasePart") and (floor == nil or floor == 0) then
+			table.insert(nodeSpots, child.Position)
+		end
+	end
+end
+
 -- 안전지대(여유 extra 포함) 안인지. 높이는 무시한다
 local function nearTown(position: Vector3, extra: number): boolean
 	for _, point in safePoints do
@@ -909,7 +923,20 @@ local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
 params.FilterDescendantsInstances = { spawns, workspace:FindFirstChild("Ores"), workspace:FindFirstChild("OreSpawns"), workspace:FindFirstChild("Mobs") }
 
--- 몹이 설 수 있는 땅 (평평하고, 물·광산·마을·시설에서 떨어진 곳)
+local function insideMineZone(position: Vector3): boolean
+	for _, zone in zones do
+		if zone:IsA("BasePart") then
+			local p = zone.CFrame:PointToObjectSpace(position)
+			local half = zone.Size / 2 + Vector3.new(6, 6, 6)
+			if math.abs(p.X) < half.X and math.abs(p.Y) < half.Y and math.abs(p.Z) < half.Z then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- 몹이 설 수 있는 땅 (평평하고, 물·광산·마을·시설·나무에서 떨어진 곳)
 local function groundAt(x: number, z: number): Vector3?
 	local result = workspace:Raycast(Vector3.new(x, center.Y + 400, z), Vector3.new(0, -800, 0), params)
 	if not result or result.Normal.Y < 0.8 or result.Material == Enum.Material.Water then
@@ -918,16 +945,7 @@ local function groundAt(x: number, z: number): Vector3?
 	if not result.Instance:IsA("Terrain") and not (result.Instance:IsA("BasePart") and result.Instance.Size.X > 30 and result.Instance.Size.Z > 30) then
 		return nil -- 지붕·가구 위
 	end
-	for _, zone in zones do
-		if zone:IsA("BasePart") then
-			local p = zone.CFrame:PointToObjectSpace(result.Position)
-			local half = zone.Size / 2 + Vector3.new(6, 6, 6)
-			if math.abs(p.X) < half.X and math.abs(p.Y) < half.Y and math.abs(p.Z) < half.Z then
-				return nil
-			end
-		end
-	end
-	if nearTown(result.Position, 0) then
+	if insideMineZone(result.Position) or nearTown(result.Position, 0) then
 		return nil
 	end
 	for _, position in obstacles do
@@ -935,52 +953,151 @@ local function groundAt(x: number, z: number): Vector3?
 			return nil
 		end
 	end
+	for _, position in nodeSpots do
+		if (position - result.Position).Magnitude < layout.NodeGap then
+			return nil
+		end
+	end
 	return result.Position
 end
 
--- 구역 가운데를 고른다: 마을에서 Distance 범위, 다른 구역과 ZoneGap 이상 떨어진 땅. 못 찾으면 간격을 줄여 다시
-local zoneCenters = {}
-local function pickZoneCenter(zone): Vector3?
-	for _, gap in { layout.ZoneGap, layout.ZoneGap * 0.6, 0 } do
-		for _ = 1, 300 do
-			local angle = random:NextNumber(0, math.pi * 2)
-			local distance = random:NextNumber(zone.Distance[1], zone.Distance[2])
-			local ground = groundAt(center.X + math.cos(angle) * distance, center.Z + math.sin(angle) * distance)
-			local free = ground ~= nil and not nearTown(ground, zone.Radius * 0.3)
-			if free and ground then
-				for _, other in zoneCenters do
-					if (other - ground).Magnitude < gap then
+-- 맵의 땅 반경 재기 (BuildTreesAndAxes와 같은 방법): 36방향으로 걸어 나가며 마지막으로 땅이 있던 거리, 그중 60% 지점 값
+local function measureLandRadius(): number
+	local farthest = {}
+	for i = 0, 35 do
+		local angle = i / 36 * math.pi * 2
+		local last = 0
+		for distance = 20, 600, 10 do
+			local x, z = center.X + math.cos(angle) * distance, center.Z + math.sin(angle) * distance
+			local result = workspace:Raycast(Vector3.new(x, center.Y + 400, z), Vector3.new(0, -800, 0), params)
+			if result then
+				local hit = result.Instance
+				local land = (hit:IsA("Terrain") and result.Material ~= Enum.Material.Water)
+					or (hit:IsA("BasePart") and hit.Size.X > 30 and hit.Size.Z > 30)
+				if land and not insideMineZone(result.Position) then
+					last = distance
+				end
+			end
+		end
+		table.insert(farthest, last)
+	end
+	table.sort(farthest)
+	return farthest[math.ceil(#farthest * 0.6)]
+end
+local tiers = Config.WorldTiers
+local landRadius = measureLandRadius()
+local scale = math.clamp(landRadius / tiers.MapRadius, tiers.MinScale, 1)
+
+local TWO_PI = math.pi * 2
+-- 부채꼴 안의 무작위 점 (넓이 기준 고르게). angle = 가운데 방향, arc = 폭(라디안)
+local function sectorPoint(angle: number, arc: number, lo: number, hi: number): (number, number)
+	local a = angle + random:NextNumber(-arc / 2, arc / 2)
+	local r = math.sqrt(random:NextNumber(lo * lo, hi * hi))
+	return center.X + math.cos(a) * r, center.Z + math.sin(a) * r
+end
+-- 두 구역이 같은 띠인지 (거리 가운데가 가까우면 같은 띠 → 방향이 겹치면 안 된다)
+local function sameBand(a, b): boolean
+	local midA, midB = (a.Distance[1] + a.Distance[2]) / 2, (b.Distance[1] + b.Distance[2]) / 2
+	local widthA, widthB = a.Distance[2] - a.Distance[1], b.Distance[2] - b.Distance[1]
+	return math.abs(midA - midB) < (widthA + widthB) / 4
+end
+local function angleDiff(a: number, b: number): number
+	local d = (a - b) % TWO_PI
+	return math.min(d, TWO_PI - d)
+end
+
+-- 구역 방향 고르기: 같은 띠 구역과 겹치지 않는 방향 중 땅이 가장 많은 쪽. 못 찾으면 겹침을 조금씩 허용
+local chosenZones = {} -- { Zone, Angle }
+local function pickZoneAngle(zone): number?
+	local lo, hi = zone.Distance[1] * scale, zone.Distance[2] * scale
+	local arc = math.rad(zone.Arc)
+	for pass, gapScale in { 1, 0.5, 0 } do
+		local bestAngle, bestScore = nil, 0
+		for _ = 1, 40 do
+			local angle = random:NextNumber(0, TWO_PI)
+			local free = true
+			for _, other in chosenZones do
+				if sameBand(zone, other.Zone) then
+					local need = ((arc + math.rad(other.Zone.Arc)) / 2 + math.rad(layout.ArcGap)) * gapScale
+					if angleDiff(angle, other.Angle) < need then
 						free = false
 						break
 					end
 				end
 			end
-			if free and ground then
-				return ground
+			if free then
+				local ok = 0
+				for _ = 1, 12 do
+					local x, z = sectorPoint(angle, arc, lo, hi)
+					if groundAt(x, z) then
+						ok += 1
+					end
+				end
+				if ok > bestScore then
+					bestAngle, bestScore = angle, ok
+				end
+				if ok >= 10 then
+					break
+				end
 			end
+		end
+		if bestAngle and (bestScore >= 4 or pass == 3) then
+			return bestAngle
 		end
 	end
 	return nil
 end
 
+-- 자리마다 Mix 확률로 이웃 단계 몹
+local function rollMobType(zone): string
+	local mix = zone.Mix
+	if mix then
+		local ids = {}
+		for id in mix do
+			table.insert(ids, id)
+		end
+		table.sort(ids)
+		local roll = random:NextNumber()
+		for _, id in ids do
+			roll -= mix[id]
+			if roll < 0 then
+				if MobDefs[id] and Config.Mobs[id] then
+					return id
+				end
+				break
+			end
+		end
+	end
+	return zone.MobType
+end
+
+local BAND_NAMES = { [1] = "가까운 띠", [2] = "중간 띠", [3] = "먼 띠", [4] = "먼 띠" } -- 구역 주인 몹의 MobDefs.Tier로 묶는다
+local bandOrder = { "가까운 띠", "중간 띠", "먼 띠" }
+local bandTotals = {} -- 띠 이름 → { 몹 → 마리 }
+local bandRanges = {} -- 띠 이름 → { 가까운, 먼 } (실제 거리)
 local placed = {}
 local summary = {}
 for index, zone in Config.MobZones do
-	local zoneCenter = pickZoneCenter(zone)
-	if not zoneCenter then
+	local angle = pickZoneAngle(zone)
+	if not angle then
 		table.insert(summary, `{zone.Name} 자리 없음`)
 		continue
 	end
-	table.insert(zoneCenters, zoneCenter)
-	local made = 0
-	for _ = 1, zone.Count * 40 do
+	table.insert(chosenZones, { Zone = zone, Angle = angle })
+	local lo, hi = zone.Distance[1] * scale, zone.Distance[2] * scale
+	local arc = math.rad(zone.Arc)
+	local made, mixed, bosses = 0, 0, 0
+	local mainDef = MobDefs[zone.MobType]
+	local band = BAND_NAMES[mainDef and mainDef.Tier or 1] or "먼 띠"
+	bandTotals[band] = bandTotals[band] or {}
+	local range = bandRanges[band] or { math.huge, 0 }
+	bandRanges[band] = { math.min(range[1], lo), math.max(range[2], hi) }
+	for _ = 1, zone.Count * 60 do
 		if made >= zone.Count then
 			break
 		end
-		-- 구역 원 안에 고르게 (가운데에 몰리지 않게 sqrt)
-		local angle = random:NextNumber(0, math.pi * 2)
-		local r = zone.Radius * math.sqrt(random:NextNumber())
-		local ground = groundAt(zoneCenter.X + math.cos(angle) * r, zoneCenter.Z + math.sin(angle) * r)
+		local x, z = sectorPoint(angle, arc, lo, hi)
+		local ground = groundAt(x, z)
 		local free = ground ~= nil
 		if ground then
 			for _, other in placed do
@@ -991,20 +1108,47 @@ for index, zone in Config.MobZones do
 			end
 		end
 		if free and ground then
-			local p = part({ Name = `{zone.MobType}Spawn`, Size = Vector3.new(2, 1, 2), CFrame = CFrame.new(ground + Vector3.new(0, 1, 0)), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false }, spawns)
-			p:SetAttribute("MobType", zone.MobType)
+			local mobType = rollMobType(zone)
+			local p = part({ Name = `{mobType}Spawn`, Size = Vector3.new(2, 1, 2), CFrame = CFrame.new(ground + Vector3.new(0, 1, 0)), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false }, spawns)
+			p:SetAttribute("MobType", mobType)
 			p:SetAttribute("Zone", zone.Name)
 			p:SetAttribute("ZoneIndex", index)
-			if made < (zone.BossSpots or 0) then
+			if mobType == zone.MobType and bosses < (zone.BossSpots or 0) then
 				p:SetAttribute("BossSpot", true) -- 보스가 잘 나오는 자리 (Config.MobBoss.SpotChance)
+				bosses += 1
+			end
+			if mobType ~= zone.MobType then
+				mixed += 1
 			end
 			p:SetAttribute("GeneratedBy", GENERATED)
 			table.insert(placed, ground)
 			made += 1
+			bandTotals[band][mobType] = (bandTotals[band][mobType] or 0) + 1
 		end
 	end
-	table.insert(summary, `{zone.Name}({zone.MobType}) {made}마리 @ {math.floor((zoneCenter - center).Magnitude)}`)
+	local direction = math.floor(math.deg(angle) + 0.5) % 360
+	table.insert(summary, `{zone.Name} {made}마리(섞임 {mixed}) {math.floor(lo)}~{math.floor(hi)} 방향 {direction}°`)
 end
-print(`[BuildWeaponsAndMobs] 몹 구역: {table.concat(summary, ", ")}`)
+print(`[BuildWeaponsAndMobs] 몹 구역 (땅 반경 약 {landRadius}, 거리 배율 x{string.format("%.2f", scale)}): {table.concat(summary, ", ")}`)
+for _, band in bandOrder do
+	local counts = bandTotals[band]
+	if counts then
+		local parts, total = {}, 0
+		for _, id in { "Slime", "Skeleton", "Zombie", "Cerberus", "Cyclops" } do
+			if counts[id] then
+				table.insert(parts, `{MobDefs[id] and MobDefs[id].DisplayName or id} {counts[id]}`)
+				total += counts[id]
+			end
+		end
+		for id, count in counts do
+			if not table.find({ "Slime", "Skeleton", "Zombie", "Cerberus", "Cyclops" }, id) then
+				table.insert(parts, `{id} {count}`)
+				total += count
+			end
+		end
+		local range = bandRanges[band]
+		print(`[BuildWeaponsAndMobs]   {band}({math.floor(range[1])}~{math.floor(range[2])}): {total}마리 - {table.concat(parts, " / ")}`)
+	end
+end
 
 return true
