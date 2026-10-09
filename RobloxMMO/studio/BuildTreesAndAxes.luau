@@ -217,7 +217,9 @@ local function buildAxe(spec): Tool
 	attach("Collar", headCenter, Vector3.new(0.5, 0.6, 0.5), spec.Head:Lerp(Color3.new(0, 0, 0), 0.25), spec.Material)
 	local blade = attach("Blade", headCenter + a * (bladeStart + spec.BladeLen / 2), Vector3.new(spec.BladeLen, spec.BladeH, 0.2), spec.Head, spec.Material)
 	attach("Edge", headCenter + a * (bladeStart + spec.BladeLen + 0.07), Vector3.new(0.14, spec.BladeH * 1.25, 0.12), spec.Edge, if spec.Sparkle then Enum.Material.Neon else spec.Material)
-	attach("Poll", headCenter - a * 0.4, Vector3.new(0.4, 0.5, 0.45), spec.Head:Lerp(Color3.new(0, 0, 0), 0.15), spec.Material)
+	-- 양날 도끼: 반대쪽에도 같은 날을 달아 머리가 손잡이 가운데에 오게 한다 (한쪽 날은 한쪽으로 쏠려 보였다, 2026-10-09)
+	attach("Blade2", headCenter - a * (bladeStart + spec.BladeLen / 2), Vector3.new(spec.BladeLen, spec.BladeH, 0.2), spec.Head, spec.Material)
+	attach("Edge2", headCenter - a * (bladeStart + spec.BladeLen + 0.07), Vector3.new(0.14, spec.BladeH * 1.25, 0.12), spec.Edge, if spec.Sparkle then Enum.Material.Neon else spec.Material)
 
 	-- 좋은 도끼: 휘두를 때 날 끝 궤적 (SwingAnimation이 휘두르는 동안만 켠다)
 	if spec.Trail then
@@ -286,7 +288,7 @@ for _, spec in AXES do
 	end
 	iconFromTool(tool, spec.Id).Parent = iconFolder
 end
-print("[BuildTreesAndAxes] (버전 6) 도끼 4종 완료")
+print("[BuildTreesAndAxes] (버전 7, 양날) 도끼 4종 완료")
 
 ---------------------------------------------------------------- 2. 나무
 local LEAF_MATERIAL = Enum.Material.LeafyGrass
