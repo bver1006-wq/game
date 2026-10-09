@@ -94,28 +94,30 @@ local iconFolder = folder(ReplicatedStorage, "ItemIcons")
 local AXE_EDGE_SIGN = 1 -- 한날 도끼의 날이 뒤를 보면 -1로 (플레이 테스트로 맞춘다)
 
 -- 도끼 4종 설계. 단위는 스터드, 머리 좌표계: x = 날 방향(앞), y = 자루 방향(위), 원점 = 머리 가운데
+-- Design: 모양 (Hatchet 한날 손도끼 / Bearded 바이킹 수염 / Great 계단식 대형 양날 / Battle 창끝 양날 전투도끼)
+-- 철 = Great, 다이아 = Battle (2026-10-09 사용자 요청으로 서로 바꿈)
 -- Scale: 머리 크기 배수, Reach: 자루 길이 배수(곡괭이 기준), Shaft: 자루 굵기
 local METAL = Enum.Material.Metal
 local AXES = {
 	{
-		Id = "StoneAxe", From = "StonePickaxe", Scale = 1.0, Reach = 1.0, Shaft = 0.26,
+		Id = "StoneAxe", From = "StonePickaxe", Design = "Hatchet", Scale = 1.0, Reach = 1.0, Shaft = 0.26,
 		Head = Color3.fromRGB(120, 118, 115), Edge = Color3.fromRGB(200, 198, 192), Material = Enum.Material.Slate,
 		ShaftColor = Color3.fromRGB(150, 105, 65), ShaftMaterial = Enum.Material.Wood,
 	},
 	{
-		Id = "CopperAxe", From = "CopperPickaxe", Scale = 1.2, Reach = 1.08, Shaft = 0.28,
+		Id = "CopperAxe", From = "CopperPickaxe", Design = "Bearded", Scale = 1.2, Reach = 1.08, Shaft = 0.28,
 		Head = Color3.fromRGB(196, 112, 58), Edge = Color3.fromRGB(245, 185, 125), Material = METAL,
 		ShaftColor = Color3.fromRGB(80, 55, 40), ShaftMaterial = Enum.Material.Wood,
 		Trail = Color3.fromRGB(255, 150, 70), TrailLife = 0.16,
 	},
 	{
-		Id = "IronAxe", From = "IronPickaxe", Scale = 1.35, Reach = 1.15, Shaft = 0.3,
+		Id = "IronAxe", From = "IronPickaxe", Design = "Great", Scale = 1.35, Reach = 1.15, Shaft = 0.3,
 		Head = Color3.fromRGB(150, 152, 158), Edge = Color3.fromRGB(235, 238, 245), Material = METAL,
 		ShaftColor = Color3.fromRGB(70, 72, 78), ShaftMaterial = METAL, Gold = Color3.fromRGB(215, 170, 70),
 		Trail = Color3.fromRGB(230, 235, 255), TrailLife = 0.2,
 	},
 	{
-		Id = "DiamondAxe", From = "SteelPickaxe", Scale = 1.6, Reach = 1.25, Shaft = 0.34,
+		Id = "DiamondAxe", From = "SteelPickaxe", Design = "Battle", Scale = 1.6, Reach = 1.25, Shaft = 0.34,
 		Head = Color3.fromRGB(95, 205, 245), Edge = Color3.fromRGB(215, 250, 255), Material = Enum.Material.Glass,
 		ShaftColor = Color3.fromRGB(35, 30, 45), ShaftMaterial = METAL, Gold = Color3.fromRGB(230, 185, 80),
 		Trail = Color3.fromRGB(110, 235, 255), TrailLife = 0.28, Glow = true,
@@ -308,7 +310,7 @@ local function buildAxe(spec): Tool
 	local top = reach + 0.25 * s -- 자루 윗끝
 	local trailTop: Vector3, trailBottom: Vector3
 
-	if spec.Id == "StoneAxe" then
+	if spec.Design == "Hatchet" then
 		-- 한날 손도끼: 나무 자루 + 빨간 끈 손잡이, 사다리꼴 날, 뒤쪽 뭉툭한 머리
 		shaftPiece("Shaft", -0.9, top, d, spec.ShaftColor, spec.ShaftMaterial)
 		for i = 0, 4 do
@@ -320,7 +322,7 @@ local function buildAxe(spec): Tool
 		plate(blade, 0.16, spec.Head, spec.Material)
 		edgeStrip({ V(1.2, 0.5), V(1.32, -0.6) }, 0.12, 0.18)
 		trailTop, trailBottom = at(1.2, 0.5), at(1.32, -0.6)
-	elseif spec.Id == "CopperAxe" then
+	elseif spec.Design == "Bearded" then
 		-- 바이킹 수염 도끼: 아래로 길게 늘어진 날, 새김 무늬, 가죽 감은 자루
 		shaftPiece("Shaft", -1.0, top, d, spec.ShaftColor, spec.ShaftMaterial)
 		for i = 0, 6 do
@@ -339,8 +341,8 @@ local function buildAxe(spec): Tool
 			plate({ p - n, q - n, q + n, p + n }, 0.19, Color3.fromRGB(255, 170, 80), Enum.Material.Neon)
 		end
 		trailTop, trailBottom = at(1.3, 0.78), at(1.35, -1.1)
-	elseif spec.Id == "IronAxe" then
-		-- 양날 전투도끼: 넓은 날개 두 장, 위에 창끝, 금 장식, 쇠 자루와 고리
+	elseif spec.Design == "Battle" then
+		-- Battle: 양날 전투도끼: 넓은 날개 두 장, 위에 창끝, 금 장식, 쇠 자루와 고리
 		shaftPiece("Shaft", -1.1, top, d, spec.ShaftColor, spec.ShaftMaterial)
 		for _, ring in { -0.95, -0.2, reach - 0.65 * s } do
 			shaftPiece("Ring", ring, ring + 0.12, d + 0.12, spec.Gold, METAL)
@@ -367,7 +369,7 @@ local function buildAxe(spec): Tool
 		block("Collar", 0, -0.5, Vector3.new(0.42, 0.14, 0.42), spec.Gold, METAL)
 		trailTop, trailBottom = at(1.05, 0.95), at(1.05, -0.95)
 	else
-		-- 다이아몬드 대형 양날 도끼: 계단식 날개, 가운데 빛나는 마름모, 금 고리 감은 검은 자루
+		-- Great: 대형 양날 도끼: 계단식 날개, 가운데 빛나는 마름모, 금 고리 감은 검은 자루
 		shaftPiece("Shaft", -1.2, top, d, spec.ShaftColor, spec.ShaftMaterial)
 		for i = 0, 7 do
 			local y = -1.0 + i * 0.38
@@ -472,7 +474,7 @@ for _, spec in AXES do
 	end
 	iconFromTool(tool, spec.Id).Parent = iconFolder
 end
-print("[BuildTreesAndAxes] (버전 9, 도끼 4종 디자인) 도끼 4종 완료")
+print("[BuildTreesAndAxes] (버전 10, 철·다이아 모양 교환) 도끼 4종 완료")
 
 ---------------------------------------------------------------- 2. 나무
 local LEAF_MATERIAL = Enum.Material.LeafyGrass
