@@ -2,7 +2,7 @@
 -- 가방(칸 단위)과 골드. 서버 메모리에만 두고, 바뀔 때마다 클라이언트에 전체 내용을 보낸다.
 -- 칸 계산: 쌓이는 아이템은 MaxStack개마다 1칸, 쌓이지 않는 아이템(도구)은 1개마다 1칸.
 -- 처음엔 StartSlots칸이고, 상인에게 가방을 사면 늘어난다.
--- MVP-1 저장(DataService) 전이라 나갔다 들어오면 초기화된다.
+-- 들어올 때 DataService에서 불러오고, 저장할 때 "Inventory" 칸으로 내보낸다 (2026-10-09 저장 추가)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,11 +12,14 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local ItemDefs = require(ReplicatedStorage.Shared.ItemDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
+local DataService = require(script.Parent.DataService)
+
 type Bag = {
 	Items: { [string]: number },
 	Gold: number,
 	Slots: number, -- 지금 가방 칸 수
 	BagLevel: number, -- 산 가방 확장 단계 (0 = 기본)
+	Unknown: { [string]: number }, -- 저장에는 있는데 지금 정의가 없는 아이템 (지우지 않고 그대로 다시 저장한다)
 }
 
 local InventoryService = {}
@@ -26,6 +29,7 @@ local changedEvent = Instance.new("BindableEvent")
 InventoryService.Changed = changedEvent.Event
 
 local bags: { [Player]: Bag } = {}
+local loaded: { [Player]: BindableEvent | true } = {} -- 불러오기를 기다리는 중이면 BindableEvent, 끝났으면 true
 local changedRemote: RemoteEvent
 
 -- 아이템 하나가 차지하는 칸 수
@@ -83,23 +87,77 @@ local function push(player: Player)
 	})
 end
 
--- 플레이어의 가방을 가져온다 (없으면 새로 만든다)
-local function getBag(player: Player): Bag
-	local bag = bags[player]
-	if not bag then
-		-- Studio에서 도구·무기를 전부 받는 테스트를 할 때는 가방을 넉넉하게
-		local testSlots = RunService:IsStudio() and Config.Debug.GiveAllPickaxes and Config.Debug.StartSlots or nil
-		bag = { Items = {}, Gold = 0, Slots = testSlots or Config.Inventory.StartSlots, BagLevel = 0 }
-		bags[player] = bag
+-- 새 가방
+local function newBag(): Bag
+	-- Studio에서 도구·무기를 전부 받는 테스트를 할 때는 가방을 넉넉하게
+	local testSlots = RunService:IsStudio() and Config.Debug.GiveAllPickaxes and Config.Debug.StartSlots or nil
+	return { Items = {}, Gold = 0, Slots = testSlots or Config.Inventory.StartSlots, BagLevel = 0, Unknown = {} }
+end
+
+-- 저장된 표에서 가방을 만든다 (이상한 값은 버린다)
+local function bagFromSave(saved: any): Bag
+	local bag = newBag()
+	if typeof(saved) ~= "table" then
+		return bag
+	end
+	if typeof(saved.Gold) == "number" and saved.Gold == saved.Gold then
+		bag.Gold = math.max(math.floor(saved.Gold), 0)
+	end
+	if typeof(saved.Slots) == "number" and saved.Slots == saved.Slots then
+		bag.Slots = math.max(math.floor(saved.Slots), bag.Slots)
+	end
+	if typeof(saved.BagLevel) == "number" and saved.BagLevel == saved.BagLevel then
+		bag.BagLevel = math.max(math.floor(saved.BagLevel), 0)
+	end
+	for _, field in { "Items", "Unknown" } do
+		local list = saved[field]
+		if typeof(list) == "table" then
+			for itemId, count in list do
+				if typeof(itemId) == "string" and typeof(count) == "number" and count == count and count >= 1 then
+					local target = if ItemDefs.Items[itemId] then bag.Items else bag.Unknown
+					target[itemId] = (target[itemId] or 0) + math.floor(count)
+				end
+			end
+		end
 	end
 	return bag
+end
+
+-- 플레이어의 가방을 가져온다. 아직 불러오는 중이면 임시 빈 가방 (여기 넣은 것은 남지 않는다)
+local function getBag(player: Player): Bag
+	return bags[player] or newBag()
 end
 
 -- 서버 시작 시 한 번 호출
 function InventoryService.init()
 	changedRemote = Remotes.get(Remotes.Names.InventoryChanged)
+	-- 저장할 칸: 가방 전체
+	DataService.register("Inventory", function(player: Player)
+		local bag = bags[player]
+		if not bag then
+			return nil
+		end
+		return {
+			Items = table.clone(bag.Items),
+			Unknown = table.clone(bag.Unknown),
+			Gold = bag.Gold,
+			Slots = bag.Slots,
+			BagLevel = bag.BagLevel,
+		}
+	end)
+
 	local function onPlayerAdded(player: Player)
-		getBag(player)
+		local waiting = Instance.new("BindableEvent")
+		loaded[player] = waiting
+		local data = DataService.load(player)
+		if not player.Parent then
+			loaded[player] = nil
+			waiting:Fire()
+			return
+		end
+		bags[player] = bagFromSave(data.Inventory)
+		loaded[player] = true
+		waiting:Fire()
 		push(player)
 		-- 클라이언트 UI가 늦게 준비될 수 있어 캐릭터가 나올 때마다 한 번 더 보낸다
 		player.CharacterAdded:Connect(function()
@@ -109,11 +167,32 @@ function InventoryService.init()
 	end
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	for _, player in Players:GetPlayers() do
-		onPlayerAdded(player)
+		task.spawn(onPlayerAdded, player)
 	end
 	Players.PlayerRemoving:Connect(function(player)
-		bags[player] = nil
+		-- DataService가 나갈 때 가방을 모아 저장할 수 있게 조금 뒤에 지운다
+		task.delay(Config.Save.CleanupDelay, function()
+			bags[player] = nil
+			loaded[player] = nil
+		end)
 	end)
+end
+
+-- 저장된 가방을 다 불러올 때까지 기다린다 (도구 지급·장비 복구 전에 부른다). 불러왔으면 true
+function InventoryService.waitLoaded(player: Player): boolean
+	local state = loaded[player]
+	if state == nil then
+		-- 아직 onPlayerAdded가 안 돌았을 수 있다: 잠깐 기다린다
+		local started = os.clock()
+		while loaded[player] == nil and player.Parent and os.clock() - started < 5 do
+			task.wait()
+		end
+		state = loaded[player]
+	end
+	if typeof(state) == "Instance" then
+		(state :: BindableEvent).Event:Wait()
+	end
+	return loaded[player] == true and player.Parent ~= nil
 end
 
 -- 아이템 개수

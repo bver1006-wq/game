@@ -55,7 +55,7 @@ src/
 │     ├─ FeverService.luau      피버 발동·연타 집계
 │     ├─ AntiCheatService.luau  쿨다운, 거리, 매크로 탐지
 │     ├─ AnalyticsService.luau  플레이테스트 측정 로그
-│     ├─ DataService.luau       (MVP-1) 저장
+│     ├─ DataService.luau       저장 (DataStore, 세션 잠금·자동 저장, 2026-10-09)
 │     ├─ InventoryService.luau  (MVP-1) 가방
 │     ├─ EconomyService.luau    (MVP-1) 골드, NPC 판매
 │     ├─ CraftingService.luau   (MVP-1) 제련, 곡괭이 제작 (도구·무기 구매 buyTool)
@@ -315,7 +315,7 @@ src/
   - 능력치: 공격(무기 데미지에 더함)·방어(몹 피해 × 100/(100+방어))·체력(최대 체력에 더함)·치명타%(확률에 더함)
   - 전투력 = 공격×3 + 방어×4 + 체력×1 + 치명타×15, 착용 장비 합산(손에 든 무기 포함). 플레이어 속성 CombatPower → 모든 플레이어 머리 위 "⚔ 전투력" (CombatPowerHUD)
   - 가방에서 장착 아이템(도구·무기·장비)은 더블클릭해야 장착, 빠른 칸은 한 번 클릭. 가방 창 왼쪽에 장비 창(칸 7개·전투력·능력치, 칸 더블클릭으로 빼기). 끼운 아이템은 가방에서 금색 테두리 + E
-  - 장비 모양은 아직 캐릭터에 보이지 않는다 (아이콘만). TODO: 캐릭터에 입히기
+  - 장비 모양은 서버 GearVisualService가 부품으로 지어 캐릭터에 용접한다 (폴더 GearVisuals, 모두에게 보임, 크기는 몸 부품 비율, 수치 Config.GearVisual). 단계가 높을수록 조각이 늘어남(투구 코·볼 가리개·볏, 갑옷 어깨 보호대·보석 등). 헬멧을 쓰면 머리카락·모자 숨김 (2026-10-09)
 - [x] 자연 회복·장비 벽 (2026-10-09)
   - 바위·나무·몹은 Regen.Delay초 동안 안 맞으면 최대 체력의 일정 비율씩 천천히 찬다 (Config.Regen. 몹은 쫓는 중엔 안 참)
   - 장비 벽: 도구 단계 < 필요 단계면 때릴 수는 있지만 체력이 안 닳는다 (HitEffect special "Blocked": 둔한 소리·"단단해!"). 몹은 MobDefs.Tier보다 무기가 2단계 이상 낮으면 0, 1단계 낮으면 0.4배 (Config.TierWall, CombatEffect blocked)
@@ -326,7 +326,14 @@ src/
   - 몹은 주인이 있으면 주인만 노린다. 클라는 남의 것을 조준에서 빼고 위에 "🔒 이름" (OwnerLockHUD)
   - 피버는 개수 보너스 대신 배수 (5장 표, Config.Fever.Tiers Multiplier). FeverResult·RockBroken은 배수를 보낸다. 화면 "x3배!", "FEVER x3"
   - 활: 푸드덕(Bird Flying) 대신 놓을 때 "휘익"(rbxasset://sounds/swordslash.wav), 맞아서 데미지가 뜰 때 "퍽!"(Wood Chop). 시위는 덜 당긴다(Config.Charge.BowPullStart·BowPullDistance) → 왼손이 활 근처에 머묾
-- [ ] 저장(DataService), 트로피, 모루 미니게임, 매크로 방어
+- [x] 저장 (2026-10-09, DataService): 골드·가방(아이템·칸·가방 단계)·끼운 장비·빠른 칸 배치. 키 `Player_<UserId>`
+  - 서비스가 DataService.register(칸 이름, 값 함수)로 저장할 칸을 등록 ("Inventory", "Equipped"). InventoryService가 들어올 때 DataService.load → 다른 서비스는 InventoryService.waitLoaded 후 도구 Tool 재생성·장비 복구
+  - 세션 잠금(Lock JobId·Time, Config.Save.LockTimeout), 자동 저장 60초, 나갈 때·서버 종료(BindToClose) 저장. 불러오기 실패면 그 접속은 저장 안 함 + 알림
+  - 정의가 없어진 아이템은 Unknown에 보관해 지우지 않는다
+  - 빠른 칸: 클라가 SaveHotbar로 보냄 → 들어올 때 플레이어 속성 SavedHotbar(쉼표로 이은 Id)
+  - Studio는 StudioStoreName 저장소를 쓰고, 테스트 지급(Config.Debug의 주문서·음식·장비)은 처음 들어올 때만. Studio 저장은 게임 게시 + Game Settings → Security → Enable Studio Access to API Services 필요
+- [x] 줍는 조각 크기 키움 (Config.HitFeel.PickupSizeMin·Max, 2026-10-09)
+- [ ] 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)
 

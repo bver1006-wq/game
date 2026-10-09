@@ -12,6 +12,8 @@ local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
 local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
+local DataService = require(script.Parent.DataService)
+local GearVisualService = require(script.Parent.GearVisualService)
 local InventoryService = require(script.Parent.InventoryService)
 local NotifyService = require(script.Parent.NotifyService)
 
@@ -86,6 +88,9 @@ local function recompute(player: Player)
 	player:SetAttribute("StatCrit", total.Crit)
 	player:SetAttribute("CombatPower", power)
 
+	-- 착용 장비를 캐릭터 모양으로 (같은 장비면 아무것도 안 한다)
+	GearVisualService.apply(player, slots)
+
 	-- 최대 체력: 비율은 유지
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -135,8 +140,29 @@ end
 
 -- 서버 시작 시 한 번 호출 (InventoryService.init 이후)
 function EquipmentService.init()
+	-- 저장할 칸: 끼운 장비 (칸 → 아이템 Id)
+	DataService.register("Equipped", function(player: Player)
+		local slots = equipped[player]
+		return if slots then table.clone(slots) else nil
+	end)
+
 	local function onPlayerAdded(player: Player)
 		equipped[player] = {}
+		-- 저장된 장비를 다시 끼운다 (가방에 있고 칸이 맞는 것만)
+		if InventoryService.waitLoaded(player) then
+			local saved = DataService.load(player).Equipped
+			if typeof(saved) == "table" then
+				for slot, itemId in saved do
+					local def = typeof(itemId) == "string" and EquipmentDefs.Items[itemId]
+					if def and def.Slot == slot and InventoryService.count(player, itemId) > 0 then
+						equipped[player][slot] = itemId
+					end
+				end
+			end
+		end
+		if not player.Parent then
+			return
+		end
 		local function watchCharacter(character: Model)
 			-- 손에 드는 도구가 바뀌면 무기 칸·전투력 다시 계산
 			character.ChildAdded:Connect(function(child)
@@ -150,6 +176,16 @@ function EquipmentService.init()
 				end
 			end)
 			task.defer(recompute, player)
+			-- 아바타 외형(몸 부품 크기·머리카락)이 다 들어오면 장비 모양을 다시 맞춘다
+			task.spawn(function()
+				if not player:HasAppearanceLoaded() then
+					player.CharacterAppearanceLoaded:Wait()
+				end
+				if character.Parent then
+					GearVisualService.invalidate(character)
+					recompute(player)
+				end
+			end)
 		end
 		player.CharacterAdded:Connect(watchCharacter)
 		if player.Character then
@@ -162,8 +198,11 @@ function EquipmentService.init()
 		task.spawn(onPlayerAdded, player)
 	end
 	Players.PlayerRemoving:Connect(function(player)
-		equipped[player] = nil
-		gearStats[player] = nil
+		-- DataService가 나갈 때 장비를 모아 저장할 수 있게 조금 뒤에 지운다
+		task.delay(Config.Save.CleanupDelay, function()
+			equipped[player] = nil
+			gearStats[player] = nil
+		end)
 	end)
 
 	-- 가방에서 사라진 장비는 벗긴다 (판매 등)

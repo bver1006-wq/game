@@ -4,7 +4,7 @@
 --   도구(곡괭이): 들기 / 다시 누르면 내려놓기
 --   소모품(귀환 주문서): 서버에 사용 요청 (ItemUseService)
 --   물약·장비: 아직 없음 (나중에 착용·사용 추가)
--- 칸 배치는 이 클라이언트에만 기억한다 (저장은 MVP-1 DataService 이후).
+-- 칸 배치는 바뀔 때마다 서버에 보내 저장하고(SaveHotbar), 들어올 때 플레이어 속성 SavedHotbar로 되살린다 (2026-10-09)
 -- Roblox 기본 하단 도구 바는 끄고 이 칸으로 대신한다.
 
 local Players = game:GetService("Players")
@@ -34,6 +34,11 @@ local HotbarController = {}
 local slots: { string? } = {} -- 칸 번호 → 아이템 Id
 local slotFrames: { Frame } = {}
 local knownTools: { [string]: boolean } = {} -- 이미 본 도구 (새로 생긴 도구만 빈 칸에 자동으로 넣는다)
+local layoutReady = false -- 저장된 배치를 받았다 (그 전에는 자동으로 채우지도, 저장하지도 않는다)
+local hasInventory = false -- 서버에서 가방 내용을 한 번이라도 받았다
+local skipFillOnce = false -- 저장된 배치를 되살렸으면, 처음 받은 가방의 도구는 자동으로 채우지 않는다
+local lastSent = ""
+local saveRemote: RemoteEvent
 
 -- 아이템이 들어 있는 칸 번호 (slots에 빈 칸이 섞여 있어서 table.find 대신 직접 찾는다)
 local function findSlot(itemId: string): number?
@@ -53,8 +58,25 @@ local function equippedItemId(): string?
 	return if typeof(id) == "string" then id else nil
 end
 
+-- 배치가 바뀌었으면 서버에 보내 저장한다
+local function sendLayout()
+	if not layoutReady or not saveRemote then
+		return
+	end
+	local list: { string } = {}
+	for index = 1, Config.Inventory.HotbarSlots do
+		list[index] = slots[index] or ""
+	end
+	local key = table.concat(list, ",")
+	if key ~= lastSent then
+		lastSent = key
+		saveRemote:FireServer(list)
+	end
+end
+
 -- 칸 그림을 다시 그린다
 local function render()
+	sendLayout()
 	local equipped = equippedItemId()
 	for index, frame in slotFrames do
 		for _, child in frame:GetChildren() do
@@ -169,6 +191,15 @@ end
 
 -- 가방이 바뀌면: 없어진 아이템은 칸에서 빼고, 새로 생긴 도구는 빈 칸에 넣는다
 local function onInventoryChanged()
+	if not layoutReady or not hasInventory then
+		return
+	end
+	if skipFillOnce then
+		skipFillOnce = false
+		for itemId in InventoryState.get().Items do
+			knownTools[itemId] = true
+		end
+	end
 	for index = 1, #slotFrames do
 		local itemId = slots[index]
 		if itemId and InventoryState.count(itemId) <= 0 then
@@ -268,7 +299,10 @@ function HotbarController.init()
 			useSlot(index)
 		end
 	end)
-	InventoryState.Changed:Connect(onInventoryChanged)
+	InventoryState.Changed:Connect(function()
+		hasInventory = true
+		onInventoryChanged()
+	end)
 
 	-- 들고 있는 도구가 바뀌면 테두리 표시를 갱신
 	local function watchCharacter(character: Model)
@@ -280,6 +314,30 @@ function HotbarController.init()
 	if localPlayer.Character then
 		watchCharacter(localPlayer.Character)
 	end
+	-- 저장된 배치를 기다렸다가 되살린다 (서버가 불러오면 속성 SavedHotbar를 넣어 준다)
+	saveRemote = Remotes.get(Remotes.Names.SaveHotbar)
+	task.spawn(function()
+		local started = os.clock()
+		while localPlayer:GetAttribute("SavedHotbar") == nil and os.clock() - started < 20 do
+			task.wait(0.1)
+		end
+		local saved = localPlayer:GetAttribute("SavedHotbar")
+		if typeof(saved) == "string" and saved ~= "" then
+			local any = false
+			for index, itemId in string.split(saved, ",") do
+				if index <= count and itemId ~= "" and ItemDefs.Items[itemId] then
+					slots[index] = itemId
+					knownTools[itemId] = true
+					any = true
+				end
+			end
+			skipFillOnce = any
+		end
+		lastSent = if typeof(saved) == "string" then saved else ""
+		layoutReady = true
+		onInventoryChanged()
+		render()
+	end)
 	RunService.Heartbeat:Wait()
 	onInventoryChanged()
 end
