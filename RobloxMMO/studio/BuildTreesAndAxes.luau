@@ -3,6 +3,7 @@
 -- 게임 중에는 아무도 require하지 않으므로 실행되지 않는다. 편집 상태에서 명령 모음에 아래 한 줄을 넣고 Enter:
 --   require(game.ServerStorage.StudioTools.BuildTreesAndAxes:Clone())
 -- (:Clone()을 붙여야 두 번째부터도 다시 실행된다.) 다시 실행하면 전에 만든 것을 지우고 새로 만든다.
+-- 도끼·나무 템플릿이 없으면 서버(Main.server)가 게임 시작 때 자동으로 한 번 실행한다 (그때 만든 건 저장되지 않는다).
 --
 -- 만드는 것
 --   1. 도끼 Tool 4종  → ServerStorage/Templates/Pickaxes/{StoneAxe, CopperAxe, IronAxe, DiamondAxe}
@@ -77,7 +78,11 @@ local function folder(parent: Instance, name: string): Folder
 	return f
 end
 
-local recording = ChangeHistoryService:TryBeginRecording("BuildTreesAndAxes")
+-- 게임 실행 중(서버)에는 되돌리기 기록을 쓸 수 없으므로 실패해도 넘어간다
+local okRecording, recording = pcall(ChangeHistoryService.TryBeginRecording, ChangeHistoryService, "BuildTreesAndAxes")
+if not okRecording then
+	recording = nil
+end
 
 local templates = folder(ServerStorage, "Templates")
 local pickaxeFolder = folder(templates, "Pickaxes")
@@ -622,7 +627,7 @@ if #candidates == 0 then
 end
 
 if recording then
-	ChangeHistoryService:FinishRecording(recording, Enum.FinishRecordingOperation.Commit)
+	pcall(ChangeHistoryService.FinishRecording, ChangeHistoryService, recording, Enum.FinishRecordingOperation.Commit)
 end
 print("[BuildTreesAndAxes] 끝. Ctrl+Z로 한 번에 되돌릴 수 있어요.")
 
