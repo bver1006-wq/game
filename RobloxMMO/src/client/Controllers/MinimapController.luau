@@ -614,6 +614,115 @@ FACES.Cyclops = function(face: Frame)
 	facePart(face, 0.64, 0.76, 0.09, 0.09, ivory, 6, { Corner = 0.15, Rotation = 45, Stroke = 1 })
 end
 
+-- 바다 생물 (2026-10-09): 옆모습 물고기들 + 낙지·해파리·상어
+-- 물고기 옆모습: 왼쪽을 보는 동그란 몸 + 마름모 꼬리 + 등지느러미 + 밝은 배 + 줄무늬 + 반짝 눈 + 뽀글 거품
+local function fishFace(face: Frame, body: Color3, belly: Color3, stripe: Color3)
+	silhouette(face, {
+		{ X = 0.8, Y = 0.52, W = 0.28, H = 0.28, Corner = 0.15, Rot = 45 }, -- 꼬리
+		{ X = 0.5, Y = 0.3, W = 0.24, H = 0.16, Corner = 0.3, Rot = -15 }, -- 등지느러미
+		{ X = 0.42, Y = 0.54, W = 0.7, H = 0.5 }, -- 몸
+	}, body, 1)
+	facePart(face, 0.4, 0.66, 0.5, 0.18, belly, 3) -- 배
+	for _, x in { 0.5, 0.62 } do
+		facePart(face, x, 0.52, 0.05, 0.36, stripe, 3, { Corner = 0.5, Transparency = 0.25 }) -- 줄무늬
+	end
+	shinyEye(face, 0.24, 0.47, 0.15, 0.17, Color3.fromRGB(25, 30, 45), 4)
+	facePart(face, 0.11, 0.58, 0.05, 0.05, COLORS.Ink, 4) -- 뽀 입
+	facePart(face, 0.13, 0.22, 0.07, 0.07, Color3.new(1, 1, 1), 3, { Stroke = 1, Transparency = 0.3 }) -- 거품
+	facePart(face, 0.2, 0.1, 0.05, 0.05, Color3.new(1, 1, 1), 3, { Stroke = 1, Transparency = 0.3 })
+end
+
+-- 물고기: 파란 고등어
+FACES.Fish = function(face: Frame)
+	fishFace(face, Color3.fromRGB(95, 160, 225), Color3.fromRGB(220, 238, 250), Color3.fromRGB(40, 80, 140))
+end
+
+-- 황금 물고기: 금빛 물고기 + 반짝이
+FACES.GoldenFish = function(face: Frame)
+	fishFace(face, Color3.fromRGB(255, 200, 60), Color3.fromRGB(255, 240, 170), Color3.fromRGB(215, 140, 30))
+	faceGlyph(face, "✦", 0.82, 0.16, 0.2, Color3.fromRGB(255, 230, 120), 5)
+	faceGlyph(face, "✦", 0.94, 0.82, 0.14, Color3.fromRGB(255, 230, 120), 5)
+end
+
+-- 복어: 동그란 노란 공 + 둘레 가시 + 큰 눈 + 동그란 입
+FACES.Pufferfish = function(face: Frame)
+	local yellow = Color3.fromRGB(245, 205, 95)
+	local pieces: { Piece } = {}
+	for i = 0, 9 do
+		local angle = i / 10 * math.pi * 2
+		table.insert(pieces, { X = 0.5 + math.cos(angle) * 0.4, Y = 0.52 + math.sin(angle) * 0.4, W = 0.12, H = 0.12, Corner = 0.1, Rot = 45 + math.deg(angle) })
+	end
+	table.insert(pieces, { X = 0.5, Y = 0.52, W = 0.74, H = 0.74 })
+	silhouette(face, pieces, yellow, 1)
+	facePart(face, 0.5, 0.68, 0.5, 0.28, Color3.fromRGB(255, 240, 200), 3) -- 배
+	for _, spot in { { 0.3, 0.3 }, { 0.68, 0.26 }, { 0.5, 0.2 } } do
+		facePart(face, spot[1], spot[2], 0.07, 0.07, Color3.fromRGB(185, 140, 60), 3) -- 점무늬
+	end
+	shinyEye(face, 0.36, 0.45, 0.18, 0.2, Color3.fromRGB(30, 30, 40), 4)
+	shinyEye(face, 0.64, 0.45, 0.18, 0.2, Color3.fromRGB(30, 30, 40), 4)
+	facePart(face, 0.5, 0.68, 0.12, 0.11, COLORS.Ink, 4) -- 오 입
+	facePart(face, 0.5, 0.69, 0.06, 0.05, Color3.fromRGB(255, 130, 140), 5)
+	facePart(face, 0.24, 0.62, 0.1, 0.06, Color3.fromRGB(255, 140, 150), 4, { Transparency = 0.35 }) -- 볼
+	facePart(face, 0.76, 0.62, 0.1, 0.06, Color3.fromRGB(255, 140, 150), 4, { Transparency = 0.35 })
+end
+
+-- 낙지: 분홍 둥근 머리 + 꼬불 다리 넷(빨판 점) + 큰 눈 + 오므린 입 + 먹물 방울
+FACES.Octopus = function(face: Frame)
+	local pink = Color3.fromRGB(235, 115, 125)
+	local light = Color3.fromRGB(255, 190, 195)
+	local pieces: { Piece } = {}
+	for _, x in { 0.18, 0.39, 0.61, 0.82 } do
+		table.insert(pieces, { X = x, Y = 0.8, W = 0.15, H = 0.34, Rot = (x - 0.5) * 70 })
+	end
+	table.insert(pieces, { X = 0.5, Y = 0.42, W = 0.76, H = 0.66 })
+	silhouette(face, pieces, pink, 1)
+	for _, x in { 0.17, 0.38, 0.62, 0.83 } do
+		facePart(face, x + (x - 0.5) * 0.1, 0.88, 0.05, 0.05, light, 3) -- 빨판
+	end
+	facePart(face, 0.3, 0.24, 0.14, 0.08, Color3.new(1, 1, 1), 3, { Rotation = -30, Transparency = 0.3 }) -- 빛 점
+	shinyEye(face, 0.37, 0.47, 0.17, 0.2, Color3.fromRGB(35, 25, 35), 4)
+	shinyEye(face, 0.63, 0.47, 0.17, 0.2, Color3.fromRGB(35, 25, 35), 4)
+	facePart(face, 0.5, 0.65, 0.09, 0.08, COLORS.Ink, 4) -- 쪽 입
+	facePart(face, 0.88, 0.2, 0.1, 0.13, Color3.fromRGB(30, 25, 40), 4, { Stroke = 1 }) -- 먹물 방울
+end
+
+-- 해파리: 보라 반투명 갓 + 아래 꼬불 실 + 작은 눈·미소
+FACES.Jellyfish = function(face: Frame)
+	local lilac = Color3.fromRGB(205, 175, 255)
+	for i, x in { 0.28, 0.42, 0.58, 0.72 } do
+		facePart(face, x, 0.76, 0.04, 0.34, Color3.fromRGB(170, 140, 230), 1, { Rotation = if i % 2 == 0 then 8 else -8 }) -- 실
+	end
+	silhouette(face, {
+		{ X = 0.5, Y = 0.4, W = 0.8, H = 0.56 },
+		{ X = 0.5, Y = 0.56, W = 0.8, H = 0.16, Corner = 0.3 },
+	}, lilac, 2)
+	facePart(face, 0.33, 0.28, 0.14, 0.08, Color3.new(1, 1, 1), 4, { Rotation = -30, Transparency = 0.3 })
+	shinyEye(face, 0.38, 0.47, 0.13, 0.15, Color3.fromRGB(50, 30, 70), 5)
+	shinyEye(face, 0.62, 0.47, 0.13, 0.15, Color3.fromRGB(50, 30, 70), 5)
+	smile(face, 0.5, 0.58, 0.12, lilac, 5)
+end
+
+-- 상어: 회색 옆모습 + 세모 등지느러미 + 흰 배 + 뾰족 이빨 + 화난 눈썹
+FACES.Shark = function(face: Frame)
+	local grey = Color3.fromRGB(125, 145, 170)
+	local dark = Color3.fromRGB(80, 95, 120)
+	silhouette(face, {
+		{ X = 0.52, Y = 0.24, W = 0.22, H = 0.22, Corner = 0.1, Rot = 45 }, -- 등지느러미
+		{ X = 0.87, Y = 0.47, W = 0.24, H = 0.24, Corner = 0.1, Rot = 45 }, -- 꼬리
+		{ X = 0.45, Y = 0.54, W = 0.84, H = 0.48 }, -- 몸
+	}, grey, 1)
+	facePart(face, 0.38, 0.66, 0.6, 0.18, Color3.fromRGB(240, 242, 245), 3) -- 흰 배
+	for _, x in { 0.47, 0.53 } do
+		facePart(face, x, 0.52, 0.025, 0.14, dark, 4, { Corner = 0.5 }) -- 아가미
+	end
+	facePart(face, 0.25, 0.62, 0.28, 0.07, COLORS.Ink, 4, { Corner = 0.3 }) -- 입
+	for _, x in { 0.15, 0.21, 0.27, 0.33 } do
+		facePart(face, x, 0.6, 0.05, 0.05, Color3.new(1, 1, 1), 5, { Corner = 0.1, Rotation = 45, Stroke = 1 }) -- 이빨
+	end
+	shinyEye(face, 0.24, 0.45, 0.13, 0.14, Color3.fromRGB(25, 25, 35), 4)
+	facePart(face, 0.25, 0.36, 0.15, 0.035, COLORS.Ink, 6, { Corner = 0, Rotation = 18 }) -- 화난 눈썹
+end
+
 -- 모르는 몹: 양피지 동그라미 + "?"
 local function unknownFace(face: Frame)
 	silhouette(face, { { X = 0.5, Y = 0.5, W = 0.86, H = 0.86 } }, COLORS.House, 1)
@@ -622,9 +731,11 @@ end
 
 -- 구역의 주인 몹: Config.MobZones에 같은 이름이 있으면 그 MobType, 없으면 가장 많은 MobType
 local function mainMobType(zoneName: string, counts: { [string]: number }): string?
-	for _, def in Config.MobZones :: { any } do
-		if def.Name == zoneName and typeof(def.MobType) == "string" then
-			return def.MobType
+	for _, list in { Config.MobZones :: { any }, Config.SeaZones :: { any } } do -- 땅 구역 + 바다 구역 (2026-10-09)
+		for _, def in list do
+			if def.Name == zoneName and typeof(def.MobType) == "string" then
+				return def.MobType
+			end
 		end
 	end
 	local best: string? = nil

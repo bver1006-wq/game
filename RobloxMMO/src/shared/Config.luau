@@ -399,6 +399,7 @@ Config.SeaSpawn = {
 	MaxDepth = 300, -- 바닥을 찾는 최대 깊이
 	MinDepth = 4, -- 이보다 얕은 물에는 안 둔다 (헤엄칠 틈)
 	MinCells = 6, -- 구역 가운데 둘레(Radius)에 물 칸이 이만큼은 있어야 구역으로 고른다
+	MaxCandidates = 1500, -- 넓은 바다면 구역 가운데 후보를 무작위로 이만큼만 본다 (시작이 느려지지 않게)
 	ZoneGap = 45, -- 바다 구역 가운데끼리 최소 거리
 	SpotGap = 8, -- 생성 자리끼리 최소 거리 (떼 안의 물고기는 SchoolSpread 안에 모인다)
 	SchoolSpread = 3, -- 떼 물고기끼리 흩어진 정도 (스터드)

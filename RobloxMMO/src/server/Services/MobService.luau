@@ -700,10 +700,11 @@ local function stepSwimmer(state: MobState, dt: number, now: number)
 		end
 	else
 		-- 한가할 때: 집 둘레를 헤엄치다 잠깐 쉰다. 물고기 떼는 떼 목적지 + 내 자리
+		local schoolName = state.School
+		local school = if schoolName then schools[schoolName] else nil
 		if (state.Position - state.Home).Magnitude > sea.WanderRadius * 1.5 then
 			state.WanderTarget = state.Home
-		elseif state.School and schools[state.School] then
-			local school = schools[state.School]
+		elseif school then
 			if not school.Target or now >= school.Until then
 				school.Target = randomSwimPoint(school.Home, sea.WanderRadius, state.Height) or school.Home
 				school.Until = now + random:NextNumber(sea.SchoolRetarget[1], sea.SchoolRetarget[2])

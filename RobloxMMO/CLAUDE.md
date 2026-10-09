@@ -421,6 +421,15 @@ src/
   - 타격 연출: Config.HitFeel.TierEffects·AxeTierEffects·Combat.TierEffects [5]·[6]. 오리하르콘은 두 번째 금빛 고리(DoubleRing) + 번쩍임(Flash)
 - [x] 조합 개수 줄이기 (2026-10-09): 4단계(다이아)부터는 아래 단계 2개 (2·3단계는 3개). 6단계 하나에 1단계 108개
 - [x] 시작 지급 (2026-10-09): 처음엔 돌 곡괭이 하나만(Config.StarterTools). 돌을 캐서 상인에게 팔고 → 돌 도끼(5G + 돌 5) → 통나무로 나머지. Studio 테스트 지급(Config.Debug)도 전부 끔, Studio 저장소는 PlayerData_Studio_v2로 새로 시작
+- [x] 바다 생물: 물고기·복어·황금 물고기·낙지·상어 (2026-10-09 사용자 요청 "헤엄칠 수 있는 물에서 낙지·물고기 잡기")
+  - 몹 6종 더함 (MobDefs Habitat = "Water", SwimStyle Fish/Pulse, 수치 Config.Mobs Swim = true): 물고기(T1, 떼 3~5마리, 얌전·도망) / 복어(T2, 얌전, 맞으면 PuffTime초 동안 PuffScale배로 부풀고 Range 안에서 때린 사람을 찌름 = Config.Mobs.Pufferfish.Prick) / 황금 물고기(T2, 드묾·빠름·도망, 골드 40~70) / 낙지(T2, 먼저 안 덤비고 맞으면 쫓아와 때림 = Retaliate, 맞으면 가끔 먹물 = Ink) / 해파리(T2, 둥둥 떠다니다 닿으면 쏨 = Drift) / 상어(T3, 물에 들어온 사람에게 돌진해 묾 = ChargeSpeed·ChargeRange, 크기 1.3)
+  - 헤엄(서버 MobService.stepSwimmer, 수치 Config.SeaAI): 지형만 보는 광선으로 물 기둥(수면 = 물 안 무시한 광선이 Water에 맞은 높이, 바닥 = 물 무시한 광선)을 ColumnCell 칸마다 한 번 재서 기억. 몸이 수면 아래·바닥 위에 있게 3D로 움직이고 물 밖·얕은 물·안전지대로는 안 간다. 물에 들어온(수면 위 PlayerWaterAbove까지) 플레이어만 노리고, 물 밖으로 나가면 포기. 물고기 떼(생성 자리 속성 School)는 떼 목적지를 같이 쓰고 자기 자리만큼 비켜 헤엄. 물고기는 몸을 좌우로 살랑(WiggleAngle), 낙지·해파리는 위아래로 둥실(PulseBob), 오르내릴 땐 머리를 기울임(MaxPitch)
+  - 전투: 기존 흐름 그대로 (CombatService onAttack → MobService.damage, 주인·장비 벽·보스·전리품·줍기 연출). 물 속 몹은 위아래 거리도 본다(물가에서 깊은 바닥 물고기는 칼로 못 침, 클라 조준도 같은 기준). 몹 공격은 hurtPlayer 하나로 (피버 무적·방어구·구르기/방패)
+  - 연출: 리모트 MobSpecial(mob, "Ink"|"Puff", userId, position, data) → 클라 CombatController가 먹물 구름(검은 입자) + 맞은 사람 화면이 Blind초 어두워짐 "앗, 먹물!" / 복어 "뿅" + 조각. 비명 Config.MobDeathSounds, 수치 Config.SeaEffects
+  - 생성 자리(제작 스크립트 BuildWeaponsAndMobs 5번): 마을 둘레 Config.SeaSpawn.ScanRadius를 ScanStep 격자로 아래로 광선 → 지형 물 칸(깊이 MinDepth 이상, 안전지대·광산 밖)을 모으고, Config.SeaZones 구역(얕은 바다 = 물고기 떼 4 + 복어 3 + 황금 물고기 1 / 낙지 바위 = 낙지 4 + 해파리 3 / 깊은 바다 = 상어 3 + 낙지 1, 모두 약 31마리)마다 깊이가 맞고 물 칸이 많고 마을 거리 범위에 가까운 가운데를 고른다. 속성 MobType·Zone·Habitat·SwimDepth(그 자리 물 깊이)·School·BossSpot. 물을 못 찾으면 Output 경고
+  - 전리품·음식: 생선(먹으면 체력 20)·복어 가시·황금 비늘(60G)·낙지 다리(먹으면 체력 35·마나 10, 재료)·먹물 주머니·해파리 젤리·상어 이빨·상어 가죽 (ItemDefs, Config.Foods·SellPrices, 아이콘은 BuildWeaponsAndMobs). 조합식: 다이아몬드 갑옷에 상어 가죽 3(케르베로스 털가죽 10 → 8), 미스릴 검에 상어 이빨 4(케르베로스 송곳니 4 → 2)
+  - 지도: 바다 구역도 손그림 얼굴 (MinimapController FACES Fish·GoldenFish·Pufferfish·Octopus·Jellyfish·Shark, 주인 몹은 Config.SeaZones MobType)
+  - TODO: 물 속 활 화살 느리게, 낙지 다리 꿈틀(클라 애니메이션), 전용 소리
 - [ ] 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)
