@@ -493,6 +493,56 @@ local function playFall(entry: PendingFall)
 	end)
 end
 
+-- 번개: 하늘에서 지그재그 빛줄기가 내려와 나무에 꽂힌다 (번쩍임 + 천둥 + 큰 흔들림)
+local function playLightning(target: Vector3, isMine: boolean)
+	local bolt = Config.HitFeel.Lightning
+	local parts: { BasePart } = {}
+	local previous = target + Vector3.new(random:NextNumber(-4, 4), bolt.Height, random:NextNumber(-4, 4))
+	for i = 1, bolt.Segments do
+		local t = i / bolt.Segments
+		local point = if i == bolt.Segments
+			then target
+			else previous:Lerp(target, 1 / (bolt.Segments - i + 1)) + Vector3.new(random:NextNumber(-1, 1), 0, random:NextNumber(-1, 1)) * bolt.Jitter * (1 - t)
+		local length = (point - previous).Magnitude
+		local segment = Instance.new("Part")
+		segment.Material = Enum.Material.Neon
+		segment.Color = bolt.Color
+		segment.Anchored = true
+		segment.CanCollide = false
+		segment.CanQuery = false
+		segment.CanTouch = false
+		segment.CastShadow = false
+		segment.Size = Vector3.new(0.35, 0.35, length)
+		segment.CFrame = CFrame.lookAt((previous + point) / 2, point)
+		segment.Parent = effectsFolder
+		table.insert(parts, segment)
+		previous = point
+	end
+	-- 번쩍이는 빛
+	local flashAttachment = Instance.new("Attachment")
+	flashAttachment.WorldPosition = target + Vector3.new(0, 4, 0)
+	flashAttachment.Parent = Workspace.Terrain
+	local light = Instance.new("PointLight")
+	light.Color = bolt.Color
+	light.Range = 40
+	light.Brightness = bolt.FlashBrightness
+	light.Parent = flashAttachment
+	HitFeelController.emitDebris(target, bolt.Color, 30, 2)
+	HitFeelController.playSound(Config.Sounds.FeverBurst, target, bolt.ThunderPitch, bolt.ThunderVolume)
+	HitFeelController.cameraShake(Config.HitFeel.CameraShake.Magnitude * bolt.Shake * (if isMine then 1 else 0.5), Config.HitFeel.CameraShake.Duration * 3)
+	-- 깜빡이다 사라진다
+	for _, segment in parts do
+		TweenService:Create(segment, TweenInfo.new(bolt.Duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1, Size = segment.Size * Vector3.new(0.3, 0.3, 1) }):Play()
+	end
+	TweenService:Create(light, TweenInfo.new(bolt.Duration * 1.5), { Brightness = 0 }):Play()
+	task.delay(bolt.Duration * 1.6, function()
+		for _, segment in parts do
+			segment:Destroy()
+		end
+		flashAttachment:Destroy()
+	end)
+end
+
 -- 서버의 HitEffect: 근처 누군가가 바위를 쳤다
 local function onHitEffect(
 	rock: Model?,
@@ -501,9 +551,13 @@ local function onHitEffect(
 	attackerUserId: number,
 	_hitTime: number,
 	_ghostDuration: number,
-	pickaxeTier: number?
+	pickaxeTier: number?,
+	special: string?
 )
 	local isMine = attackerUserId == localPlayer.UserId
+	if special == "Lightning" then
+		playLightning(hitPosition, isMine)
+	end
 	local def = if rock then TargetController.getDef(rock) else nil
 	local isTree = def ~= nil and def.Kind == "Tree"
 	local color = if def then def.Color else DEFAULT_COLOR

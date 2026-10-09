@@ -268,6 +268,8 @@ src/
   - 도끼: 돌 도끼는 시작 지급, 나머지는 대장장이 "도끼" 탭에서 구매(곡괭이와 따로 단계를 밟는다). 플레이어 속성 AxeTier
   - 곡괭이·도끼 가격에 손잡이용 통나무가 들어간다 (Config.Pickaxes)
   - 도끼 모양(2026-10-09 사용자 참고 이미지): 돌 = 한날 손도끼(빨간 끈 손잡이) / 구리 = 바이킹 수염 도끼(새김 무늬) / 철 = 계단식 날개 대형 양날 도끼(마름모 장식) / 다이아 = 양날 전투도끼(창끝·금 장식, 빛). 철·다이아 모양은 사용자 요청으로 서로 바꿈. 곡괭이 Tool의 쥐는 각도를 그대로 쓰고 곡괭이 모양은 숨긴 뒤 부품(쐐기 삼각형)으로 짓는다. 한날 방향이 뒤면 AXE_EDGE_SIGN = -1
+  - 다이아몬드 도끼: 나무를 칠 때 Config.Pickaxes.DiamondAxe.LightningChance(20%)로 번개 → 남은 HP를 한 번에 (서버 MiningService, HitEffect 10번째 인자 "Lightning", 연출 Config.HitFeel.Lightning)
+  - 크기: 철 도끼는 10% 줄임, 다이아 곡괭이는 제작 스크립트가 실행 때 1.1배로 키움(PICKAXE_SCALES, 속성 ScaledBy)
   - 도끼 타격 연출은 Config.HitFeel.AxeTierEffects (티어마다 충격파·나뭇조각·불꽃·베는 빛줄기·잎 배수)
   - 나무 모양은 맵에 원래 있던 나무(이름에 "Tree")를 본떠 종류별로 색만 바꾸고, 맵 나무 자리에 캘 수 있는 나무가 선다 (2026-10-09 사용자 결정: 직접 만든 나무보다 맵 나무가 그럴싸함)
   - 나무 모델 기준점(Pivot)은 줄기 밑동 가운데, PrimaryPart 없음(있으면 기준점이 부품 방향을 따라가 눕는다). 줄기 반지름 = 템플릿 속성 HitRadius(없으면 OreDefs.HitRadius), 타격 높이 = HitHeight

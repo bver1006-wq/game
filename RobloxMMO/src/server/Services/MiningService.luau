@@ -153,6 +153,13 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 
 	-- 데미지: 기본 데미지 × 곡괭이 Power × 판정 배수 (Perfect 2배, Nice 1.5배)
 	local damage = Config.Mining.BaseDamage * PickaxeService.getPower(pickaxe) * Config.Judgment.DamageMultiplier[judgment]
+	-- 번개 (다이아몬드 도끼 등 LightningChance가 있는 도구로 나무를 칠 때): 남은 HP를 한 번에 깎는다
+	local toolConfig = Config.Pickaxes[pickaxe.Id]
+	local special: string? = nil
+	if oreDef.Kind == "Tree" and toolConfig and toolConfig.LightningChance and random:NextNumber() < toolConfig.LightningChance then
+		special = "Lightning"
+		damage = math.max(damage, state.Hp)
+	end
 	local depleted = OreService.applyDamage(rock, player, damage)
 
 	-- 타격 위치: 바위는 중심에서 캐릭터 쪽 표면 근처, 나무는 밑동(기준점) 위 HitHeight 높이의 줄기 표면
@@ -170,7 +177,7 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 		hitPosition = state.Position + direction * (math.max(size.X, size.Z) * 0.45) + Vector3.new(0, size.Y * 0.1, 0)
 	end
 
-	fireNearby(hitEffectRemote, state.Position, rock, judgment, hitPosition, player.UserId, swingTime, ghostDuration, pickaxe.Tier)
+	fireNearby(hitEffectRemote, state.Position, rock, judgment, hitPosition, player.UserId, swingTime, ghostDuration, pickaxe.Tier, special)
 
 	if depleted then
 		if FeverService.roll() then
