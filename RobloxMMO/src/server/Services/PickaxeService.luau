@@ -14,6 +14,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
 local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 
+local DataService = require(script.Parent.DataService)
 local InventoryService = require(script.Parent.InventoryService)
 
 local STARTER_TOOLS = { "StonePickaxe", "StoneAxe", "WoodenSword" }
@@ -68,17 +69,8 @@ local function updateTier(player: Player)
 	end
 end
 
--- 도구를 지급한다 (가방 칸이 있어야 한다). 성공하면 true
--- StarterGear에 넣어 두면 리스폰 때 자동으로 다시 들어온다
-function PickaxeService.give(player: Player, pickaxeId: string): boolean
-	local def = PickaxeDefs[pickaxeId]
-	if not def or InventoryService.count(player, pickaxeId) > 0 then
-		return false
-	end
-	if InventoryService.add(player, pickaxeId, 1) < 1 then
-		return false
-	end
-
+-- 가방에 있는 도구의 실제 Tool을 StarterGear(리스폰용)와 지금 가방(Backpack)에 넣는다
+local function placeTool(player: Player, def: PickaxeDefs.PickaxeDef)
 	local starterGear = player:WaitForChild("StarterGear")
 	local gearTool = makeTool(def)
 	if gearTool then
@@ -92,6 +84,19 @@ function PickaxeService.give(player: Player, pickaxeId: string): boolean
 			bagTool.Parent = backpack
 		end
 	end
+end
+
+-- 도구를 지급한다 (가방 칸이 있어야 한다). 성공하면 true
+-- StarterGear에 넣어 두면 리스폰 때 자동으로 다시 들어온다
+function PickaxeService.give(player: Player, pickaxeId: string): boolean
+	local def = PickaxeDefs[pickaxeId]
+	if not def or InventoryService.count(player, pickaxeId) > 0 then
+		return false
+	end
+	if InventoryService.add(player, pickaxeId, 1) < 1 then
+		return false
+	end
+	placeTool(player, def)
 	updateTier(player)
 	return true
 end
@@ -164,22 +169,33 @@ end
 -- 서버 시작 시 한 번 호출. 들어오는 플레이어에게 시작 곡괭이·도끼를 준다
 function PickaxeService.init()
 	local function onPlayerAdded(player: Player)
+		-- 저장된 가방을 먼저 불러온다. 저장된 도구는 실제 Tool로 다시 만든다
+		if not InventoryService.waitLoaded(player) then
+			return
+		end
+		for id, def in PickaxeDefs do
+			if InventoryService.count(player, id) > 0 then
+				placeTool(player, def)
+			end
+		end
 		local giveAll = RunService:IsStudio() and Config.Debug.GiveAllPickaxes
 		for _, id in if giveAll then ALL_TOOLS else STARTER_TOOLS do
 			PickaxeService.give(player, id)
 		end
+		-- 아래 테스트 지급(Studio에서만)은 처음 들어왔을 때만 (저장된 게 계속 불어나지 않게)
+		local firstTime = DataService.isNew(player)
 		-- 테스트용 귀환 주문서 (Studio에서만)
-		if RunService:IsStudio() and Config.Debug.GiveReturnScrolls > 0 then
+		if firstTime and RunService:IsStudio() and Config.Debug.GiveReturnScrolls > 0 then
 			InventoryService.add(player, "ReturnScroll", Config.Debug.GiveReturnScrolls)
 		end
 		-- 테스트용 장비 전부 (Studio에서만)
-		if RunService:IsStudio() and Config.Debug.GiveAllEquipment then
+		if firstTime and RunService:IsStudio() and Config.Debug.GiveAllEquipment then
 			for _, equipmentId in EquipmentDefs.Order do
 				InventoryService.add(player, equipmentId, 1)
 			end
 		end
 		-- 테스트용 음식 (Studio에서만)
-		if RunService:IsStudio() and Config.Debug.GiveFoods > 0 then
+		if firstTime and RunService:IsStudio() and Config.Debug.GiveFoods > 0 then
 			for foodId in Config.Foods do
 				InventoryService.add(player, foodId, Config.Debug.GiveFoods)
 			end

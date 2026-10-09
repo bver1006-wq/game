@@ -207,7 +207,7 @@ function HitFeelController.spawnPickups(position: Vector3, color: Color3, count:
 	local chunks = {}
 	for _ = 1, count do
 		local chunk = Instance.new("Part")
-		local size = random:NextNumber(0.35, 0.55)
+		local size = random:NextNumber(Config.HitFeel.PickupSizeMin, Config.HitFeel.PickupSizeMax)
 		chunk.Size = Vector3.new(size, size, size)
 		if shape == "Log" then
 			chunk.Shape = Enum.PartType.Cylinder

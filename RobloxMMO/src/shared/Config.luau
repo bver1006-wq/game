@@ -156,6 +156,24 @@ Config.Equipment = {
 	},
 }
 
+-- 장비 겉모습 (GearVisualService): 끼운 장비가 캐릭터 몸에 보인다. 크기는 전부 몸 부위 크기에 대한 배율
+Config.GearVisual = {
+	Padding = 1.1, -- 손·발·몸통을 덮는 조각은 부위보다 이 배율만큼 크게
+	HelmetScale = 1.18, -- 투구 둥근 껍데기 지름 = 머리 크기 × 이 값
+	ArmorDepth = 1.25, -- 갑옷 몸통 덮개의 앞뒤 두께 = 몸통 두께 × 이 값
+	PlateThickness = 0.12, -- 가슴판 두께 (몸통 두께 대비)
+	PauldronScale = { 1.45, 1.75 }, -- 어깨 보호대 지름 (팔 굵기 대비): 3단계, 4단계
+	CuffScale = 1.3, -- 장갑·장화 목 둘레 지름 (팔다리 굵기 대비)
+	BraceletScale = 1.45, -- 팔찌 지름 (팔 굵기 대비). 장갑 목보다 커야 바깥에 보인다
+	NecklaceGap = 0.05, -- 목걸이를 갑옷(또는 가슴) 앞으로 띄우는 거리 (몸통 두께 대비)
+	GemSize = 0.12, -- 보석 크기 (부위 너비 대비)
+	GemColor = Color3.fromRGB(120, 240, 255), -- 다이아몬드 장비의 빛나는 보석 색
+	GlowBrightness = 0.6, -- 다이아몬드 투구·갑옷 보석의 은은한 빛 밝기
+	GlowRange = 5, -- 그 빛이 닿는 거리(스터드)
+	DiamondSparkles = false, -- true면 다이아몬드 갑옷에 반짝이 효과도 붙인다
+	HideHairWithHelmet = true, -- 투구를 쓰면 머리카락·모자 액세서리를 숨긴다 (벗으면 되돌림)
+}
+
 -- 차징: 모든 도구·무기는 누르고 있으면 모았다가 놓을 때 휘두른다
 -- 활: 짧게 누르면 사거리·데미지가 줄고(BowTap*), 다 모으면 원래 사거리·데미지. 게이지가 보인다
 -- 나머지(곡괭이·도끼·칼·방망이): 휘두르기 직전 자세로 멈추고 도구에 빛이 점점 커진다. 다 모으면 마나를 써서 강타(Multiplier배)
@@ -264,6 +282,18 @@ Config.Inventory = {
 }
 
 -- 테스트용 설정 (Studio에서만 적용)
+-- 저장 (DataService, 2026-10-09)
+Config.Save = {
+	StoreName = "PlayerData_v1", -- 실제 게임 저장소 이름
+	StudioStoreName = "PlayerData_Studio_v1", -- Studio 테스트 저장소 (테스트 지급이 실제 저장에 섞이지 않게)
+	AutoSaveInterval = 60, -- 자동 저장 간격(초)
+	Retries = 3, -- 실패하면 다시 시도하는 횟수
+	LockTimeout = 90, -- 다른 서버의 잠금이 이 초보다 오래됐으면 버려진 것으로 본다
+	LockWaitTries = 4, -- 잠겨 있으면 몇 번 기다렸다 다시 시도하는지
+	LockWaitSeconds = 3, -- 기다리는 간격(초)
+	CleanupDelay = 5, -- 나간 뒤 가방·장비 정보를 지우기 전 기다리는 시간(초). 저장이 먼저 모아 가도록
+}
+
 Config.Debug = {
 	GiveAllPickaxes = true, -- true면 들어올 때 곡괭이·도끼를 전부 지급 (테스트용, 2026-10-09 사용자 요청으로 켬)
 	GiveReturnScrolls = 5, -- 들어오면 귀환 주문서를 이만큼 지급. 테스트 끝나면 0
@@ -437,6 +467,8 @@ Config.HitFeel = {
 	OreChunkMax = 20, -- 깨질 때 튀어나오는 조각 최대 개수 (보상이 더 많아도 이 이상은 안 그림)
 	-- 줍기 연출: 조각이 땅에 떨어져 있다가 가까이 가면(또는 잠시 뒤 저절로) 빨려 와서 "획득" 알림이 뜬다
 	-- (보상은 서버가 이미 가방에 넣었다. 잃어버리지 않게 PickupAutoTime이 지나면 저절로 빨려 온다)
+	PickupSizeMin = 0.8, -- 떨어지는 조각 크기(스터드). 2026-10-09 너무 작아 안 보여서 0.35~0.55 → 키움
+	PickupSizeMax = 1.1,
 	PickupMagnetRange = 10, -- 이 거리 안에 들어오면 빨려 온다(스터드)
 	PickupAutoTime = 3, -- 이만큼 지나면 멀리 있어도 빨려 온다(초)
 	PickupLandTime = 0.6, -- 튀어나와 땅에 떨어지는 동안은 안 빨려 온다(초)
