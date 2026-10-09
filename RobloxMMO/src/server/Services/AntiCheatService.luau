@@ -31,13 +31,13 @@ function AntiCheatService.tryConsumeSwing(player: Player): boolean
 end
 
 -- 캐릭터가 바위에 휘두를 수 있는 거리 안에 있는지 확인한다
-function AntiCheatService.isInRange(player: Player, rockPosition: Vector3): boolean
+function AntiCheatService.isInRange(player: Player, rockPosition: Vector3, extraReach: number?): boolean
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if not root or not root:IsA("BasePart") then
 		return false
 	end
-	return (root.Position - rockPosition).Magnitude <= Config.Mining.MaxSwingDistance
+	return (root.Position - rockPosition).Magnitude <= Config.Mining.MaxSwingDistance + (extraReach or 0)
 end
 
 return AntiCheatService

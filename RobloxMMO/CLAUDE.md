@@ -333,6 +333,9 @@ src/
   - 빠른 칸: 클라가 SaveHotbar로 보냄 → 들어올 때 플레이어 속성 SavedHotbar(쉼표로 이은 Id)
   - Studio는 StudioStoreName 저장소를 쓰고, 테스트 지급(Config.Debug의 주문서·음식·장비)은 처음 들어올 때만. Studio 저장은 게임 게시 + Game Settings → Security → Enable Studio Access to API Services 필요
 - [x] 줍는 조각 크기 키움 (Config.HitFeel.PickupSizeMin·Max, 2026-10-09)
+- [x] 보스 바위·나무 (2026-10-09): 생길 때 Config.BossNodes.Chance로 1.5~3배 크기(Model:ScaleTo), 체력 크기^2배, 산출량 크기^1.5배. 속성 Boss·ExtraReach(커진 만큼 더 멀리서 침, 서버 AntiCheat 거리에도 더함). 체력바 이름 "👑 보스 ~" 금색. 나무는 HitRadius도 같이 커짐
+- [x] 광산 광석: MineScale(1.4)배로 키우고, 옆으로 광선을 쏴 벽 속에 묻힌 만큼 밀어낸 뒤 다시 땅에 맞춘다 (OreService.pushOutOfWalls)
+- [x] 배경음악 (MusicController, Config.Music): 밖에서 잔잔한 곡을 차례로, 광산에선 줄임. 곡 Id는 팬 사이트에서 찾은 값이라 안 나오면 Creator Store 곡으로 교체
 - [ ] 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)

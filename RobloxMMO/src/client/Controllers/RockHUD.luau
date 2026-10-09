@@ -131,7 +131,10 @@ local function updateHpBar()
 			else
 				hpBillboard.StudsOffsetWorldSpace = Vector3.new(0, rockTopOffset(rock) + 0.9, 0)
 			end
-			hpLabel.Text = if def then def.DisplayName else ""
+			local name = if def then def.DisplayName else ""
+			local isBoss = rock:GetAttribute("Boss") == true
+			hpLabel.Text = if isBoss then `👑 보스 {name}` else name
+			hpLabel.TextColor3 = if isBoss then Color3.fromRGB(255, 210, 80) else Color3.new(1, 1, 1)
 		end
 	end
 	hpBillboard.Enabled = rock ~= nil

@@ -35,7 +35,9 @@ function TargetController.getNearestRock(range: number): Model?
 		if instance:IsA("Model") and instance:IsDescendantOf(Workspace) then
 			local hp = instance:GetAttribute("Hp")
 			if typeof(hp) == "number" and hp > 0 and not TargetController.isOthers(instance) then
-				local distance = (instance:GetPivot().Position - root.Position).Magnitude
+				-- 보스처럼 커진 노드는 커진 만큼(ExtraReach) 더 멀리서도 잡힌다
+				local extra = instance:GetAttribute("ExtraReach")
+				local distance = (instance:GetPivot().Position - root.Position).Magnitude - (if typeof(extra) == "number" then extra else 0)
 				if distance <= bestDistance then
 					best = instance
 					bestDistance = distance
