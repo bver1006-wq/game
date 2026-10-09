@@ -75,6 +75,22 @@ Config.Ores = {
 	Ebony = { MaxHp = 45, RespawnTime = 90 },
 }
 
+-- 자연 회복: 바위·나무·몹은 한동안 안 맞으면 최대 체력의 일정 비율씩 천천히 찬다 (2026-10-09)
+Config.Regen = {
+	Delay = 6, -- 마지막으로 맞은 뒤 이만큼 지나야 차기 시작(초)
+	NodePercentPerSecond = 0.04, -- 바위·나무: 1초에 최대 체력의 4% (다 차는 데 약 25초)
+	MobPercentPerSecond = 0.05, -- 몹: 1초에 5% (쫓는 중에는 안 참)
+}
+
+-- 장비 벽: 도구·무기 단계가 모자라면 때릴 수는 있어도 체력이 안 닳는다 ("더 좋은 장비가 필요해")
+-- 바위·나무: 도구 단계 < 필요 단계면 데미지 0
+-- 몹: 무기 단계가 몹 단계보다 BlockGap 이상 낮으면 0, 1단계 낮으면 OneTierLowMultiplier배
+Config.TierWall = {
+	BlockGap = 2,
+	OneTierLowMultiplier = 0.4,
+	NoticeInterval = 4, -- "더 좋은 장비가 필요해요" 알림 간격(초)
+}
+
 -- 희귀 나무: 후보 자리(스폰 파트 속성 RandomPool) 중 Active개만 동시에 서 있고, 베면 다른 빈 자리에 다시 생긴다
 Config.RandomPools = {
 	Ebony = { Active = 2 },
@@ -436,12 +452,12 @@ Config.HitFeel = {
 		FadeTime = 0.5, -- 쓰러진 뒤 사라지는 시간(초)
 		GhostRingHeight = 1.6, -- 타이밍 잔상 고리 높이(스터드). 나무는 줄기 둘레에 고리가 줄어든다
 	},
-	-- 도끼(나무) 타격 연출. 곡괭이 표와 같은 항목 + Sparks: 튀는 불꽃 수, Slash: 베는 빛줄기, Leaves: 떨어지는 잎 배수
+	-- 도끼(나무) 타격 연출 (나무는 돌 조각 대신 잎이 흩날리므로 Chunks = 0). 곡괭이 표와 같은 항목 + Sparks: 튀는 불꽃 수, Slash: 베는 빛줄기, Leaves: 떨어지는 잎 배수
 	AxeTierEffects = {
-		[1] = { Color = Color3.fromRGB(200, 170, 120), Chunks = 2, Ring = 2.5, Shake = 1.05, Sparkle = false, Sparks = 0, Slash = false, Leaves = 1 },
-		[2] = { Color = Color3.fromRGB(255, 150, 70), Chunks = 5, Ring = 4, Shake = 1.3, Sparkle = false, Sparks = 12, Slash = false, Leaves = 1.6 },
-		[3] = { Color = Color3.fromRGB(230, 235, 255), Chunks = 8, Ring = 5.5, Shake = 1.55, Sparkle = false, Sparks = 18, Slash = true, Leaves = 2.2 },
-		[4] = { Color = Color3.fromRGB(110, 235, 255), Chunks = 12, Ring = 8, Shake = 1.9, Sparkle = true, Sparks = 26, Slash = true, Leaves = 3 },
+		[1] = { Color = Color3.fromRGB(200, 170, 120), Chunks = 0, Ring = 2.5, Shake = 1.05, Sparkle = false, Sparks = 0, Slash = false, Leaves = 1 },
+		[2] = { Color = Color3.fromRGB(255, 150, 70), Chunks = 0, Ring = 4, Shake = 1.3, Sparkle = false, Sparks = 12, Slash = false, Leaves = 1.6 },
+		[3] = { Color = Color3.fromRGB(230, 235, 255), Chunks = 0, Ring = 5.5, Shake = 1.55, Sparkle = false, Sparks = 18, Slash = true, Leaves = 2.2 },
+		[4] = { Color = Color3.fromRGB(110, 235, 255), Chunks = 0, Ring = 8, Shake = 1.9, Sparkle = true, Sparks = 26, Slash = true, Leaves = 3 },
 	},
 	TierEffects = {
 		[2] = { Color = Color3.fromRGB(235, 140, 70), Chunks = 3, Ring = 3.5, Shake = 1.2, Sparkle = false },

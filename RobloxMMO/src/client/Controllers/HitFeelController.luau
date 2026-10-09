@@ -41,7 +41,7 @@ local shakeEndTime = 0
 local shakeDuration = 1
 
 -- 마지막 일격을 맞은 나무의 복제본. RockBroken이 오면 이걸 쓰러뜨린다 (서버는 원본을 바로 지운다)
-type PendingFall = { Model: Model, Position: Vector3, Direction: Vector3 }
+type PendingFall = { Model: Model, Position: Vector3, Direction: Vector3, LeafColor: Color3 }
 local pendingFalls: { PendingFall } = {}
 
 -- 광석 종류의 색
@@ -190,7 +190,7 @@ local function applyCameraShake()
 end
 
 -- 깨진 바위에서 광석 조각이 튀어나왔다가 캐릭터에게 빨려온다
-local function spawnOreChunks(position: Vector3, color: Color3, amount: number, material: Enum.Material)
+local function spawnOreChunks(position: Vector3, color: Color3, amount: number, material: Enum.Material, isLog: boolean?)
 	local count = math.min(amount, Config.HitFeel.OreChunkMax)
 	local character = localPlayer.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -202,6 +202,12 @@ local function spawnOreChunks(position: Vector3, color: Color3, amount: number, 
 		local chunk = Instance.new("Part")
 		local size = random:NextNumber(0.3, 0.5)
 		chunk.Size = Vector3.new(size, size, size)
+		if isLog then
+			-- 나무는 작은 통나무 모양
+			chunk.Shape = Enum.PartType.Cylinder
+			chunk.Size = Vector3.new(size * 2, size, size)
+		end
+		local originalSize = chunk.Size
 		chunk.Color = color
 		chunk.Material = material
 		chunk.CanCollide = true
@@ -231,7 +237,7 @@ local function spawnOreChunks(position: Vector3, color: Color3, amount: number, 
 				local target = if root.Parent then root.Position else from
 				local eased = t * t -- 갈수록 빨라지게
 				chunk.Position = from:Lerp(target, eased)
-				chunk.Size = Vector3.new(size, size, size) * (1 - t * 0.6)
+				chunk.Size = originalSize * (1 - t * 0.6)
 				if t >= 1 then
 					connection:Disconnect()
 					chunk:Destroy()
@@ -380,33 +386,111 @@ local function tierImpact(rock: Model?, hitPosition: Vector3, color: Color3, tie
 end
 
 -- 나무 위쪽(잎 부분)에서 잎이 팔랑팔랑 떨어진다
+-- 나뭇잎 흩날리기: 얇은 잎 조각이 팔랑팔랑 흔들리며 천천히 떨어지다 사라진다 (이 클라이언트에만)
+local function leafBurst(origin: Vector3, color: Color3, count: number, spread: number)
+	local leaves = {}
+	for _ = 1, count do
+		local leaf = Instance.new("Part")
+		local scale = random:NextNumber(0.8, 1.3)
+		leaf.Size = Vector3.new(0.38 * scale, 0.05, 0.26 * scale)
+		leaf.Color = color:Lerp(Color3.fromRGB(255, 250, 170), random:NextNumber(0, 0.2))
+		leaf.Material = Enum.Material.SmoothPlastic
+		leaf.Anchored = true
+		leaf.CanCollide = false
+		leaf.CanQuery = false
+		leaf.CanTouch = false
+		leaf.CastShadow = false
+		leaf.Parent = effectsFolder
+		local start = origin + Vector3.new(random:NextNumber(-1, 1), random:NextNumber(-0.5, 1), random:NextNumber(-1, 1)) * spread
+		table.insert(leaves, {
+			Part = leaf,
+			Start = start,
+			Drift = Vector3.new(random:NextNumber(-1, 1), 0, random:NextNumber(-1, 1)) * random:NextNumber(0.5, 2),
+			Fall = random:NextNumber(1.5, 2.6), -- 1초에 떨어지는 거리
+			Phase = random:NextNumber(0, math.pi * 2),
+			Spin = Vector3.new(random:NextNumber(-3, 3), random:NextNumber(-3, 3), random:NextNumber(-3, 3)),
+			Life = random:NextNumber(1.6, 2.6),
+		})
+	end
+	local started = os.clock()
+	local connection: RBXScriptConnection
+	connection = RunService.RenderStepped:Connect(function()
+		local t = os.clock() - started
+		local alive = false
+		for _, entry in leaves do
+			local life = t / entry.Life
+			if life >= 1 then
+				if entry.Part.Parent then
+					entry.Part:Destroy()
+				end
+			else
+				alive = true
+				-- 좌우로 흔들리며(sin) 천천히 내려온다
+				local sway = Vector3.new(math.sin(t * 3 + entry.Phase), 0, math.cos(t * 2.4 + entry.Phase)) * 0.6
+				local position = entry.Start + entry.Drift * t + sway - Vector3.new(0, entry.Fall * t, 0)
+				entry.Part.CFrame = CFrame.new(position) * CFrame.Angles(entry.Spin.X * t, entry.Spin.Y * t, entry.Spin.Z * t + math.sin(t * 4 + entry.Phase) * 0.6)
+				entry.Part.Transparency = if life > 0.7 then (life - 0.7) / 0.3 else 0
+			end
+		end
+		if not alive then
+			connection:Disconnect()
+		end
+	end)
+end
+
+-- 나무 위쪽(잎 부분)에서 잎이 떨어진다
 local function dropLeaves(rock: Model?, position: Vector3, color: Color3, count: number)
 	local height = if rock and rock.Parent then rock:GetExtentsSize().Y else 8
+	leafBurst(position + Vector3.new(0, height * 0.65, 0), color, count, 2.5)
+end
+
+-- 짧게 떠올랐다 사라지는 글자 ("단단해!")
+local function popText(position: Vector3, text: string, color: Color3)
 	local attachment = Instance.new("Attachment")
-	attachment.WorldPosition = position + Vector3.new(0, height * 0.6, 0)
+	attachment.WorldPosition = position
 	attachment.Parent = Workspace.Terrain
-	local emitter = Instance.new("ParticleEmitter")
-	emitter.Texture = LEAF_TEXTURE
-	emitter.Color = ColorSequence.new(color)
-	emitter.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.35),
-		NumberSequenceKeypoint.new(0.8, 0.3),
-		NumberSequenceKeypoint.new(1, 0),
-	})
-	emitter.Lifetime = NumberRange.new(1.4, 2.2)
-	emitter.Speed = NumberRange.new(1, 3)
-	emitter.SpreadAngle = Vector2.new(180, 180)
-	emitter.Acceleration = Vector3.new(0, -3, 0) -- 천천히 떨어진다
-	emitter.Drag = 1.5
-	emitter.Rotation = NumberRange.new(0, 360)
-	emitter.RotSpeed = NumberRange.new(-120, 120)
-	emitter.LightInfluence = 1
-	emitter.Rate = 0
-	emitter.Parent = attachment
-	emitter:Emit(count)
-	task.delay(2.5, function()
-		attachment:Destroy()
+	local billboard = Instance.new("BillboardGui")
+	billboard.Size = UDim2.fromScale(4, 1.2)
+	billboard.AlwaysOnTop = true
+	billboard.LightInfluence = 0
+	billboard.StudsOffsetWorldSpace = Vector3.new(0, 1, 0)
+	billboard.Adornee = attachment
+	billboard.Parent = effectsFolder
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Font = Enum.Font.FredokaOne
+	label.Text = text
+	label.TextScaled = true
+	label.TextColor3 = color
+	label.Parent = billboard
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 2
+	stroke.Parent = label
+	TweenService:Create(billboard, TweenInfo.new(0.7, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { StudsOffsetWorldSpace = Vector3.new(0, 2.2, 0) }):Play()
+	task.delay(0.45, function()
+		TweenService:Create(label, TweenInfo.new(0.25), { TextTransparency = 1 }):Play()
+		TweenService:Create(stroke, TweenInfo.new(0.25), { Transparency = 1 }):Play()
 	end)
+	task.delay(0.75, function()
+		attachment:Destroy()
+		billboard:Destroy()
+	end)
+end
+HitFeelController.popText = popText
+
+-- 장비가 모자라 튕겨 나온 타격: 둔한 "텅" 소리, 작은 회색 불꽃, "단단해!" (체력은 그대로)
+local function blockedEffect(rock: Model?, hitPosition: Vector3, isMine: boolean)
+	HitFeelController.playSound(Config.Sounds.PickaxeClang, hitPosition, 0.55, 0.45)
+	HitFeelController.emitDebris(hitPosition, Color3.fromRGB(190, 190, 190), 4, 0.6)
+	if rock and rock.Parent then
+		HitFeelController.shakeRock(rock, 0.25)
+	end
+	popText(hitPosition, "단단해!", Color3.fromRGB(200, 200, 210))
+	if isMine then
+		HitFeelController.cameraShake(Config.HitFeel.CameraShake.Magnitude * 0.6, Config.HitFeel.CameraShake.Duration)
+		SwingAnimation.freeze(0.1) -- 손이 튕겨 나오는 느낌
+	end
 end
 
 -- 마지막 일격을 맞은 나무를 복제해 둔다. 원본은 서버가 곧 지우므로, 복제본을 쓰러뜨리는 데 쓴다
@@ -433,6 +517,10 @@ local function prepareFall(rock: Model, hitPosition: Vector3)
 		Model = model,
 		Position = pivot.Position,
 		Direction = if away.Magnitude > 0.01 then away.Unit else Vector3.xAxis,
+		LeafColor = (function()
+			local def = TargetController.getDef(rock)
+			return if def and def.LeafColor then def.LeafColor else DEFAULT_LEAF_COLOR
+		end)(),
 	}
 	table.insert(pendingFalls, entry)
 	-- 피버가 끝날 때까지 기다릴 수 있으니 넉넉히 두고, 그래도 안 쓰이면 버린다
@@ -479,7 +567,7 @@ local function playFall(entry: PendingFall)
 		if t >= 1 and not landed then
 			landed = true
 			-- 땅에 닿는 순간: 흙먼지 + 흔들림
-			HitFeelController.emitDebris(entry.Position + entry.Direction * 3, Color3.fromRGB(120, 100, 75), 20, 1.2)
+			leafBurst(entry.Position + entry.Direction * 4 + Vector3.new(0, 1.5, 0), entry.LeafColor, 18, 2.5)
 			HitFeelController.cameraShake(Config.HitFeel.CameraShake.Magnitude * 1.5, Config.HitFeel.CameraShake.Duration * 2)
 		end
 		local fade = math.clamp((elapsed - tree.FallTime) / tree.FadeTime, 0, 1)
@@ -574,6 +662,9 @@ local function onHitEffect(
 		playLightning(hitPosition, isMine)
 	elseif special == "Charged" then
 		HitFeelController.chargedImpact(rock, hitPosition, isMine)
+	elseif special == "Blocked" then
+		blockedEffect(rock, hitPosition, isMine)
+		return
 	end
 	local def = if rock then TargetController.getDef(rock) else nil
 	local isTree = def ~= nil and def.Kind == "Tree"
@@ -586,7 +677,12 @@ local function onHitEffect(
 		local shakeScale = if judgment == "Perfect" then 1.6 else 1
 		HitFeelController.shakeRock(rock, if isTree then shakeScale * treeFeel.ShakeScale else shakeScale)
 	end
-	HitFeelController.emitDebris(hitPosition, color, debrisCount, if judgment == "Perfect" then 1.3 else 1)
+	if isTree then
+		-- 나무는 돌가루 대신 맞은 자리에서 잎이 흩날린다
+		leafBurst(hitPosition, (def :: OreDefs.OreDef).LeafColor or DEFAULT_LEAF_COLOR, math.ceil(debrisCount / 3), 0.8)
+	else
+		HitFeelController.emitDebris(hitPosition, color, debrisCount, if judgment == "Perfect" then 1.3 else 1)
+	end
 
 	local pitch = random:NextNumber(Config.HitFeel.PitchRange.Min, Config.HitFeel.PitchRange.Max)
 	if isTree then
@@ -647,7 +743,9 @@ local function onRockBroken(position: Vector3, oreType: string, rewards: { [stri
 	local treeDef = if def and def.Kind == "Tree" then def else nil
 	-- 나무는 기준점이 밑동이라 줄기 타격 높이에서 터뜨린다
 	local burstPosition = if treeDef then position + Vector3.new(0, treeDef.HitHeight or 2.5, 0) else position
-	HitFeelController.emitDebris(burstPosition, color, Config.HitFeel.DebrisCount.Break, 1.6)
+	if not treeDef then
+		HitFeelController.emitDebris(burstPosition, color, Config.HitFeel.DebrisCount.Break, 1.6)
+	end
 	if treeDef then
 		HitFeelController.playSound(Config.Sounds.TreeBreak, position, random:NextNumber(0.95, 1.05), 0.9)
 		dropLeaves(nil, position, treeDef.LeafColor or DEFAULT_LEAF_COLOR, Config.HitFeel.Tree.BreakLeafCount)
@@ -666,7 +764,7 @@ local function onRockBroken(position: Vector3, oreType: string, rewards: { [stri
 	local amount = rewards[tostring(localPlayer.UserId)]
 	if amount and amount > 0 then
 		HitFeelController.cameraShake(Config.HitFeel.CameraShake.Magnitude * 2, Config.HitFeel.CameraShake.Duration * 2)
-		spawnOreChunks(burstPosition, color, amount, if treeDef then Enum.Material.Wood else Enum.Material.Slate)
+		spawnOreChunks(burstPosition, color, amount, if treeDef then Enum.Material.Wood else Enum.Material.Slate, treeDef ~= nil)
 		local def = OreDefs[oreType]
 		RockHUD.showReward(burstPosition, amount, if def then def.DisplayName else oreType, feverBonus)
 	end

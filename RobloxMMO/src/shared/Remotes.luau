@@ -13,7 +13,7 @@ local Remotes = {}
 -- 사용하는 모든 RemoteEvent 이름
 Remotes.Names = table.freeze({
 	SwingRequest = "SwingRequest", -- 클라 → 서버: (targetRock, clientTime, isTouch)
-	HitEffect = "HitEffect", -- 서버 → 클라: (rock, judgment, hitPosition, attackerUserId, hitTime, ghostDuration, pickaxeTier, special "Lightning"|"Charged"|nil)
+	HitEffect = "HitEffect", -- 서버 → 클라: (rock, judgment, hitPosition, attackerUserId, hitTime, ghostDuration, pickaxeTier, special "Lightning"|"Charged"|"Blocked"|nil)
 	RockBroken = "RockBroken", -- 서버 → 클라: (position, oreType, rewards {[userId 문자열]=개수}, feverBonus)
 	FeverStart = "FeverStart", -- 서버 → 피버 발동자: (rock, startTime)
 	FeverTap = "FeverTap", -- 클라 → 서버: 연타 1회
@@ -29,7 +29,7 @@ Remotes.Names = table.freeze({
 	EquipItem = "EquipItem", -- 클라 → 서버: (itemId) 장비 끼우기 (가방에서 더블클릭)
 	UnequipSlot = "UnequipSlot", -- 클라 → 서버: (slot) 장비 빼기
 	AttackRequest = "AttackRequest", -- 클라 → 서버: (targetMob) 무기로 몹 공격
-	CombatEffect = "CombatEffect", -- 서버 → 클라: (mob, damage, isCrit, weaponKind, tier, attackerUserId, fromPosition, hitPosition, charged)
+	CombatEffect = "CombatEffect", -- 서버 → 클라: (mob, damage, isCrit, weaponKind, tier, attackerUserId, fromPosition, hitPosition, charged, blocked)
 	MobAttack = "MobAttack", -- 서버 → 클라: (mob, targetUserId, damage) 몹이 플레이어를 때렸다
 	MobDied = "MobDied", -- 서버 → 클라: (position, mobType, killerUserId, gold, lootId, lootCount)
 })

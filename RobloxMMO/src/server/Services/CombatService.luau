@@ -19,6 +19,7 @@ local InventoryService = require(script.Parent.InventoryService)
 local FeverService = require(script.Parent.FeverService)
 local ManaService = require(script.Parent.ManaService)
 local MobService = require(script.Parent.MobService)
+local MobDefs = require(ReplicatedStorage.Shared.MobDefs)
 local NotifyService = require(script.Parent.NotifyService)
 local NpcService = require(script.Parent.NpcService)
 local PickaxeService = require(script.Parent.PickaxeService)
@@ -31,6 +32,7 @@ local CombatService = {}
 local random = Random.new()
 local effectRemote: RemoteEvent
 local lastAttack: { [Player]: number } = {}
+local lastWallNotice: { [Player]: number } = {}
 
 -- 위치 근처의 플레이어에게 이벤트를 보낸다
 local function fireNearby(position: Vector3, ...: any)
@@ -116,11 +118,30 @@ local function onAttack(player: Player, mobArg: unknown)
 	end
 	damage = math.max(math.round(damage), 1)
 
+	-- 장비 벽: 무기 단계가 몹보다 많이 낮으면 데미지가 안 들어가고, 1단계 낮으면 줄어든다
+	local mobDef = MobDefs[state.Type]
+	local gap = (if mobDef then mobDef.Tier else 1) - weapon.Tier
+	local blocked = gap >= Config.TierWall.BlockGap
+	if blocked then
+		damage = 0
+		isCrit = false
+		charged = false
+	elseif gap == 1 then
+		damage = math.max(math.round(damage * Config.TierWall.OneTierLowMultiplier), 1)
+	end
+
 	local direction = if flat.Magnitude > 0.01 then flat.Unit else Vector3.zAxis
 	local hitPosition = state.Position + Vector3.new(0, state.Height * 0.5, 0) - direction * state.Radius * 0.6
 	local fromPosition = root.Position + Vector3.new(0, 1, 0)
-	fireNearby(state.Position, mob, damage, isCrit, weapon.Kind, weapon.Tier, player.UserId, fromPosition, hitPosition, charged)
-	MobService.damage(mob, player, damage, direction, config.Knockback)
+	fireNearby(state.Position, mob, damage, isCrit, weapon.Kind, weapon.Tier, player.UserId, fromPosition, hitPosition, charged, blocked)
+	if blocked then
+		local wallNow = os.clock()
+		if wallNow - (lastWallNotice[player] or -math.huge) >= Config.TierWall.NoticeInterval then
+			lastWallNotice[player] = wallNow
+			NotifyService.send(player, `{mobDef.DisplayName}에게는 흠집도 안 나요! 더 좋은 무기가 필요해요.`, "bad")
+		end
+	end
+	MobService.damage(mob, player, damage, direction, if blocked then nil else config.Knockback)
 end
 
 -- 사냥꾼 상점: 장비 구매 (같은 장비는 하나만)
@@ -190,6 +211,7 @@ function CombatService.init()
 	Remotes.get(Remotes.Names.ShopAction).OnServerEvent:Connect(onShopAction)
 	Players.PlayerRemoving:Connect(function(player)
 		lastAttack[player] = nil
+		lastWallNotice[player] = nil
 	end)
 end
 

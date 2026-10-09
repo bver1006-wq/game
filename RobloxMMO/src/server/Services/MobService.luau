@@ -41,6 +41,7 @@ export type MobState = {
 	KnockbackUntil: number,
 	LungeUntil: number,
 	Phase: number, -- 걷기·통통 튀기 흔들림 위상
+	LastHit: number, -- 마지막으로 맞은 시각 (자연 회복용)
 	Dead: boolean,
 }
 
@@ -155,6 +156,7 @@ local function spawnMob(spawnPart: BasePart)
 		KnockbackUntil = 0,
 		LungeUntil = 0,
 		Phase = random:NextNumber(0, math.pi * 2),
+		LastHit = 0,
 		Dead = false,
 	}
 end
@@ -225,6 +227,12 @@ local function stepMob(state: MobState, dt: number, now: number)
 		end
 		goal = state.WanderTarget
 		speed *= 0.45
+	end
+
+	-- 자연 회복: 쫓는 대상이 없고 한동안 안 맞았으면 천천히 찬다
+	if not state.Target and state.Hp < state.MaxHp and now - state.LastHit >= Config.Regen.Delay then
+		state.Hp = math.min(state.MaxHp, state.Hp + state.MaxHp * Config.Regen.MobPercentPerSecond * dt)
+		state.Model:SetAttribute("Hp", math.floor(state.Hp * 10 + 0.5) / 10)
 	end
 
 	local moving = false
@@ -300,7 +308,12 @@ end
 -- knockback이 있으면 direction 쪽으로 밀려난다 (방망이)
 function MobService.damage(mob: Model, player: Player, amount: number, direction: Vector3, knockback: number?): boolean
 	local state = states[mob]
-	if not state or state.Dead or amount <= 0 then
+	if not state or state.Dead then
+		return false
+	end
+	state.Target = player -- 때린 사람을 쫓는다 (데미지가 안 들어가도 화는 난다)
+	state.LastHit = os.clock()
+	if amount <= 0 then
 		return false
 	end
 	state.Hp = math.max(state.Hp - amount, 0)
