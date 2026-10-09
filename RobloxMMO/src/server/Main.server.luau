@@ -1,6 +1,7 @@
 --!strict
 -- 서버 진입점. RemoteEvent를 만들고 서비스를 순서대로 초기화한다.
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
@@ -60,5 +61,14 @@ MobService.init()
 CombatService.init()
 MineService.init()
 ItemUseService.init()
+
+-- 모바일 이동: 왼쪽 아래 고정 조이스틱(방향 패드)으로 (2026-10-09)
+local function setTouchMovement(player: Player)
+	player.DevTouchMovementMode = Enum.DevTouchMovementMode.Thumbstick
+end
+Players.PlayerAdded:Connect(setTouchMovement)
+for _, player in Players:GetPlayers() do
+	setTouchMovement(player)
+end
 
 print("[Server] 초기화 완료")

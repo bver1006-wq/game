@@ -422,7 +422,18 @@ local function onMobDied(position: Vector3, mobType: string, killerUserId: numbe
 	local center = position + Vector3.new(0, 1.5, 0)
 	HitFeelController.emitDebris(center, if def then def.Color else Color3.new(1, 1, 1), 35, 1.5)
 	HitFeelController.emitDebris(center, Color3.new(1, 1, 1), 15, 0.8)
-	HitFeelController.playSound(Config.Sounds.MobDie, center, 0.7, 0.8)
+	HitFeelController.playSound(Config.Sounds.MobDie, center, 0.7, 0.5)
+	-- 몹마다 다른 비명 (슬라임 "뀍!", 스켈레톤 "으어억!", 케르베로스 "깨갱!" ...)
+	local cry = Config.MobDeathSounds[mobType]
+	if cry then
+		HitFeelController.playSound(cry.Id, center, cry.Pitch, cry.Volume)
+		if cry.Repeat then
+			-- 깨갱처럼 두 번 끊어 우는 소리
+			task.delay(cry.Repeat, function()
+				HitFeelController.playSound(cry.Id, center, cry.Pitch * 1.12, cry.Volume * 0.8)
+			end)
+		end
+	end
 	if killerUserId == localPlayer.UserId then
 		-- 골드 동전과 전리품이 땅에 떨어졌다가 빨려 들어오면 획득 알림
 		RockHUD.showReward(center, gold, "G", 0)

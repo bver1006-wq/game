@@ -351,6 +351,12 @@ src/
   - 모양: GearVisualService가 등에 비스듬히(Config.Quiver.Tilt) 가죽 화살통 + 금속 입구 테·띠·바느질 + 가슴을 가로지르는 어깨끈·버클. 화살(나무대 + 빨강/파랑·흰 깃)이 min(남은 수, 7)개 꽂혀 보이고 줄면 같이 줄어든다
   - 아이콘: Studio 아이콘 모델이 없으면 ItemIcon이 부품으로 화살통 아이콘을 짓는다. 장비 창 방패 칸에 "🏹남은 수"
   - Studio 테스트: Config.Debug.GiveQuivers(처음 들어올 때 종류마다 지급)
+- [x] 소리·화면 정리 (2026-10-09)
+  - 나무가 다 베이면 "뻐지지직"(나무 찍는 소리를 빠르게 겹침, Config.HitFeel.TreeCrack) + 쓰러지는 소리는 작게
+  - 몹 비명 Config.MobDeathSounds (슬라임 뀍 = splat 높게, 스켈레톤·좀비·사이클롭스 = uuhhh 낮게, 케르베로스 깨갱 = uuhhh 높게 두 번). TODO: 전용 소리
+  - 장비 벽 알림 창 삭제 (바위 "단단해!"·몹 "흠집도 안 나!" 문구만)
+  - 체력·마나 바는 오른쪽 맨 위(TOP 8), 그 아래 골드(y 60), 미니맵(y 110). Roblox 리더보드는 끔
+  - 모바일: 왼쪽 아래 고정 조이스틱(서버가 DevTouchMovementMode = Thumbstick), 오른쪽 아래 큰 공격 버튼(MobileControls, 누르고 있으면 모으기), 점프 버튼은 그 왼쪽 위로. 기본 ContextAction 공격 버튼은 안 만든다
 - [ ] 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)

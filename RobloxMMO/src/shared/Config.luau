@@ -88,7 +88,7 @@ Config.Regen = {
 Config.TierWall = {
 	BlockGap = 2,
 	OneTierLowMultiplier = 0.4,
-	NoticeInterval = 4, -- "더 좋은 장비가 필요해요" 알림 간격(초)
+	NoticeInterval = 4, -- (2026-10-09부터 안 씀: 알림 창 대신 "단단해!" 문구만)
 }
 
 -- 희귀 나무: 후보 자리(스폰 파트 속성 RandomPool) 중 Active개만 동시에 서 있고, 베면 다른 빈 자리에 다시 생긴다
@@ -525,6 +525,15 @@ Config.Fever = {
 
 -- 타격감 연출 수치 (클라이언트 전용)
 Config.HitFeel = {
+	-- 나무가 다 베일 때 "뻐지지직" (나무 찍는 소리를 빠르게 여러 번 겹친다, 2026-10-09)
+	TreeCrack = {
+		Count = 7, -- 겹치는 횟수
+		Interval = 0.05, -- 간격(초)
+		PitchMin = 1.25, -- 음높이 범위 (높을수록 잘게 갈라지는 소리)
+		PitchMax = 1.9,
+		Volume = 0.7,
+		BreakVolume = 0.35, -- 원래 쓰러지는 소리(쿵)는 작게 깔아 둔다
+	},
 	HitStop = { Normal = 0.05, Nice = 0.065, Perfect = 0.08 }, -- 히트스톱 길이(초)
 	CameraShake = { Magnitude = 0.15, Duration = 0.12, PerfectMultiplier = 1.8 },
 	PitchRange = { Min = 0.9, Max = 1.1 }, -- 타격음 PlaybackSpeed 랜덤 범위
@@ -580,6 +589,13 @@ Config.HitFeel = {
 	},
 }
 
+-- 모바일 조작 (MobileControls, 2026-10-09): 왼쪽 아래 이동 패드(기본 조이스틱), 오른쪽 아래 공격 버튼
+Config.MobileControls = {
+	AttackSize = 120, -- 공격 버튼 지름(픽셀)
+	Margin = 28, -- 화면 가장자리에서 떨어진 거리(픽셀)
+	Gap = 14, -- 공격 버튼과 점프 버튼 사이(픽셀)
+}
+
 -- 배경음악 (2026-10-09, MusicController). 밖에서 차례로 틀고 광산에서는 줄인다
 -- TODO: 곡 Id는 팬 사이트 목록에서 고른 잔잔한 곡(Spirit LoFi "Calm Waves"·"Easy Flow", APM "Ruins of Tomorrow"). 안 나오면 Creator Store에서 찾아 바꾸기
 Config.Music = {
@@ -592,6 +608,16 @@ Config.Music = {
 	MineVolume = 0, -- 광산 안 볼륨 (광산 배경음이 따로 있다)
 	FadeTime = 2, -- 볼륨이 바뀌는 시간(초)
 	GapBetweenTracks = 3, -- 곡 사이 쉬는 시간(초)
+}
+
+-- 몹이 죽을 때 비명 (2026-10-09). Id는 Roblox 기본 소리를 음높이로 바꿔 쓴다. TODO: Creator Store 전용 소리 찾으면 교체
+-- Repeat가 있으면 그 초 뒤에 한 번 더 (깨갱)
+Config.MobDeathSounds = {
+	Slime = { Id = "rbxasset://sounds/splat.wav", Pitch = 1.7, Volume = 0.9 }, -- 뀍!
+	Skeleton = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 0.75, Volume = 0.8 }, -- 으어억!
+	Zombie = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 0.55, Volume = 0.9 }, -- 우어어...
+	Cerberus = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 1.9, Volume = 0.8, Repeat = 0.16 }, -- 깨갱!
+	Cyclops = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 0.42, Volume = 1 }, -- 쿠어어엉!
 }
 
 -- 사운드 에셋 ID (Creator Store 무료 사운드). 빈 값이면 재생하지 않는다

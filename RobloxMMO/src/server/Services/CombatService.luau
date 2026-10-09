@@ -34,7 +34,6 @@ local CombatService = {}
 local random = Random.new()
 local effectRemote: RemoteEvent
 local lastAttack: { [Player]: number } = {}
-local lastWallNotice: { [Player]: number } = {}
 
 -- 위치 근처의 플레이어에게 이벤트를 보낸다
 local function fireNearby(position: Vector3, ...: any)
@@ -171,13 +170,7 @@ local function onAttack(player: Player, mobArg: unknown)
 	local hitPosition = state.Position + Vector3.new(0, state.Height * 0.5, 0) - direction * state.Radius * 0.6
 	local fromPosition = root.Position + Vector3.new(0, 1, 0)
 	fireNearby(state.Position, mob, damage, isCrit, weapon.Kind, weapon.Tier, player.UserId, fromPosition, hitPosition, charged, blocked)
-	if blocked then
-		local wallNow = os.clock()
-		if wallNow - (lastWallNotice[player] or -math.huge) >= Config.TierWall.NoticeInterval then
-			lastWallNotice[player] = wallNow
-			NotifyService.send(player, `{mobDef.DisplayName}에게는 흠집도 안 나요! 더 좋은 무기가 필요해요.`, "bad")
-		end
-	end
+	-- 흠집도 안 나면 몹 위 "흠집도 안 나!" 문구만 (알림 창은 안 띄운다, 2026-10-09)
 	MobService.damage(mob, player, damage, direction, if blocked then nil else config.Knockback)
 end
 
@@ -292,7 +285,6 @@ function CombatService.init()
 	Remotes.get(Remotes.Names.ShopAction).OnServerEvent:Connect(onShopAction)
 	Players.PlayerRemoving:Connect(function(player)
 		lastAttack[player] = nil
-		lastWallNotice[player] = nil
 	end)
 end
 
