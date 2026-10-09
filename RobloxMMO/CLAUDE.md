@@ -386,6 +386,11 @@ src/
   - 체력·마나는 마을(TownArrival·ShopNPC 둘레 SafeZoneRadius) 안에서만 Config.TownRegen만큼 찬다. Roblox 기본 Health 스크립트는 캐릭터에서 지움. 속성 InTown
   - 해시계: 체력바 왼쪽 둥근 판(낮 노랑·밤 남색 점), 바늘 = Lighting.ClockTime, 아래 "밤까지 m:ss"/"아침까지 m:ss" (StatusHUD)
   - 밤을 덜 깜깜하게(달빛 푸르스름, Config.DayNight.Night). 밤 음악(Config.Music.Night: 잔잔한 곡을 PlaybackSpeed 0.85·작게), 밤에 마을 밖이면 풀벌레(NightAmbience)·부엉이(OwlSound) — 둘 다 Id를 못 찾아 빈 값
+- [x] 횃불: 마을·길 (2026-10-09 사용자 요청: 밤에 너무 깜깜함). 제작 스크립트 `studio/BuildTorches.luau`(게임 시작 때 실행, 다시 실행하면 지우고 새로) → Workspace/Torches (속성 GeneratedBy), 수치 Config.Torches
+  - 마을 가로등(따뜻한 주황 등불, 팔에 매단 등): 광장 둘레 + NPC 가판대 옆 + 마을 둘레 고리 3겹(마을 반경 = 가장 먼 NPC + TownMargin). 그림자는 ShadowEvery개마다 하나
+  - 길 횃불(나무 기둥 + 쇠 그릇 + 불꽃·Fire): 마을 둘레 RoadScanRadius를 RoadScanStep 격자로 아래로 쏴서 길 칸 = 지형 돌길(Cobblestone·Pavement·Brick·Asphalt·Concrete·WoodPlanks) / 이름에 Road·Path·Street·길·도로가 든 납작한 부품 / 좁은 흙(Ground·Mud) 띠(DirtRoadMaxWidth). 마을에서 가까운 길부터 RoadSpacing 간격, 길 가장자리 바깥에. 물·지붕·건물·광산 구역·도착점·생성 자리·원래 있던 불빛 근처는 피함
+  - 길을 거의 못 찾으면(RouteFallbackMin) 마을 → 광산 입구 직선을 따라 지그재그. Output에 개수·못 세운 이유 요약
+  - 서버 TorchService가 Lighting.ClockTime을 보고 해 지기 LightBefore시간 전 ~ 해 뜨고 LightAfter시간 뒤에만 불을 켠다 (편집 상태에선 켜진 채)
 - [ ] 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)

@@ -800,6 +800,82 @@ Config.MobileControls = {
 	AttackSize = 120, -- 공격 버튼 지름(픽셀)
 	Margin = 28, -- 화면 가장자리에서 떨어진 거리(픽셀)
 	Gap = 14, -- 공격 버튼과 점프 버튼 사이(픽셀)
+	-- 구르기·스킬 버튼 (2026-10-09): 공격 버튼 둘레에 동그랗게. 각도는 공격 버튼 가운데 기준, 0° = 오른쪽, 270° = 위 (화면 좌표)
+	SmallSize = 80, -- 점프·구르기·스킬 버튼 지름(픽셀)
+	JumpAngle = 185, -- 점프 버튼 (왼쪽)
+	RollAngle = 232, -- 구르기 버튼 (왼쪽 위)
+	SkillAngle = 280, -- 스킬 버튼 (위)
+	PcSize = 58, -- PC: 오른쪽 아래 구르기·스킬 버튼 지름(픽셀)
+	PcMargin = 20, -- PC: 화면 가장자리에서 떨어진 거리(픽셀)
+}
+
+-- 구르기 (2026-10-09 사용자 요청): 짧게 휙 굴러 피한다. PC Q키 / 모바일 공격 버튼 왼쪽 위
+-- 움직임은 클라이언트가(캐릭터 물리는 클라 소유), 무적 시간·마나·쿨다운은 서버(SkillService)가 정한다
+Config.Roll = {
+	ManaCost = 4, -- 한 번 구르는 데 쓰는 마나 (조금)
+	Cooldown = 1.2, -- 다시 구르려면 기다리는 시간(초)
+	Distance = 12, -- 굴러가는 거리(스터드)
+	Duration = 0.3, -- 굴러가는 시간(초)
+	IFrame = 0.4, -- 서버: 구르기 요청을 받은 뒤 몹 공격을 안 맞는 시간(초). 지연을 생각해 Duration보다 조금 길게
+	CooldownTolerance = 0.15, -- 서버 쿨다운 여유(초)
+	Crouch = 0.9, -- 구르는 동안 몸이 내려가는 깊이(스터드, 연출)
+	Sound = "rbxasset://sounds/swordslash.wav", -- "휙" (높은 음으로)
+}
+
+-- 무기·도구별 스킬 (2026-10-09 사용자 요청): 들고 있는 것에 맞는 스킬 하나. PC F키 / 모바일 공격 버튼 위
+-- 전부 서버(SkillService)가 검사한다: 맞는 종류를 들었나, 마나, 쿨다운, 거리, 주인, 장비 벽, 피버 중인지
+-- Kind = 도구 종류(PickaxeDefs Kind). Icon은 버튼 그림, Name은 버튼 아래 이름
+Config.Skills = {
+	-- 칼: 방패 막기. Duration초 동안 몹에게 받는 피해를 Reduction만큼 줄인다
+	Block = {
+		Kind = { "Sword" },
+		Name = "방패 막기",
+		Icon = "🛡",
+		ManaCost = 12,
+		Cooldown = 6,
+		Duration = 1.5,
+		Reduction = 0.8, -- 0.8 = 피해 80% 줄임
+		Color = Color3.fromRGB(110, 190, 255),
+	},
+	-- 방망이: 내려찍기. 둘레 Radius 안 몹에게 무기 데미지 × DamageMultiplier + 기절 StunTime초 + 밀쳐 내기
+	Slam = {
+		Kind = { "Club" },
+		Name = "내려찍기",
+		Icon = "💥",
+		ManaCost = 15,
+		Cooldown = 7,
+		Radius = 8,
+		DamageMultiplier = 1.8,
+		StunTime = 1.5,
+		Knockback = 6,
+		Color = Color3.fromRGB(255, 200, 90),
+	},
+	-- 활: 연사. 지금 노리는 몹에게 화살 Arrows발을 Interval초 간격으로 (화살을 그만큼 쓴다, 한 발 데미지 × DamageMultiplier)
+	RapidFire = {
+		Kind = { "Bow" },
+		Name = "연사",
+		Icon = "🏹",
+		ManaCost = 12,
+		Cooldown = 6,
+		Arrows = 3,
+		Interval = 0.15,
+		DamageMultiplier = 0.8,
+		Color = Color3.fromRGB(150, 255, 170),
+	},
+	-- 곡괭이·도끼: 강하게 내려찍기. ArmTime초 안의 다음 한 번이 Multiplier배 (장비 벽·주인 규칙은 그대로)
+	PowerStrike = {
+		Kind = { "Pickaxe", "Axe" },
+		Name = "강하게 찍기",
+		Icon = "⚒",
+		ManaCost = 10,
+		Cooldown = 6,
+		Multiplier = 3,
+		ArmTime = 5,
+		Color = Color3.fromRGB(255, 160, 80),
+	},
+	CooldownTolerance = 0.15, -- 서버 쿨다운 여유(초)
+	ShieldSound = "rbxassetid://9125361455", -- 방패 "챙" (Anvil Hit을 높게)
+	SlamSound = "rbxassetid://9118608146", -- 내려찍기 "쿵" (Rock Hits Rock을 낮게)
 }
 
 -- 배경음악 (2026-10-09, MusicController). 밖에서 차례로 틀고 광산에서는 줄인다

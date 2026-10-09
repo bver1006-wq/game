@@ -68,6 +68,54 @@ local function shootAtNothing(player: Player)
 	end
 end
 
+-- 몹 하나에 무기 타격을 적용한다: 데미지(장비 공격·치명타·흔들림) → 장비 벽 → 연출 알림 → 피해.
+-- 검증(무기·거리·쿨다운·주인·화살)은 부르는 쪽이 끝낸 뒤 부른다. 실제로 준 데미지를 돌려준다 (장비 벽에 막히면 0)
+-- fromSkill: 스킬(연사·내려찍기)로 친 것. 활이면 내 화면에서도 화살을 그린다 (보통 공격은 쏠 때 이미 그림)
+local function applyHit(
+	player: Player,
+	weapon: PickaxeDefs.PickaxeDef,
+	config: any,
+	mob: Model,
+	state: MobService.MobState,
+	root: BasePart,
+	chargeMultiplier: number,
+	charged: boolean,
+	knockback: number?,
+	fromSkill: boolean
+): number
+	-- 데미지: 기본 × (1 ± 흔들림), 치명타면 배수
+	local combat = Config.Combat
+	-- 장비 공격은 무기 데미지에 더하고, 장비 치명타는 확률에 더한다
+	local gear = EquipmentService.getGearStats(player)
+	local damage = (config.Damage + gear.Atk) * chargeMultiplier * (1 + random:NextNumber(-combat.DamageSpread, combat.DamageSpread))
+	local isCrit = random:NextNumber() < combat.CritChance + gear.Crit / 100
+	if isCrit then
+		damage *= combat.CritMultiplier
+	end
+	damage = math.max(math.round(damage), 1)
+
+	-- 장비 벽: 무기 단계가 몹보다 많이 낮으면 데미지가 안 들어가고, 1단계 낮으면 줄어든다
+	local mobDef = MobDefs[state.Type]
+	local gap = (if mobDef then mobDef.Tier else 1) - weapon.Tier
+	local blocked = gap >= Config.TierWall.BlockGap
+	if blocked then
+		damage = 0
+		isCrit = false
+		charged = false
+	elseif gap == 1 then
+		damage = math.max(math.round(damage * Config.TierWall.OneTierLowMultiplier), 1)
+	end
+
+	local flat = (state.Position - root.Position) * Vector3.new(1, 0, 1)
+	local direction = if flat.Magnitude > 0.01 then flat.Unit else Vector3.zAxis
+	local hitPosition = state.Position + Vector3.new(0, state.Height * 0.5, 0) - direction * state.Radius * 0.6
+	local fromPosition = root.Position + Vector3.new(0, 1, 0)
+	fireNearby(state.Position, mob, damage, isCrit, weapon.Kind, weapon.Tier, player.UserId, fromPosition, hitPosition, charged, blocked, fromSkill)
+	-- 흠집도 안 나면 몹 위 "흠집도 안 나!" 문구만 (알림 창은 안 띄운다, 2026-10-09)
+	MobService.damage(mob, player, damage, direction, if blocked then nil else knockback)
+	return damage
+end
+
 -- AttackRequest 처리. 인자는 전부 의심하고 검사한다
 local function onAttack(player: Player, mobArg: unknown)
 	-- 모은 정도는 요청이 오면 무조건 꺼낸다 (거절돼도 느린 걸음이 남지 않게)
@@ -143,35 +191,7 @@ local function onAttack(player: Player, mobArg: unknown)
 		charged = true
 	end
 
-	-- 데미지: 기본 × (1 ± 흔들림), 치명타면 배수
-	local combat = Config.Combat
-	-- 장비 공격은 무기 데미지에 더하고, 장비 치명타는 확률에 더한다
-	local gear = EquipmentService.getGearStats(player)
-	local damage = (config.Damage + gear.Atk) * chargeMultiplier * (1 + random:NextNumber(-combat.DamageSpread, combat.DamageSpread))
-	local isCrit = random:NextNumber() < combat.CritChance + gear.Crit / 100
-	if isCrit then
-		damage *= combat.CritMultiplier
-	end
-	damage = math.max(math.round(damage), 1)
-
-	-- 장비 벽: 무기 단계가 몹보다 많이 낮으면 데미지가 안 들어가고, 1단계 낮으면 줄어든다
-	local mobDef = MobDefs[state.Type]
-	local gap = (if mobDef then mobDef.Tier else 1) - weapon.Tier
-	local blocked = gap >= Config.TierWall.BlockGap
-	if blocked then
-		damage = 0
-		isCrit = false
-		charged = false
-	elseif gap == 1 then
-		damage = math.max(math.round(damage * Config.TierWall.OneTierLowMultiplier), 1)
-	end
-
-	local direction = if flat.Magnitude > 0.01 then flat.Unit else Vector3.zAxis
-	local hitPosition = state.Position + Vector3.new(0, state.Height * 0.5, 0) - direction * state.Radius * 0.6
-	local fromPosition = root.Position + Vector3.new(0, 1, 0)
-	fireNearby(state.Position, mob, damage, isCrit, weapon.Kind, weapon.Tier, player.UserId, fromPosition, hitPosition, charged, blocked)
-	-- 흠집도 안 나면 몹 위 "흠집도 안 나!" 문구만 (알림 창은 안 띄운다, 2026-10-09)
-	MobService.damage(mob, player, damage, direction, if blocked then nil else config.Knockback)
+	applyHit(player, weapon, config, mob, state, root, chargeMultiplier, charged, config.Knockback, false)
 end
 
 -- 사냥꾼 상점: 화살통 구매 (여러 개 가질 수 있다. 가격은 Config.Quiver.Items)
@@ -233,6 +253,26 @@ local function onShopAction(player: Player, shopId: unknown, action: unknown, id
 	if (weapon and WEAPON_KINDS[weapon.Kind]) or (equipment and equipment.Slot ~= "Shield") then
 		CraftingService.craft(player, idArg, CraftingService.readTimes(timesArg))
 	end
+end
+
+-- 스킬 타격 (SkillService: 활 연사·방망이 내려찍기). 들고 있는 무기로 몹 하나를 multiplier배로 친다
+-- 주인·무기 확인은 여기서도 하고, 거리·마나·쿨다운·화살은 SkillService가 확인한다. 실제로 준 데미지 (못 쳤으면 0)
+function CombatService.skillHit(player: Player, mob: Model, multiplier: number, knockback: number?): number
+	local state = MobService.getState(mob)
+	if not state or FeverService.isActive(player) or not OwnershipService.canHit(state, player) then
+		return 0
+	end
+	local weapon = PickaxeService.getEquipped(player)
+	local config = weapon and Config.Weapons[weapon.Id]
+	if not weapon or not config or not WEAPON_KINDS[weapon.Kind] then
+		return 0
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") then
+		return 0
+	end
+	return applyHit(player, weapon, config, mob, state, root, multiplier, false, knockback, true)
 end
 
 -- 서버 시작 시 한 번 호출 (MobService.init 이후)
