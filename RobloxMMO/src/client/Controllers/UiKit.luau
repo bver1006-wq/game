@@ -128,47 +128,66 @@ end
 
 -- 가방 그림 (가죽 가방 몸통 + 덮개 + 손잡이 + 버클). parent를 꽉 채운다
 function UiKit.bagIcon(parent: Instance)
-	local leather = Color3.fromRGB(150, 95, 50)
-	local dark = Color3.fromRGB(105, 62, 30)
-	-- 손잡이 (둥근 테두리만)
-	local handle = Instance.new("Frame")
-	handle.AnchorPoint = Vector2.new(0.5, 0)
-	handle.Position = UDim2.fromScale(0.5, 0.04)
-	handle.Size = UDim2.fromScale(0.5, 0.4)
+	-- 둥근 모험가 배낭: 위쪽 손잡이, 그라데이션 가죽 몸통, 덮개와 금 버클, 앞주머니, 바느질, 왼쪽 윤기
+	local leather = Color3.fromRGB(196, 128, 64)
+	local leatherDark = Color3.fromRGB(128, 76, 34)
+	local outline = Color3.fromRGB(64, 36, 16)
+	local function gradient(target: GuiObject, top: Color3, bottom: Color3)
+		local g = Instance.new("UIGradient")
+		g.Color = ColorSequence.new(top, bottom)
+		g.Rotation = 90
+		g.Parent = target
+	end
+	local function frame(name: string, anchor: Vector2, position: UDim2, size: UDim2, color: Color3, radius: number, z: number, parentFrame: Instance?): Frame
+		local f = Instance.new("Frame")
+		f.Name = name
+		f.AnchorPoint = anchor
+		f.Position = position
+		f.Size = size
+		f.BackgroundColor3 = color
+		f.BorderSizePixel = 0
+		f.ZIndex = z
+		f.Parent = parentFrame or parent
+		UiKit.corner(f, radius)
+		return f
+	end
+
+	-- 손잡이 (두꺼운 고리)
+	local handle = frame("Handle", Vector2.new(0.5, 0), UDim2.fromScale(0.5, 0), UDim2.fromScale(0.38, 0.3), Color3.new(0, 0, 0), 100, 1)
 	handle.BackgroundTransparency = 1
-	handle.Parent = parent
-	UiKit.corner(handle, 100)
 	local handleStroke = Instance.new("UIStroke")
-	handleStroke.Color = dark
-	handleStroke.Thickness = 5
+	handleStroke.Color = leatherDark
+	handleStroke.Thickness = 4
 	handleStroke.Parent = handle
+
 	-- 몸통
-	local body = Instance.new("Frame")
-	body.AnchorPoint = Vector2.new(0.5, 1)
-	body.Position = UDim2.fromScale(0.5, 0.96)
-	body.Size = UDim2.fromScale(0.86, 0.68)
-	body.BackgroundColor3 = leather
-	body.BorderSizePixel = 0
-	body.Parent = parent
-	UiKit.corner(body, 12)
-	UiKit.stroke(body, Color3.fromRGB(60, 35, 15), 2)
-	-- 덮개
-	local flap = Instance.new("Frame")
-	flap.Size = UDim2.fromScale(1, 0.42)
-	flap.BackgroundColor3 = dark
-	flap.BorderSizePixel = 0
-	flap.Parent = body
-	UiKit.corner(flap, 12)
-	-- 버클
-	local buckle = Instance.new("Frame")
-	buckle.AnchorPoint = Vector2.new(0.5, 0.5)
-	buckle.Position = UDim2.fromScale(0.5, 0.42)
-	buckle.Size = UDim2.fromScale(0.22, 0.2)
-	buckle.BackgroundColor3 = Color3.fromRGB(240, 200, 80)
-	buckle.BorderSizePixel = 0
-	buckle.ZIndex = 2
-	buckle.Parent = body
-	UiKit.corner(buckle, 4)
+	local body = frame("Body", Vector2.new(0.5, 1), UDim2.fromScale(0.5, 1), UDim2.fromScale(0.9, 0.8), leather, 16, 2)
+	gradient(body, Color3.fromRGB(225, 160, 92), Color3.fromRGB(160, 98, 46))
+	UiKit.stroke(body, outline, 2)
+	-- 왼쪽 윤기
+	local shine = frame("Shine", Vector2.new(0, 0), UDim2.fromScale(0.1, 0.42), UDim2.fromScale(0.08, 0.38), Color3.new(1, 1, 1), 6, 3, body)
+	shine.BackgroundTransparency = 0.65
+
+	-- 덮개 (위쪽 절반, 아래 모서리 둥글게)
+	local flap = frame("Flap", Vector2.new(0.5, 0), UDim2.fromScale(0.5, 0), UDim2.fromScale(1, 0.46), leatherDark, 16, 4, body)
+	gradient(flap, Color3.fromRGB(150, 92, 44), Color3.fromRGB(110, 64, 28))
+	UiKit.stroke(flap, outline, 2)
+	-- 덮개 바느질 (점선)
+	for i = 0, 6 do
+		local stitch = frame("Stitch", Vector2.new(0.5, 0.5), UDim2.fromScale(0.14 + i * 0.12, 0.82), UDim2.fromScale(0.06, 0.06), Color3.fromRGB(240, 205, 150), 2, 5, flap)
+		stitch.BackgroundTransparency = 0.15
+	end
+	-- 버클 띠 + 금 버클
+	frame("Strap", Vector2.new(0.5, 0), UDim2.fromScale(0.5, 0.3), UDim2.fromScale(0.16, 0.32), leatherDark, 3, 5, body)
+	local buckle = frame("Buckle", Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5), UDim2.fromScale(0.26, 0.18), Color3.fromRGB(250, 205, 70), 4, 6, body)
+	gradient(buckle, Color3.fromRGB(255, 230, 120), Color3.fromRGB(215, 160, 40))
+	UiKit.stroke(buckle, Color3.fromRGB(120, 80, 10), 1.5)
+	frame("Hole", Vector2.new(0.5, 0.5), UDim2.fromScale(0.5, 0.5), UDim2.fromScale(0.45, 0.4), Color3.fromRGB(110, 64, 28), 2, 7, buckle)
+
+	-- 앞주머니
+	local pocket = frame("Pocket", Vector2.new(0.5, 1), UDim2.fromScale(0.5, 0.94), UDim2.fromScale(0.62, 0.3), Color3.fromRGB(176, 110, 52), 8, 4, body)
+	gradient(pocket, Color3.fromRGB(205, 140, 78), Color3.fromRGB(150, 90, 40))
+	UiKit.stroke(pocket, outline, 1.5)
 	return body
 end
 
