@@ -1,7 +1,9 @@
 --!strict
 -- 타격감 연출: 히트스톱, 카메라 흔들림, 바위 떨림, 파편, 타격음, 깨질 때 광석이 튀어나와 빨려오는 연출.
+-- 나무는 "퍽" 소리·나뭇조각·떨어지는 잎으로 바꾸고, 다 베면 쓰러지는 연출을 한다.
 -- 서버가 보낸 HitEffect/RockBroken을 받아 각 클라이언트가 로컬로만 재생한다. 바위를 서버에서 움직이지 않는다.
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -14,11 +16,14 @@ local OreDefs = require(ReplicatedStorage.Shared.OreDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local RockHUD = require(script.Parent.RockHUD)
 local SwingAnimation = require(script.Parent.SwingAnimation)
+local TargetController = require(script.Parent.TargetController)
 
 local localPlayer = Players.LocalPlayer
 
 local DEBRIS_TEXTURE = "rbxassetid://243660364"
 local DEFAULT_COLOR = Color3.fromRGB(140, 140, 140)
+local LEAF_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
+local DEFAULT_LEAF_COLOR = Color3.fromRGB(80, 140, 60)
 
 local HitFeelController = {}
 
@@ -34,6 +39,10 @@ local shakeTokens: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: a
 local shakeMagnitude = 0
 local shakeEndTime = 0
 local shakeDuration = 1
+
+-- 마지막 일격을 맞은 나무의 복제본. RockBroken이 오면 이걸 쓰러뜨린다 (서버는 원본을 바로 지운다)
+type PendingFall = { Model: Model, Position: Vector3, Direction: Vector3 }
+local pendingFalls: { PendingFall } = {}
 
 -- 광석 종류의 색
 local function oreColor(oreType: unknown): Color3
@@ -181,7 +190,7 @@ local function applyCameraShake()
 end
 
 -- 깨진 바위에서 광석 조각이 튀어나왔다가 캐릭터에게 빨려온다
-local function spawnOreChunks(position: Vector3, color: Color3, amount: number)
+local function spawnOreChunks(position: Vector3, color: Color3, amount: number, material: Enum.Material)
 	local count = math.min(amount, Config.HitFeel.OreChunkMax)
 	local character = localPlayer.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -194,7 +203,7 @@ local function spawnOreChunks(position: Vector3, color: Color3, amount: number)
 		local size = random:NextNumber(0.3, 0.5)
 		chunk.Size = Vector3.new(size, size, size)
 		chunk.Color = color
-		chunk.Material = Enum.Material.Slate
+		chunk.Material = material
 		chunk.CanCollide = true
 		chunk.CanQuery = false
 		chunk.CanTouch = false
@@ -236,12 +245,12 @@ local function spawnOreChunks(position: Vector3, color: Color3, amount: number)
 end
 
 -- 좋은 곡괭이 타격 연출: 충격파 고리 + 사방으로 튀는 광석 조각 (+ 다이아몬드는 반짝이)
-local function tierImpact(rock: Model?, hitPosition: Vector3, color: Color3, tier: number, judgment: string)
+local function tierImpact(rock: Model?, hitPosition: Vector3, color: Color3, tier: number, judgment: string, material: Enum.Material)
 	local effect = Config.HitFeel.TierEffects[tier]
 	if not effect then
 		return
 	end
-	local center = if rock then rock:GetPivot().Position else hitPosition
+	local center = if rock then TargetController.focusPosition(rock) else hitPosition
 	local outward = (hitPosition - center) * Vector3.new(1, 0, 1)
 	outward = if outward.Magnitude > 0.01 then outward.Unit else Vector3.zAxis
 
@@ -275,7 +284,7 @@ local function tierImpact(rock: Model?, hitPosition: Vector3, color: Color3, tie
 		local size = random:NextNumber(0.2, 0.45)
 		chunk.Size = Vector3.new(size, size, size)
 		chunk.Color = if random:NextNumber() < 0.3 then effect.Color else color
-		chunk.Material = if random:NextNumber() < 0.3 then Enum.Material.Neon else Enum.Material.Slate
+		chunk.Material = if random:NextNumber() < 0.3 then Enum.Material.Neon else material
 		chunk.CanCollide = true
 		chunk.CanQuery = false
 		chunk.CanTouch = false
@@ -319,6 +328,120 @@ local function tierImpact(rock: Model?, hitPosition: Vector3, color: Color3, tie
 	end
 end
 
+-- 나무 위쪽(잎 부분)에서 잎이 팔랑팔랑 떨어진다
+local function dropLeaves(rock: Model?, position: Vector3, color: Color3, count: number)
+	local height = if rock and rock.Parent then rock:GetExtentsSize().Y else 8
+	local attachment = Instance.new("Attachment")
+	attachment.WorldPosition = position + Vector3.new(0, height * 0.6, 0)
+	attachment.Parent = Workspace.Terrain
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = LEAF_TEXTURE
+	emitter.Color = ColorSequence.new(color)
+	emitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.35),
+		NumberSequenceKeypoint.new(0.8, 0.3),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	emitter.Lifetime = NumberRange.new(1.4, 2.2)
+	emitter.Speed = NumberRange.new(1, 3)
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.Acceleration = Vector3.new(0, -3, 0) -- 천천히 떨어진다
+	emitter.Drag = 1.5
+	emitter.Rotation = NumberRange.new(0, 360)
+	emitter.RotSpeed = NumberRange.new(-120, 120)
+	emitter.LightInfluence = 1
+	emitter.Rate = 0
+	emitter.Parent = attachment
+	emitter:Emit(count)
+	task.delay(2.5, function()
+		attachment:Destroy()
+	end)
+end
+
+-- 마지막 일격을 맞은 나무를 복제해 둔다. 원본은 서버가 곧 지우므로, 복제본을 쓰러뜨리는 데 쓴다
+local function prepareFall(rock: Model, hitPosition: Vector3)
+	local model = rock:Clone()
+	-- 자동 조준·체력바에 걸리지 않게 태그와 속성을 지운다
+	CollectionService:RemoveTag(model, "OreNode")
+	for _, name in { "OreType", "Hp", "MaxHp" } do
+		model:SetAttribute(name, nil)
+	end
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			descendant.Anchored = true
+			descendant.CanCollide = false
+			descendant.CanQuery = false
+			descendant.CanTouch = false
+		end
+	end
+	local pivot = HitFeelController.getRestPivot(rock)
+	model:PivotTo(pivot)
+	-- 친 사람 반대쪽으로 쓰러진다
+	local away = (pivot.Position - hitPosition) * Vector3.new(1, 0, 1)
+	local entry: PendingFall = {
+		Model = model,
+		Position = pivot.Position,
+		Direction = if away.Magnitude > 0.01 then away.Unit else Vector3.xAxis,
+	}
+	table.insert(pendingFalls, entry)
+	-- 피버가 끝날 때까지 기다릴 수 있으니 넉넉히 두고, 그래도 안 쓰이면 버린다
+	task.delay(Config.Fever.FreezeDuration + Config.Fever.OrbitDuration + Config.Fever.TitleDuration + Config.Fever.TapDuration + 5, function()
+		local index = table.find(pendingFalls, entry)
+		if index then
+			table.remove(pendingFalls, index)
+			entry.Model:Destroy()
+		end
+	end)
+end
+
+-- 복제해 둔 나무를 밑동을 축으로 쓰러뜨리고 서서히 사라지게 한다
+local function playFall(entry: PendingFall)
+	local tree = Config.HitFeel.Tree
+	local model = entry.Model
+	model.Parent = effectsFolder
+	local start = model:GetPivot()
+	-- 쓰러지는 방향과 수직인 수평축으로 90도 가까이 돌린다
+	local axis = Vector3.yAxis:Cross(entry.Direction).Unit
+	local parts: { BasePart } = {}
+	for _, descendant in model:GetDescendants() do
+		if descendant:IsA("BasePart") then
+			table.insert(parts, descendant)
+		end
+	end
+	local baseTransparency: { [BasePart]: number } = {}
+	for _, part in parts do
+		baseTransparency[part] = part.Transparency
+	end
+
+	local started = os.clock()
+	local landed = false
+	local connection: RBXScriptConnection
+	connection = RunService.RenderStepped:Connect(function()
+		if not model.Parent then
+			connection:Disconnect()
+			return
+		end
+		local elapsed = os.clock() - started
+		local t = math.min(elapsed / tree.FallTime, 1)
+		local angle = math.rad(85) * t * t -- 처음엔 천천히, 갈수록 빨리 넘어간다
+		model:PivotTo(CFrame.fromAxisAngle(axis, angle) * (start - start.Position) + start.Position)
+		if t >= 1 and not landed then
+			landed = true
+			-- 땅에 닿는 순간: 흙먼지 + 흔들림
+			HitFeelController.emitDebris(entry.Position + entry.Direction * 3, Color3.fromRGB(120, 100, 75), 20, 1.2)
+			HitFeelController.cameraShake(Config.HitFeel.CameraShake.Magnitude * 1.5, Config.HitFeel.CameraShake.Duration * 2)
+		end
+		local fade = math.clamp((elapsed - tree.FallTime) / tree.FadeTime, 0, 1)
+		for _, part in parts do
+			part.Transparency = baseTransparency[part] + (1 - baseTransparency[part]) * fade
+		end
+		if fade >= 1 then
+			connection:Disconnect()
+			model:Destroy()
+		end
+	end)
+end
+
 -- 서버의 HitEffect: 근처 누군가가 바위를 쳤다
 local function onHitEffect(
 	rock: Model?,
@@ -330,33 +453,53 @@ local function onHitEffect(
 	pickaxeTier: number?
 )
 	local isMine = attackerUserId == localPlayer.UserId
-	local color = if rock then oreColor(rock:GetAttribute("OreType")) else DEFAULT_COLOR
+	local def = if rock then TargetController.getDef(rock) else nil
+	local isTree = def ~= nil and def.Kind == "Tree"
+	local color = if def then def.Color else DEFAULT_COLOR
+	local material = if isTree then Enum.Material.Wood else Enum.Material.Slate
 	local debrisCount = (Config.HitFeel.DebrisCount :: any)[judgment] or Config.HitFeel.DebrisCount.Normal
+	local treeFeel = Config.HitFeel.Tree
 
 	if rock and rock.Parent then
-		HitFeelController.shakeRock(rock, if judgment == "Perfect" then 1.6 else 1)
+		local shakeScale = if judgment == "Perfect" then 1.6 else 1
+		HitFeelController.shakeRock(rock, if isTree then shakeScale * treeFeel.ShakeScale else shakeScale)
 	end
 	HitFeelController.emitDebris(hitPosition, color, debrisCount, if judgment == "Perfect" then 1.3 else 1)
 
 	local pitch = random:NextNumber(Config.HitFeel.PitchRange.Min, Config.HitFeel.PitchRange.Max)
-	if judgment == "Perfect" then
-		HitFeelController.playSound(Config.Sounds.HitPerfect, hitPosition, pitch, 0.8)
+	if isTree then
+		-- 도끼 "퍽": 판정이 좋을수록 조금 높고 크게. 잎이 떨어진다
+		local chopPitch = pitch * (if judgment == "Perfect" then 1.15 elseif judgment == "Nice" then 1.07 else 1)
+		HitFeelController.playSound(Config.Sounds.WoodChop, hitPosition, chopPitch, treeFeel.ChopVolume * (if judgment == "Perfect" then 1.2 else 1))
+		if rock then
+			dropLeaves(rock, rock:GetPivot().Position, (def :: OreDefs.OreDef).LeafColor or DEFAULT_LEAF_COLOR, treeFeel.LeafCount)
+		end
 	else
-		HitFeelController.playSound(Config.Sounds.HitNormal, hitPosition, pitch * (if judgment == "Nice" then 1.08 else 1), 0.6)
+		if judgment == "Perfect" then
+			HitFeelController.playSound(Config.Sounds.HitPerfect, hitPosition, pitch, 0.8)
+		else
+			HitFeelController.playSound(Config.Sounds.HitNormal, hitPosition, pitch * (if judgment == "Nice" then 1.08 else 1), 0.6)
+		end
+
+		-- 곡괭이 "깡!": 돌 소리에 겹친다. 판정이 좋을수록 높고 크게
+		local clang = Config.HitFeel.Clang
+		local clangPitch = pitch * (if judgment == "Perfect" then clang.PerfectPitch elseif judgment == "Nice" then clang.NicePitch else 1)
+		HitFeelController.playSound(
+			Config.Sounds.PickaxeClang,
+			hitPosition,
+			clangPitch,
+			if judgment == "Perfect" then clang.PerfectVolume else clang.Volume
+		)
 	end
 
-	-- 곡괭이 "깡!": 돌 소리에 겹친다. 판정이 좋을수록 높고 크게
-	local clang = Config.HitFeel.Clang
-	local clangPitch = pitch * (if judgment == "Perfect" then clang.PerfectPitch elseif judgment == "Nice" then clang.NicePitch else 1)
-	HitFeelController.playSound(
-		Config.Sounds.PickaxeClang,
-		hitPosition,
-		clangPitch,
-		if judgment == "Perfect" then clang.PerfectVolume else clang.Volume
-	)
-
 	local tier = pickaxeTier or 1
-	tierImpact(rock, hitPosition, color, tier, judgment)
+	tierImpact(rock, hitPosition, color, tier, judgment, material)
+
+	-- 나무의 마지막 일격: 원본이 지워지기 전에 쓰러뜨릴 복제본을 만들어 둔다
+	local hp = if rock then rock:GetAttribute("Hp") else nil
+	if isTree and rock and rock.Parent and typeof(hp) == "number" and hp <= 0 then
+		prepareFall(rock, hitPosition)
+	end
 
 	if isMine then
 		SwingAnimation.freeze((Config.HitFeel.HitStop :: any)[judgment] or Config.HitFeel.HitStop.Normal)
@@ -374,15 +517,32 @@ end
 -- 서버의 RockBroken: 바위가 깨졌다 (rewards는 UserId 문자열 → 개수, feverBonus는 피버 보너스 개수)
 local function onRockBroken(position: Vector3, oreType: string, rewards: { [string]: number }, feverBonus: number)
 	local color = oreColor(oreType)
-	HitFeelController.emitDebris(position, color, Config.HitFeel.DebrisCount.Break, 1.6)
-	HitFeelController.playSound(Config.Sounds.RockBreak, position, random:NextNumber(0.95, 1.05), 0.8)
+	local def = OreDefs[oreType]
+	local treeDef = if def and def.Kind == "Tree" then def else nil
+	-- 나무는 기준점이 밑동이라 줄기 타격 높이에서 터뜨린다
+	local burstPosition = if treeDef then position + Vector3.new(0, treeDef.HitHeight or 2.5, 0) else position
+	HitFeelController.emitDebris(burstPosition, color, Config.HitFeel.DebrisCount.Break, 1.6)
+	if treeDef then
+		HitFeelController.playSound(Config.Sounds.TreeBreak, position, random:NextNumber(0.95, 1.05), 0.9)
+		dropLeaves(nil, position, treeDef.LeafColor or DEFAULT_LEAF_COLOR, Config.HitFeel.Tree.BreakLeafCount)
+		-- 이 자리 나무의 복제본이 있으면 쓰러뜨린다
+		for index, entry in pendingFalls do
+			if (entry.Position - position).Magnitude < 1 then
+				table.remove(pendingFalls, index)
+				playFall(entry)
+				break
+			end
+		end
+	else
+		HitFeelController.playSound(Config.Sounds.RockBreak, position, random:NextNumber(0.95, 1.05), 0.8)
+	end
 
 	local amount = rewards[tostring(localPlayer.UserId)]
 	if amount and amount > 0 then
 		HitFeelController.cameraShake(Config.HitFeel.CameraShake.Magnitude * 2, Config.HitFeel.CameraShake.Duration * 2)
-		spawnOreChunks(position, color, amount)
+		spawnOreChunks(burstPosition, color, amount, if treeDef then Enum.Material.Wood else Enum.Material.Slate)
 		local def = OreDefs[oreType]
-		RockHUD.showReward(position, amount, if def then def.DisplayName else oreType, feverBonus)
+		RockHUD.showReward(burstPosition, amount, if def then def.DisplayName else oreType, feverBonus)
 	end
 end
 

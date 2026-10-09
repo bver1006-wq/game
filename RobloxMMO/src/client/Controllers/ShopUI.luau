@@ -1,6 +1,6 @@
 --!strict
 -- NPC 상점 UI. NPC의 ProximityPrompt(속성 ShopId)를 누르면 그 상점 창을 연다.
--- 탭: 제련(대장장이), 곡괭이(대장장이), 팔기·가방(상인), 준비 중(사냥꾼·물약).
+-- 탭: 제련(대장장이), 곡괭이·도끼(대장장이), 팔기·가방(상인), 준비 중(사냥꾼·물약).
 -- 창 바깥을 누르거나 NPC에서 멀어지면 닫힌다.
 -- 버튼은 서버에 "무엇을 하겠다"만 보내고(ShopAction), 결과는 가방 변화와 알림으로 돌아온다.
 
@@ -18,7 +18,13 @@ local InventoryState = require(script.Parent.InventoryState)
 local ItemIcon = require(script.Parent.ItemIcon)
 local UiKit = require(script.Parent.UiKit)
 
-local PICKAXE_ORDER = { "CopperPickaxe", "IronPickaxe", "SteelPickaxe" }
+-- 대장장이가 파는 도구 (시작 지급인 돌 곡괭이·돌 도끼는 빼고)
+local TOOL_ORDER: { [string]: { string } } = {
+	Pickaxe = { "CopperPickaxe", "IronPickaxe", "SteelPickaxe" },
+	Axe = { "CopperAxe", "IronAxe", "DiamondAxe" },
+}
+-- 종류별 티어 속성 (서버 PickaxeService가 기록)
+local TIER_ATTRIBUTE: { [string]: string } = { Pickaxe = "PickaxeTier", Axe = "AxeTier" }
 local CLOSE_DISTANCE_MARGIN = 4 -- 상호작용 거리보다 이만큼 멀어지면 창을 닫는다
 
 local localPlayer = Players.LocalPlayer
@@ -109,13 +115,13 @@ local function drawSmelt()
 	end
 end
 
--- 곡괭이 탭: 단계별 곡괭이와 가격, 구매 버튼
-local function drawPickaxe()
-	local tierAttribute = localPlayer:GetAttribute("PickaxeTier")
+-- 곡괭이·도끼 탭: 단계별 도구와 가격, 구매 버튼
+local function drawTools(kind: PickaxeDefs.ToolKind)
+	local tierAttribute = localPlayer:GetAttribute(TIER_ATTRIBUTE[kind])
 	local ownedTier = if typeof(tierAttribute) == "number" then tierAttribute else 0
 	local gold = InventoryState.get().Gold
 
-	for order, pickaxeId in PICKAXE_ORDER do
+	for order, pickaxeId in TOOL_ORDER[kind] do
 		local def = PickaxeDefs[pickaxeId]
 		local config = Config.Pickaxes[pickaxeId]
 		local price = config.Price
@@ -148,7 +154,7 @@ local function drawPickaxe()
 		UiKit.label(row, `T{def.Tier} {def.DisplayName}`, UDim2.new(1, -200, 0, 24), UDim2.fromOffset(70, 8), UiKit.Colors.Text, 17)
 		UiKit.label(row, `힘 x{config.Power}  ·  {priceText}`, UDim2.new(1, -200, 0, 30), UDim2.fromOffset(70, 32), UiKit.Colors.SubText, 13)
 		UiKit.button(row, status, UDim2.fromOffset(110, 40), UDim2.new(1, -120, 0, 12), function()
-			send("BuyPickaxe", pickaxeId)
+			send(if kind == "Axe" then "BuyAxe" else "BuyPickaxe", pickaxeId)
 		end, enabled)
 	end
 end
@@ -239,7 +245,9 @@ local function redraw()
 	if tabId == "Smelt" then
 		drawSmelt()
 	elseif tabId == "Pickaxe" then
-		drawPickaxe()
+		drawTools("Pickaxe")
+	elseif tabId == "Axe" then
+		drawTools("Axe")
 	elseif tabId == "Sell" then
 		drawSell()
 	elseif tabId == "Bag" then
@@ -370,6 +378,7 @@ function ShopUI.init()
 	end)
 	InventoryState.Changed:Connect(redraw)
 	localPlayer:GetAttributeChangedSignal("PickaxeTier"):Connect(redraw)
+	localPlayer:GetAttributeChangedSignal("AxeTier"):Connect(redraw)
 	RunService.Heartbeat:Connect(checkDistance)
 end
 

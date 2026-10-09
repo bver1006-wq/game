@@ -11,7 +11,8 @@ export type OreDef = {
 	TemplateName: string, -- ServerStorage/Templates/Ores 안의 폴더 이름 (모양 변형 모델들이 들어 있다)
 	Color: Color3, -- 파편·조각 색
 	HitHeight: number?, -- 나무: 타격 위치 높이 (밑동 기준, 스터드)
-	HitRadius: number?, -- 나무: 줄기 중심에서 타격 위치까지 거리 (스터드)
+	HitRadius: number?, -- 나무: 줄기 중심에서 타격 위치까지 거리 (스터드). 잔상 고리 크기에도 쓴다
+	LeafColor: Color3?, -- 나무: 칠 때 떨어지는 잎 색
 }
 
 -- 위치: 돌은 광산 지상, 석탄·구리는 1층, 철은 2층
@@ -59,6 +60,7 @@ local OreDefs: { [string]: OreDef } = {
 		Color = Color3.fromRGB(150, 105, 65),
 		HitHeight = 2.5,
 		HitRadius = 0.9,
+		LeafColor = Color3.fromRGB(60, 110, 60),
 	},
 	Oak = {
 		Id = "Oak",
@@ -69,6 +71,7 @@ local OreDefs: { [string]: OreDef } = {
 		Color = Color3.fromRGB(130, 90, 55),
 		HitHeight = 2.5,
 		HitRadius = 1.3,
+		LeafColor = Color3.fromRGB(85, 140, 60),
 	},
 	Birch = {
 		Id = "Birch",
@@ -79,6 +82,7 @@ local OreDefs: { [string]: OreDef } = {
 		Color = Color3.fromRGB(230, 225, 210),
 		HitHeight = 2.5,
 		HitRadius = 0.8,
+		LeafColor = Color3.fromRGB(150, 190, 80),
 	},
 	Maple = {
 		Id = "Maple",
@@ -89,6 +93,7 @@ local OreDefs: { [string]: OreDef } = {
 		Color = Color3.fromRGB(150, 85, 50),
 		HitHeight = 2.5,
 		HitRadius = 1.1,
+		LeafColor = Color3.fromRGB(215, 85, 40),
 	},
 	Ebony = {
 		Id = "Ebony",
@@ -99,6 +104,7 @@ local OreDefs: { [string]: OreDef } = {
 		Color = Color3.fromRGB(55, 35, 55),
 		HitHeight = 2.5,
 		HitRadius = 1.1,
+		LeafColor = Color3.fromRGB(70, 50, 90),
 	},
 }
 

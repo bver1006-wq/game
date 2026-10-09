@@ -8,7 +8,6 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage.Shared.Config)
-local OreDefs = require(ReplicatedStorage.Shared.OreDefs)
 local TargetController = require(script.Parent.TargetController)
 
 -- 판정별 말풍선 색
@@ -26,9 +25,20 @@ local hpLabel: TextLabel
 local currentRock: Model? = nil
 local shownHp = -1
 
+local TREE_HUD_ABOVE_HIT = 2.5 -- 나무: 줄기 타격 높이보다 이만큼 위에 체력바·말풍선 (나무 꼭대기는 너무 높다)
+
 -- 바위 꼭대기 높이 (바위 중심 기준)
 local function rockTopOffset(rock: Model): number
 	return rock:GetExtentsSize().Y / 2
+end
+
+-- 체력바·말풍선을 띄울 위치: 바위는 꼭대기, 나무는 줄기 타격 높이 조금 위
+local function hudPosition(rock: Model): Vector3
+	local def = TargetController.getDef(rock)
+	if def and def.Kind == "Tree" then
+		return TargetController.focusPosition(rock) + Vector3.new(0, TREE_HUD_ABOVE_HIT, 0)
+	end
+	return rock:GetPivot().Position + Vector3.new(0, rockTopOffset(rock), 0)
 end
 
 -- 위치에 붙일 보이지 않는 Attachment (바위가 없어진 뒤에도 문구를 띄우기 위해)
@@ -99,10 +109,15 @@ local function updateHpBar()
 		currentRock = rock
 		shownHp = -1
 		if rock then
-			hpBillboard.Adornee = rock.PrimaryPart or rock:FindFirstChildWhichIsA("BasePart", true)
-			hpBillboard.StudsOffsetWorldSpace = Vector3.new(0, rockTopOffset(rock) + 0.9, 0)
-			local oreType = rock:GetAttribute("OreType")
-			local def = if typeof(oreType) == "string" then OreDefs[oreType] else nil
+			local adornee = rock.PrimaryPart or rock:FindFirstChildWhichIsA("BasePart", true)
+			hpBillboard.Adornee = adornee
+			local def = TargetController.getDef(rock)
+			if def and def.Kind == "Tree" and adornee then
+				-- 나무는 붙인 부품 위치와 상관없이 줄기 타격 높이 위에 띄운다
+				hpBillboard.StudsOffsetWorldSpace = hudPosition(rock) - (adornee :: BasePart).Position
+			else
+				hpBillboard.StudsOffsetWorldSpace = Vector3.new(0, rockTopOffset(rock) + 0.9, 0)
+			end
 			hpLabel.Text = if def then def.DisplayName else ""
 		end
 	end
@@ -151,7 +166,7 @@ function RockHUD.showJudgment(rock: Model, judgment: string)
 		return
 	end
 	local duration = Config.HitFeel.JudgmentPopupDuration
-	local top = rock:GetPivot().Position + Vector3.new(0, rockTopOffset(rock), 0)
+	local top = hudPosition(rock)
 	local sideways = (math.random() - 0.5) * 1.2
 	local anchor = makeAnchor(top, duration + 0.1)
 

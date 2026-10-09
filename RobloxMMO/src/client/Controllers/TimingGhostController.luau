@@ -5,6 +5,7 @@
 -- 판정 자체는 서버(TimingService)가 한다.
 -- 잔상의 시작 시각과 줄어드는 시간(타격마다 랜덤)은 서버가 HitEffect로 알려준 값(GetServerTimeNow 기준)을 쓴다.
 -- (Highlight 테두리는 반투명 물체에는 그려지지 않아서 쓰지 않는다)
+-- 나무는 통째로 키우면 화면을 가리므로, 줄기 둘레의 고리가 줄기 굵기로 줄어든다
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -15,6 +16,7 @@ local Workspace = game:GetService("Workspace")
 local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local HitFeelController = require(script.Parent.HitFeelController)
+local TargetController = require(script.Parent.TargetController)
 
 local localPlayer = Players.LocalPlayer
 
@@ -56,10 +58,27 @@ local function setGhostLook(ghost: Ghost, flash: boolean, fade: number)
 	end
 end
 
--- 바위를 복제해서 충돌·조준에 안 걸리는 돌 모양 잔상을 만든다
+-- 나무용 잔상: 타격 높이에서 줄기를 감싸는 원통 고리. 크기 1일 때 줄기 굵기(HitRadius)와 같다
+local function createTreeGhostModel(rock: Model, radius: number): Model
+	local model = Instance.new("Model")
+	model.Name = "TreeGhost"
+	local ring = Instance.new("Part")
+	ring.Name = "Ring"
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Size = Vector3.new(Config.HitFeel.Tree.GhostRingHeight, radius * 2, radius * 2) -- 원통은 X축이 높이
+	-- 원통을 세운다 (X축 → 위쪽)
+	ring.CFrame = CFrame.new(TargetController.focusPosition(rock, HitFeelController.getRestPivot(rock))) * CFrame.Angles(0, 0, math.rad(90))
+	ring.Parent = model
+	model.PrimaryPart = ring
+	return model
+end
+
+-- 바위를 복제해서 충돌·조준에 안 걸리는 돌 모양 잔상을 만든다 (나무는 줄기 고리)
 local function createGhost(rock: Model, hitTime: number, duration: number): Ghost
 	local timing = Config.Timing
-	local model = rock:Clone()
+	local def = TargetController.getDef(rock)
+	local isTree = def ~= nil and def.Kind == "Tree"
+	local model = if isTree then createTreeGhostModel(rock, (def :: any).HitRadius or 1) else rock:Clone()
 	-- 자동 조준(OreNode 태그·Hp 속성)에 걸리지 않게 지운다
 	-- (RBX_로 시작하는 엔진 속성은 스크립트가 못 지우므로 우리 속성만 지운다)
 	CollectionService:RemoveTag(model, "OreNode")
@@ -101,7 +120,7 @@ local function createGhost(rock: Model, hitTime: number, duration: number): Ghos
 		HitTime = hitTime,
 		Duration = duration,
 		BaseScale = model:GetScale(),
-		Pivot = HitFeelController.getRestPivot(rock),
+		Pivot = if isTree then model:GetPivot() else HitFeelController.getRestPivot(rock),
 		Parts = parts,
 	}
 	setGhostLook(ghost, false, 0)

@@ -15,6 +15,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local HitFeelController = require(script.Parent.HitFeelController)
 local SwingAnimation = require(script.Parent.SwingAnimation)
+local TargetController = require(script.Parent.TargetController)
 local TimingGhostController = require(script.Parent.TimingGhostController)
 
 local localPlayer = Players.LocalPlayer
@@ -300,7 +301,8 @@ local function runFever(rock: Model, startTime: number)
 	TimingGhostController.clear()
 
 	local fever = Config.Fever
-	local rockPosition = HitFeelController.getRestPivot(rock).Position
+	-- 나무는 기준점이 밑동이라 줄기 타격 높이를 중심으로 연출한다
+	local rockPosition = TargetController.focusPosition(rock, HitFeelController.getRestPivot(rock))
 	local effects = Instance.new("Folder")
 	effects.Name = "FeverEffects"
 	effects.Parent = Workspace
