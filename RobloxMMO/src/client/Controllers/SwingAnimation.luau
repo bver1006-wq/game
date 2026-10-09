@@ -13,7 +13,6 @@ local SwingAnimation = {}
 
 local track: AnimationTrack? = nil
 local trackHumanoid: Humanoid? = nil
-local holding = false -- 차징 중: 휘두르기 직전 자세로 멈춰 있다
 local freezeToken = 0 -- 히트스톱이 겹칠 때 마지막 것만 속도를 되돌리게
 
 -- 현재 캐릭터의 휘두르기 트랙을 가져온다 (캐릭터가 바뀌면 새로 로드)
@@ -43,26 +42,7 @@ local function getTrack(): AnimationTrack?
 	return newTrack
 end
 
--- 차징: 휘두르기 직전 자세(애니메이션 HoldPose 지점)로 멈춰 있는다
-function SwingAnimation.hold()
-	local swingTrack = getTrack()
-	if not swingTrack then
-		return
-	end
-	holding = true
-	swingTrack:Play(0.12, 1, 0)
-	swingTrack.TimePosition = swingTrack.Length * Config.Charge.HoldPose
-end
-
--- 차징 자세를 그냥 푼다 (휘두르지 않고 취소)
-function SwingAnimation.cancelHold()
-	if holding and track then
-		track:Stop(0.15)
-	end
-	holding = false
-end
-
--- 휘두르기 동작을 SwingAnimDuration 안에 끝나도록 재생한다. 차징 자세였으면 거기서 이어서 휘두른다
+-- 휘두르기 동작을 SwingAnimDuration 안에 끝나도록 재생한다
 function SwingAnimation.play()
 	local swingTrack = getTrack()
 	if not swingTrack then
@@ -70,12 +50,7 @@ function SwingAnimation.play()
 	end
 	-- 애니메이션 길이를 아직 모르면(첫 로드 중) 기본 속도로 재생
 	local speed = if swingTrack.Length > 0 then swingTrack.Length / Config.Mining.SwingAnimDuration else 1
-	if holding and swingTrack.IsPlaying then
-		swingTrack:AdjustSpeed(speed)
-	else
-		swingTrack:Play(0.05, 1, speed)
-	end
-	holding = false
+	swingTrack:Play(0.05, 1, speed)
 
 	-- 좋은 곡괭이에는 머리에 궤적(Trail)이 달려 있다. 휘두르는 동안만 켠다
 	local character = localPlayer.Character

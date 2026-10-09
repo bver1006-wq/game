@@ -70,7 +70,6 @@ local function swing(isTouch: boolean, charge: number): boolean
 	end
 	local now = os.clock()
 	if now - lastSwingClock < Config.Mining.SwingInterval then
-		SwingAnimation.cancelHold()
 		return false
 	end
 	lastSwingClock = now
