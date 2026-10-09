@@ -144,15 +144,20 @@ Config.Pickaxes = {
 -- 마나: 스킬·차징 스매시·달리기에 쓴다 (스킬·차징은 나중에). 플레이어 속성 Mana·MaxMana·Sprinting
 Config.Mana = {
 	Max = 100,
-	Regen = 2.5, -- 1초에 차는 양 (달리는 중이 아닐 때). 2026-10-09 절반으로 (천천히 참)
+	Regen = 2.5, -- (2026-10-09부터 안 씀: 마을에서만 Config.TownRegen으로 찬다)
 	RegenDelay = 1.5, -- 마나를 쓴 뒤 이만큼 지나야 다시 찬다(초)
 }
 
--- 이동: 달리기 모드 (오른쪽 버튼으로 켜고 끈다. 움직이는 동안 마나가 계속 준다)
+-- 마을(몹 안전지대 Config.MobAI.SafeZoneRadius 안)에서만 체력·마나가 찬다. 밖에서는 음식으로만 (2026-10-09)
+Config.TownRegen = {
+	HpPerSecond = 5,
+	ManaPerSecond = 6,
+}
+
+-- 이동 속도
 Config.Movement = {
-	WalkSpeed = 16, -- 평소 속도 (Roblox 기본)
-	SprintSpeed = 26, -- 달리기 속도
-	SprintManaPerSecond = 4, -- 달리는 동안 1초에 쓰는 마나. 2026-10-09 절반으로 (천천히 닳음)
+	WalkSpeed = 16, -- Roblox 기본 걷기 (지금은 안 씀)
+	RunSpeed = 24, -- 항상 이 속도로 달린다 (2026-10-09 달리기 버튼 삭제)
 	MovingThreshold = 2, -- 이 속도(스터드/초)보다 빠르면 움직이는 중으로 본다
 }
 
@@ -513,6 +518,21 @@ Config.ItemDetail = {
 	SpinSeconds = 8, -- 한 바퀴(360°) 도는 데 걸리는 시간(초)
 	Tilt = 18, -- 위에서 내려다보는 각도(도)
 	FieldOfView = 30,
+	-- 창 모양 (2026-10-09: 가방·상점 창 오른쪽에 붙는 세로 창)
+	PanelWidth = 250, -- 창 너비(px)
+	MinHeight = 320, -- 붙은 창이 낮아도 이 높이까지는 늘린다(px)
+	Gap = 8, -- 붙은 창과 사이 간격(px)
+	ScreenMargin = 8, -- 화면 가장자리 여백(px)
+	ViewHeight = 200, -- 돌아가는 모델 칸 최대 높이(px)
+	OverlayRatio = 0.62, -- 옆에 자리가 없을 때(휴대폰) 붙은 창 너비의 이만큼으로 겹쳐 띄운다
+}
+
+-- 장비 창 사람 그림 (2026-10-09): 내 캐릭터를 복제해 똑바로 선 모습으로 보여 주고, 장비 칸을 몸 위치에 둔다
+Config.EquipFigure = {
+	UseCharacter = true, -- false면 복제하지 않고 네모 블록 사람 그림만
+	FieldOfView = 20, -- 캐릭터를 비추는 카메라 시야(작을수록 납작하게)
+	PanelWidth = 250, -- 장비 창 너비(px)
+	MinHeight = 300, -- 장비 창 최소 높이(px). 가방 창과 같은 높이를 쓰되 이보다 작아지지 않게
 }
 
 -- NPC 상호작용
@@ -797,6 +817,18 @@ Config.Music = {
 		"rbxassetid://1837779548", -- Ancient Myths (APM)
 		"rbxassetid://1836104037", -- Determined Epic Theme (Alt 2)
 	},
+	-- 밤: 더 느리고 차분하고 조용하게 (2026-10-09). 같은 잔잔한 곡을 느리게(PlaybackSpeed) 작게 튼다
+	Night = {
+		Tracks = {
+			"rbxassetid://1837070127", -- Calming Nostalgia
+			"rbxassetid://1840880603", -- Evening
+		},
+		Volume = 0.14,
+		PlaybackSpeed = 0.85,
+	},
+	-- 밤에 마을 밖에서 들리는 풀벌레 소리 (계속 반복). TODO: Creator Store에서 "crickets night ambience"를 찾아 Id 넣기. 빈 값이면 안 틂
+	NightAmbience = "",
+	NightAmbienceVolume = 0.4,
 	BattleHoldTime = 10, -- 마지막으로 때리거나 맞은 뒤 전투곡을 유지하는 시간(초)
 	-- 왼쪽 위 음표 버튼: 누르면 끄기·켜기, 옆 -/+로 크기 단계 (2026-10-09). 각 곡 볼륨에 곱해진다
 	VolumeLevels = { 0.25, 0.5, 0.75, 1, 1.4, 1.8 },
@@ -829,12 +861,12 @@ Config.DayNight = {
 		AtmDecay = Color3.fromRGB(106, 112, 125),
 		Haze = 1,
 	},
-	Night = { -- 더 깜깜하게
-		Ambient = Color3.fromRGB(18, 20, 38),
-		OutdoorAmbient = Color3.fromRGB(28, 32, 58),
-		Brightness = 0.35,
-		Exposure = -0.6,
-		Density = 0.45,
+	Night = { -- 어둡지만 움직일 수는 있게 (2026-10-09: 너무 깜깜해서 밝힘. 달빛처럼 푸르스름)
+		Ambient = Color3.fromRGB(55, 62, 95),
+		OutdoorAmbient = Color3.fromRGB(70, 80, 120),
+		Brightness = 0.8,
+		Exposure = -0.25,
+		Density = 0.4,
 		AtmColor = Color3.fromRGB(30, 36, 62),
 		AtmDecay = Color3.fromRGB(10, 12, 25),
 		Haze = 2,
@@ -890,6 +922,48 @@ Config.Sounds = {
 	MineAmbient = "rbxassetid://9125351901", -- 광산 배경음: Afterworld Ambience (ProSoundEffects), 반복
 	CaveDrip = "rbxassetid://9126190654", -- 동굴 물방울 (ProSoundEffects), 반복
 	BatFlap = "rbxassetid://9113443901", -- 박쥐 날갯짓: Bird Flying (ProSoundEffects)를 높은 음으로
+}
+
+-- 횃불: 밤에 마을·길을 밝힌다 (2026-10-09 사용자 요청: 밤에 너무 깜깜함). 제작 스크립트 studio/BuildTorches, 켜고 끄기 TorchService
+Config.Torches = {
+	-- 불빛 (따뜻한 주황, 무섭지 않게)
+	LightColor = Color3.fromRGB(255, 176, 96),
+	FlameColor = Color3.fromRGB(255, 150, 60),
+	TownRange = 26, -- 마을 가로등 불빛 거리(스터드)
+	TownBrightness = 1.9,
+	RoadRange = 22, -- 길 횃불 불빛 거리
+	RoadBrightness = 1.5,
+	ShadowEvery = 6, -- 마을 가로등 몇 개마다 하나만 그림자 켜기 (0 = 모두 끔, 성능)
+	UseFire = true, -- 길 횃불에 Fire 효과 (끄면 빛나는 불꽃 부품만)
+	-- 켜는 시간: 해 지기 LightBefore시간 전 ~ 해 뜨고 LightAfter시간 뒤 (Config.DayNight 시각 기준)
+	LightBefore = 0.75,
+	LightAfter = 0.5,
+	-- 마을 (TownArrival 둘레). 마을 반경 = 가장 먼 NPC 거리 + TownMargin (최소 TownMinRadius)
+	TownMargin = 10,
+	TownMinRadius = 28,
+	PlazaRadius = 12, -- 광장 가운데 둘레 가로등
+	PlazaCount = 5,
+	PerNpc = 1, -- NPC 가판대마다 가로등 수
+	NpcDistance = 7, -- NPC에서 떨어뜨리는 거리
+	TownRings = { -- 마을 둘레 고리 (Scale = 마을 반경 배수)
+		{ Scale = 0.6, Count = 6 },
+		{ Scale = 1.0, Count = 10 },
+		{ Scale = 1.55, Count = 14 },
+	},
+	TownMinGap = 9, -- 마을 가로등끼리 최소 간격
+	KeepAway = 6, -- 도착점·광산 입구에서 이만큼 떨어뜨린다
+	-- 길 (지형을 격자로 찍어서 찾는다)
+	RoadScanRadius = 300, -- 마을에서 이 거리까지 길을 찾는다
+	RoadScanStep = 4, -- 격자 간격(스터드)
+	DirtRoadMaxWidth = 20, -- 흙(Ground·Mud) 띠가 이보다 좁으면 흙길로 본다 (넓으면 그냥 흙밭)
+	RoadSpacing = 40, -- 길 횃불 간격(다른 횃불과의 최소 거리)
+	RoadSideOffset = 2.5, -- 길 가장자리에서 바깥으로 더 밀기
+	RoadSideSearch = 16, -- 길 가장자리를 찾는 최대 거리
+	MaxRoadTorches = 90,
+	-- 길을 거의 못 찾으면 마을 → 광산 입구 직선을 따라 세운다
+	RouteFallbackMin = 3, -- 길 횃불이 이보다 적으면 직선 경로 사용
+	RouteSpacing = 40,
+	RouteSideOffset = 5,
 }
 
 -- 측정 로그

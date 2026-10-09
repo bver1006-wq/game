@@ -1,10 +1,12 @@
 --!strict
 -- 배경음악 (2026-10-09 사용자 요청)
---   평소: 느릿하고 여유 있는 곡(Config.Music.Calm)을 차례로 + 새소리 같은 자연 소리(Config.Music.Ambience, 있으면)
+--   낮: 느릿하고 여유 있는 곡(Config.Music.Calm)을 차례로 + 새소리(Config.Music.Ambience, 있으면)
+--   밤: 더 느리고 조용한 곡(Config.Music.Night), 마을 밖이면 풀벌레 소리(NightAmbience, 있으면). 부엉이는 DayNightController
 --   전투: 몹을 때리거나 몹에게 맞으면 긴박한 곡(Config.Music.Battle)으로 바꾸고, 마지막 전투 뒤 BattleHoldTime초 동안 유지
 --   광산: 광산 배경음이 따로 있어서 음악은 MineVolume까지 줄인다
 -- 두 곡은 각자 소리 하나씩 갖고, 볼륨을 천천히 바꿔 서로 넘긴다(크로스페이드). 재생이 안 되는 곡은 건너뛴다
 
+local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
@@ -22,7 +24,10 @@ local MusicController = {}
 
 local calm: Channel
 local battle: Channel
-local ambience: Sound? = nil
+local night: Channel
+local dayAmbience: Sound? = nil
+local nightAmbience: Sound? = nil
+local lastAmbienceKey = ""
 local lastCombat = -math.huge
 local musicGroup: SoundGroup -- 모든 배경음이 들어가는 묶음. 끄기·크기 조절은 이 볼륨으로
 local muted = false
@@ -73,32 +78,48 @@ local function makeChannel(name: string, tracks: { string }, volume: number): Ch
 	return channel
 end
 
--- 지금 상황에 맞는 곡으로 넘긴다
+-- 지금 상황에 맞는 곡으로 넘긴다 ("Calm" 낮 / "Night" 밤 / "Battle" 전투 / "Mine" 광산)
 local function setMode(newMode: string)
 	if newMode == mode then
 		return
 	end
+	local previous = mode
 	mode = newMode
 	local music = Config.Music
-	if newMode == "Battle" then
-		-- 전투곡은 처음부터 (긴박감이 시작부터 나게)
-		if not battle.Sound.IsPlaying then
-			task.spawn(playNext, battle)
+	-- 모드마다 소리 낼 채널과 볼륨
+	local wanted: { [Channel]: number } = {
+		[calm] = if newMode == "Calm" then calm.Volume elseif newMode == "Mine" then music.MineVolume else 0,
+		[night] = if newMode == "Night" then night.Volume else 0,
+		[battle] = if newMode == "Battle" then battle.Volume else 0,
+	}
+	for channel, volume in wanted do
+		if volume > 0 and not channel.Sound.IsPlaying then
+			-- 전투곡·밤 곡은 들어갈 때 처음부터
+			task.spawn(playNext, channel)
 		end
-		fadeTo(battle.Sound, battle.Volume)
-		fadeTo(calm.Sound, 0)
-	else
-		fadeTo(calm.Sound, if newMode == "Mine" then music.MineVolume else calm.Volume)
-		fadeTo(battle.Sound, 0)
-		-- 전투곡은 다 줄어든 뒤 멈춘다 (다음 전투 때 처음부터)
-		task.delay(music.FadeTime, function()
-			if mode ~= "Battle" then
-				battle.Sound:Stop()
-			end
-		end)
+		fadeTo(channel.Sound, volume)
 	end
-	if ambience then
-		fadeTo(ambience, if newMode == "Calm" then music.AmbienceVolume else 0)
+	-- 다 줄어든 전투곡·밤 곡은 멈춘다 (다음에 처음부터). 낮 곡은 이어서 틀도록 둔다
+	for _, channel in { battle, night } do
+		if wanted[channel] == 0 and previous ~= "" then
+			task.delay(music.FadeTime, function()
+				if channel.Sound.Volume <= 0.001 then
+					channel.Sound:Stop()
+				end
+			end)
+		end
+	end
+end
+
+-- 자연 소리: 낮엔 새소리(Ambience), 밤에 마을 밖이면 풀벌레(NightAmbience). 전투·광산에서는 끈다
+local function updateAmbience()
+	local music = Config.Music
+	local outside = localPlayer:GetAttribute("InTown") ~= true
+	if dayAmbience then
+		fadeTo(dayAmbience, if mode == "Calm" then music.AmbienceVolume else 0)
+	end
+	if nightAmbience then
+		fadeTo(nightAmbience, if mode == "Night" and outside then music.NightAmbienceVolume else 0)
 	end
 end
 
@@ -147,14 +168,20 @@ function MusicController.init()
 	level = music.DefaultLevel
 	applyMaster()
 	calm = makeChannel("CalmMusic", music.Calm, music.Volume)
+	night = makeChannel("NightMusic", music.Night.Tracks, music.Night.Volume)
+	night.Sound.PlaybackSpeed = music.Night.PlaybackSpeed -- 더 느리고 낮게
 	battle = makeChannel("BattleMusic", music.Battle, music.BattleVolume)
-	if music.Ambience ~= "" then
-		local sound = makeSound("NatureAmbience", true)
-		sound.SoundId = music.Ambience
+	local function loopSound(name: string, id: string): Sound?
+		if id == "" then
+			return nil
+		end
+		local sound = makeSound(name, true)
+		sound.SoundId = id
 		sound:Play()
-		ambience = sound
+		return sound
 	end
-	task.spawn(playNext, calm)
+	dayAmbience = loopSound("DayAmbience", music.Ambience)
+	nightAmbience = loopSound("NightAmbience", music.NightAmbience)
 
 	-- 전투 감지: 내가 때린 공격, 나를 때린 몹
 	Remotes.get(Remotes.Names.CombatEffect).OnClientEvent:Connect(function(_mob, _damage, _isCrit, _kind, _tier, attackerUserId)
@@ -172,7 +199,14 @@ function MusicController.init()
 		while true do
 			local inBattle = os.clock() - lastCombat < music.BattleHoldTime
 			local inMine = MineAtmosphereController.getFloor() ~= nil
-			setMode(if inBattle and #battle.Tracks > 0 then "Battle" elseif inMine then "Mine" else "Calm")
+			local clock = Lighting.ClockTime
+			local isNight = clock < Config.DayNight.DayStart or clock >= Config.DayNight.NightStart
+			setMode(if inBattle and #battle.Tracks > 0 then "Battle" elseif inMine then "Mine" elseif isNight then "Night" else "Calm")
+			local key = `{mode}{localPlayer:GetAttribute("InTown")}`
+			if key ~= lastAmbienceKey then
+				lastAmbienceKey = key
+				updateAmbience()
+			end
 			task.wait(0.5)
 		end
 	end)
