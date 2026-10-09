@@ -77,6 +77,11 @@ src/
    └─ Remotes.luau              RemoteEvent 이름 목록
 ```
 
+### 사용자 PC 작업 방식 (2026-10-09)
+- 사용자 PC: GitHub Desktop으로 클론한 `Documents\GitHub\game\RobloxMMO`에서 Rojo 서버 실행 (rojo.exe를 폴더에 넣어 둠, .gitignore로 제외)
+- `StartDev.bat` 더블클릭: Rojo를 켜고 30초마다 main을 자동 pull. 그래서 클라우드 작업은 main에 합쳐 둔다 (사용자 허락)
+- 사용자는 코딩을 모른다. 설명은 짧고 한 단계씩
+
 ### Studio 쪽 배치
 - `ServerStorage/Templates/Ores/<광석>/` 바위 원본. 광석마다 폴더 안에 모양 변형 모델 여러 개 (생성 때 랜덤 선택)
 - `ServerStorage/Templates/Pickaxes/` 곡괭이·도끼 Tool 원본
