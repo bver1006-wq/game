@@ -13,6 +13,7 @@ local ItemDefs = require(ReplicatedStorage.Shared.ItemDefs)
 local DragController = require(script.Parent.DragController)
 local HotbarController = require(script.Parent.HotbarController)
 local InventoryState = require(script.Parent.InventoryState)
+local CooldownController = require(script.Parent.CooldownController)
 local ItemIcon = require(script.Parent.ItemIcon)
 local UiKit = require(script.Parent.UiKit)
 
@@ -55,6 +56,7 @@ local function drawCell(order: number, entry: InventoryState.SlotEntry?)
 	holder.BackgroundTransparency = 1
 	holder.Parent = cell
 	ItemIcon.create(holder, entry.ItemId)
+	CooldownController.attach(cell, entry.ItemId)
 
 	local def = ItemDefs.Items[entry.ItemId]
 	-- 아이콘 아래 이름

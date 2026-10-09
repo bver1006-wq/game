@@ -22,7 +22,8 @@ local ItemUseService = {}
 
 local casting: { [Player]: number } = {} -- 플레이어 → 진행 중인 귀환의 번호 (취소 판별용)
 local castCounter = 0
-local lastEat: { [Player]: number } = {}
+local lastEat: { [Player]: { [string]: number } } = {} -- 플레이어 → 음식 Id → 마지막으로 먹은 시각
+local cooldownRemote: RemoteEvent
 
 -- 음식 먹기: 체력·마나를 채운다. 둘 다 가득이면 먹지 않는다
 local function eat(player: Player, itemId: string)
@@ -33,7 +34,10 @@ local function eat(player: Player, itemId: string)
 		return
 	end
 	local now = os.clock()
-	if now - (lastEat[player] or -math.huge) < Config.FoodCooldown then
+	local eaten = lastEat[player] or {}
+	lastEat[player] = eaten
+	if now - (eaten[itemId] or -math.huge) < Config.FoodCooldown then
+		NotifyService.send(player, `{ItemDefs.Items[itemId].DisplayName}: 조금 있다가 다시 먹을 수 있어요.`, "info")
 		return
 	end
 	local needsHp = (food.Hp or 0) > 0 and humanoid.Health < humanoid.MaxHealth
@@ -45,7 +49,8 @@ local function eat(player: Player, itemId: string)
 	if not InventoryService.remove(player, itemId, 1) then
 		return
 	end
-	lastEat[player] = now
+	eaten[itemId] = now
+	cooldownRemote:FireClient(player, itemId, Config.FoodCooldown)
 	local parts = {}
 	if food.Hp then
 		local before = humanoid.Health
@@ -163,6 +168,7 @@ end
 
 -- 서버 시작 시 한 번 호출
 function ItemUseService.init()
+	cooldownRemote = Remotes.get(Remotes.Names.ItemCooldown)
 	Remotes.get(Remotes.Names.UseItem).OnServerEvent:Connect(onUseItem)
 	Players.PlayerRemoving:Connect(function(player)
 		casting[player] = nil

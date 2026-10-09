@@ -153,7 +153,6 @@ function CombatController.attack(def: PickaxeDefs.PickaxeDef, charge: number): b
 	end
 	local now = os.clock()
 	if now - lastAttackClock < config.Cooldown then
-		SwingAnimation.cancelHold()
 		return false
 	end
 	lastAttackClock = now

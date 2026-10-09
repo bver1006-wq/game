@@ -22,6 +22,7 @@ Remotes.Names = table.freeze({
 	ShopAction = "ShopAction", -- 클라 → 서버: (shopId, action, ...) 판매·제련·곡괭이 구매 요청
 	Notify = "Notify", -- 서버 → 클라: (message, kind) 화면 알림 ("good" | "bad" | "info")
 	UseItem = "UseItem", -- 클라 → 서버: (itemId) 귀환 주문서 같은 소모품 쓰기
+	ItemCooldown = "ItemCooldown", -- 서버 → 클라: (itemId, seconds) 이 아이템 쿨타임 시작 (칸 위 시계 방향 덮개)
 	SetSprint = "SetSprint", -- 클라 → 서버: (on) 달리기 모드 켜기·끄기
 	ChargeStart = "ChargeStart", -- 클라 → 서버: () 도구·무기 모으기 시작 (놓을 때 보내는 휘두르기·공격 요청이 끝)
 	ChargeCancel = "ChargeCancel", -- 클라 → 서버: () 모으기 취소 (도구를 내려놓음)

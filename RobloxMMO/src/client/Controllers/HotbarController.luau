@@ -17,6 +17,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 local ItemDefs = require(ReplicatedStorage.Shared.ItemDefs)
 local DragController = require(script.Parent.DragController)
 local InventoryState = require(script.Parent.InventoryState)
+local CooldownController = require(script.Parent.CooldownController)
 local ItemIcon = require(script.Parent.ItemIcon)
 local NotifyController = require(script.Parent.NotifyController)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
@@ -56,7 +57,7 @@ local function render()
 	local equipped = equippedItemId()
 	for index, frame in slotFrames do
 		for _, child in frame:GetChildren() do
-			if child:IsA("ViewportFrame") or child.Name == "Icon" or child.Name == "Count" then
+			if child:IsA("ViewportFrame") or child.Name == "Icon" or child.Name == "Count" or child.Name == "Cooldown" then
 				child:Destroy()
 			end
 		end
@@ -74,6 +75,7 @@ local function render()
 			holder.BackgroundTransparency = 1
 			holder.Parent = frame
 			ItemIcon.create(holder, itemId)
+			CooldownController.attach(frame, itemId)
 			local def = ItemDefs.Items[itemId]
 			local count = InventoryState.count(itemId)
 			if def and def.Stackable then

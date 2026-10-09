@@ -122,11 +122,10 @@ Config.Charge = {
 	Time = 1.0, -- 다 모으는 데 걸리는 시간(초)
 	TapThreshold = 0.2, -- 이보다 짧게 누르면 그냥 한 번 휘두르기(초)
 	WalkSpeed = 8, -- 모으는 동안 걷는 속도
-	Multiplier = 1.8, -- 다 모은 강타 데미지 배수 (활 제외)
+	Multiplier = 2.5, -- 다 모은 강타 데미지 배수 (활 제외). 2026-10-09 1.8 → 2.5
 	ManaCost = 10, -- 강타에 쓰는 마나. 모자라면 보통 타격
 	BowTapDamage = 0.5, -- 활을 짧게 쏘면 데미지 배수
 	BowTapRange = 0.6, -- 활을 짧게 쏘면 사거리 배수
-	HoldPose = 0.18, -- 휘두르기 애니메이션의 이 지점(0~1)에서 멈춰 자세를 잡는다
 	GlowColor = Color3.fromRGB(255, 235, 170), -- 모을 때 도구 빛
 	FullColor = Color3.fromRGB(255, 255, 255), -- 다 모였을 때 선명한 테두리
 	MaxHold = 6, -- 서버: 이보다 오래 누른 기록은 무시(초)
@@ -140,7 +139,7 @@ Config.Foods = {
 	ManaBerry = { Mana = 30 },
 	LunchBox = { Hp = 60, Mana = 60 },
 }
-Config.FoodCooldown = 0.6 -- 연달아 먹는 간격(초)
+Config.FoodCooldown = 10 -- 같은 음식을 다시 먹으려면 기다리는 시간(초). 칸 위에 시계 방향 덮개로 보인다 (2026-10-09)
 
 -- 무기: 데미지·쿨다운(초)·사거리(스터드)·대장장이 아닌 사냥꾼 판매 가격
 -- 칼은 빠르고, 방망이는 느리지만 세고 밀쳐 내고, 활은 약하지만 멀리서 쏜다
@@ -435,6 +434,7 @@ Config.Sounds = {
 	MobDie = "rbxassetid://17779566040", -- 몹이 펑 사라짐 (pop click을 낮게)
 	BowShoot = "rbxassetid://9113443901", -- 활 쏘는 "슉" (Bird Flying을 높게). TODO: 활 전용 소리
 	CritBurn = "rbxassetid://3406813517", -- 치명타 불꽃 (Power_Up을 높게)
+	ChargeUp = "rbxassetid://3406813517", -- 차징: 기운이 차오르는 소리 (Power_Up, 모일수록 음이 올라간다). TODO: 전용 소리
 	Eat = "rbxassetid://17779566040", -- 먹기 (pop click)
 	TreeBreak = "rbxassetid://9120963881", -- 나무가 갈라지며 쓰러지는 소리 (ProSoundEffects)
 	JudgmentPop = "rbxassetid://17779566040", -- minimal pop click

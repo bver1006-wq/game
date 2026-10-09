@@ -1,8 +1,9 @@
 --!strict
 -- 차징(모으기) 연출 (클라이언트). 얼마나 모았는지와 강타 판정은 서버(ChargeService)가 정한다.
 -- 활: 화면 아래 차징 게이지가 찬다 (다 차면 금색)
--- 나머지 도구·무기: 휘두르기 직전 자세로 멈추고, 도구에서 은은한 빛이 점점 커지며 깜빡이다가
+-- 나머지 도구·무기: 머리 위 뒤로 들어 올린 자세(PoseController.windUp)로, 도구에서 은은한 빛이 점점 커지며 깜빡이다가
 --   다 모이면 깜빡임이 멈추고 선명한 테두리와 반짝임이 생긴다
+-- 공통: 기운이 차오르는 소리, 주변에서 작은 마나 입자가 도구로 빨려 들어온다. 활은 시위를 당기는 자세(PoseController.bowDraw)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,8 +12,10 @@ local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
+local Workspace = game:GetService("Workspace")
+
 local HitFeelController = require(script.Parent.HitFeelController)
-local SwingAnimation = require(script.Parent.SwingAnimation)
+local PoseController = require(script.Parent.PoseController)
 local UiKit = require(script.Parent.UiKit)
 
 local localPlayer = Players.LocalPlayer
@@ -28,6 +31,9 @@ type Session = {
 	Sparkles: ParticleEmitter?,
 	Highlight: Highlight?,
 	Anchor: Attachment?,
+	Gather: BasePart?, -- 마나 입자가 모여드는 투명 공 (도구 가운데를 따라다닌다)
+	GatherEmitter: ParticleEmitter?,
+	Sound: Sound?,
 }
 
 local current: Session? = nil
@@ -99,6 +105,47 @@ local function startGlow(session: Session)
 	session.Highlight = highlight
 end
 
+-- 기운 모으기 시작: 차오르는 소리 + 주변에서 마나 입자가 빨려 들어오는 공
+-- (ParticleEmitter 모양 Sphere + Inward: 공 표면에서 생겨 가운데로 날아든다)
+local function startGather(session: Session)
+	local gather = Instance.new("Part")
+	gather.Name = "ChargeGather"
+	gather.Shape = Enum.PartType.Ball
+	gather.Size = Vector3.new(9, 9, 9)
+	gather.Transparency = 1
+	gather.Anchored = true
+	gather.CanCollide = false
+	gather.CanQuery = false
+	gather.CanTouch = false
+	gather.CastShadow = false
+	gather.Parent = Workspace
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	emitter.Color = ColorSequence.new(Color3.fromRGB(120, 200, 255), Color3.fromRGB(200, 240, 255))
+	emitter.LightEmission = 1
+	emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.12), NumberSequenceKeypoint.new(0.7, 0.22), NumberSequenceKeypoint.new(1, 0) })
+	emitter.Transparency = NumberSequence.new(0.2, 0.6)
+	emitter.Lifetime = NumberRange.new(0.6, 0.7)
+	emitter.Speed = NumberRange.new(6, 7)
+	emitter.Shape = Enum.ParticleEmitterShape.Sphere
+	emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+	emitter.ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward
+	emitter.Rate = 0
+	emitter.Parent = gather
+	session.Gather = gather
+	session.GatherEmitter = emitter
+
+	local sound = Instance.new("Sound")
+	sound.SoundId = Config.Sounds.ChargeUp
+	sound.Volume = 0.35
+	sound.PlaybackSpeed = 0.8
+	local character = localPlayer.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	sound.Parent = root or Workspace
+	sound:Play()
+	session.Sound = sound
+end
+
 -- 다 모였을 때: 깜빡임이 멈추고 선명해진다 (+ 반짝 소리)
 local function onFull(session: Session)
 	session.Full = true
@@ -109,6 +156,10 @@ local function onFull(session: Session)
 		center = c
 	end
 	HitFeelController.playSound(Config.Sounds.JudgmentPop, center, 1.7, 0.6)
+	if session.GatherEmitter then
+		session.GatherEmitter:Emit(25) -- 마지막으로 한 번 더 확 모인다
+		session.GatherEmitter.Rate = 8
+	end
 	if session.Def.Kind == "Bow" then
 		gaugeFill.BackgroundColor3 = UiKit.Colors.Gold
 		return
@@ -131,11 +182,15 @@ end
 -- 모으기 시작 (InputController가 누르는 순간 부른다)
 function ChargeController.start(def: PickaxeDefs.PickaxeDef)
 	ChargeController.stop()
-	current = { Def = def, Start = os.clock(), Holding = false, Full = false, Light = nil, Sparkles = nil, Highlight = nil, Anchor = nil }
+	current = { Def = def, Start = os.clock(), Holding = false, Full = false, Light = nil, Sparkles = nil, Highlight = nil, Anchor = nil, Gather = nil, GatherEmitter = nil, Sound = nil }
 	if def.Kind == "Bow" then
 		gaugeFill.Size = UDim2.fromScale(0, 1)
 		gaugeFill.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
 		gaugeFrame.Visible = true
+		local tool = heldTool()
+		if tool then
+			PoseController.bowDraw(tool) -- 활은 누르는 순간부터 시위를 당긴다
+		end
 	end
 end
 
@@ -160,6 +215,19 @@ function ChargeController.stop(): (number, number)
 	if session.Highlight then
 		session.Highlight:Destroy()
 	end
+	if session.Gather then
+		local gather = session.Gather
+		if session.GatherEmitter then
+			session.GatherEmitter.Rate = 0
+		end
+		task.delay(0.8, function()
+			gather:Destroy()
+		end)
+	end
+	if session.Sound then
+		session.Sound:Destroy()
+	end
+	PoseController.release() -- 휘두르기 애니메이션과 함께 자세가 내려온다 (활은 시위가 튕겨 돌아온다)
 	local held = os.clock() - session.Start
 	local ratio = if held < Config.Charge.TapThreshold then 0 else math.clamp(held / Config.Charge.Time, 0, 1)
 	return held, ratio
@@ -167,9 +235,6 @@ end
 
 -- 휘두르지 않고 취소 (도구를 내려놓음)
 function ChargeController.cancel()
-	if current and current.Holding then
-		SwingAnimation.cancelHold()
-	end
 	ChargeController.stop()
 end
 
@@ -186,14 +251,36 @@ local function update()
 	end
 	local held = os.clock() - session.Start
 	local ratio = math.clamp(held / Config.Charge.Time, 0, 1)
+	-- 짧게 누르는 것보다 길어지면 기운을 모으기 시작한다
+	if not session.Holding and held >= Config.Charge.TapThreshold then
+		session.Holding = true
+		startGather(session)
+		if session.Def.Kind ~= "Bow" then
+			PoseController.windUp()
+			startGlow(session)
+		end
+	end
+	-- 마나 입자 공은 도구 가운데를 따라다니고, 모일수록 많아진다. 소리도 점점 높아진다
+	if session.Gather then
+		local tool = heldTool()
+		if tool then
+			local _, center = toolCenter(tool)
+			if center then
+				session.Gather.CFrame = CFrame.new(center)
+			end
+		end
+		if not session.Full then
+			if session.GatherEmitter then
+				session.GatherEmitter.Rate = 10 + ratio * 50
+			end
+			if session.Sound then
+				session.Sound.PlaybackSpeed = 0.8 + ratio * 0.5
+			end
+		end
+	end
 	if session.Def.Kind == "Bow" then
 		gaugeFill.Size = UDim2.fromScale(ratio, 1)
 	else
-		if not session.Holding and held >= Config.Charge.TapThreshold then
-			session.Holding = true
-			SwingAnimation.hold()
-			startGlow(session)
-		end
 		if session.Holding and not session.Full then
 			-- 은은하게 깜빡이며 점점 커진다
 			local pulse = 0.75 + 0.25 * math.sin(held * 14)

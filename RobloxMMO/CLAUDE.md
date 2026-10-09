@@ -299,7 +299,10 @@ src/
   - 서버 ChargeService가 ChargeStart ~ 휘두르기·공격 요청 사이 시간으로 모은 정도를 정한다. 요청을 안 보내게 되면 클라가 ChargeCancel
   - 모으는 동안 속성 Charging → 달리기 모드여도 Charge.WalkSpeed로 천천히 걷는다 (ManaService)
   - 활: 짧게 쏘면 사거리 BowTapRange·데미지 BowTapDamage배, 다 모으면 원래 값. 화면 아래 게이지 (ChargeController)
-  - 나머지: 휘두르기 직전 자세로 멈추고(SwingAnimation.hold) 도구 빛이 깜빡이며 커지다가, 다 모이면 깜빡임이 멈추고 선명한 테두리. 다 모은 강타는 마나 ManaCost를 써서 Multiplier배 (바위·나무도). HitEffect special "Charged" / CombatEffect charged
+  - 나머지: 무기를 머리 위 뒤로 들어 올린 자세(PoseController.windUp, 어깨·허리 Motor6D C0를 돌림, 내 화면에만 보임)로 도구 빛이 깜빡이며 커지다가, 다 모이면 깜빡임이 멈추고 선명한 테두리. 다 모은 강타는 마나 ManaCost를 써서 Multiplier(2.5)배 (바위·나무도). HitEffect special "Charged" / CombatEffect charged
+  - 공통: 기운이 차오르는 소리(Sounds.ChargeUp, 모일수록 음이 올라감), 주변에서 마나 입자가 도구로 빨려 들어옴(ParticleEmitter Sphere + Inward)
+  - 활: 누르는 순간 왼손이 시위를 잡고 시위가 뒤로 휘며 화살이 걸린다(PoseController.bowDraw, 내 화면에만). 놓으면 시위가 돌아온다
+- [x] 음식 쿨타임 10초 (Config.FoodCooldown, 음식마다 따로). 서버가 ItemCooldown으로 알리면 가방 칸·빠른 칸 위 어두운 덮개가 12시부터 시계 방향으로 걷힌다 (CooldownController)
   - TODO: 칼·활·방망이 전용 소리 (지금은 있는 소리 음높이만 바꿈), 몹 애니메이션, 방어구
 - [ ] 저장(DataService), 트로피, 모루 미니게임, 매크로 방어
 
