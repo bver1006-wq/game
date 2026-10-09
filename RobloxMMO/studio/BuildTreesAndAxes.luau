@@ -169,6 +169,8 @@ local function buildAxe(spec): Tool
 	else
 		a = principal(u:Cross(Vector3.zAxis).Magnitude > 0.5 and u:Cross(Vector3.zAxis) or u:Cross(Vector3.xAxis))
 	end
+	-- 곡괭이 머리 방향에서 손잡이 축으로 90도 돌린 쪽이 도끼날 방향 (플레이 테스트로 확인, 2026-10-09)
+	a = principal(u:Cross(a))
 	if FLIP_BLADE then
 		a = -a
 	end
@@ -427,8 +429,11 @@ for _, id in TREE_IDS do
 		model.Name = `{id}{index}`
 		local origin = CFrame.new(0, 0, 0)
 		TREE_BUILDERS[id](model, origin, def, scale)
-		model.PrimaryPart = model.Trunk
-		model.WorldPivot = origin -- 기준점 = 줄기 밑동 가운데 (OreService·연출이 이 점을 기준으로 쓴다)
+		-- 기준점 = 줄기 밑동 가운데, 똑바로 선 방향 (OreService·연출이 이 점을 기준으로 쓴다)
+		-- PrimaryPart가 있으면 기준점은 그 부품을 따라가므로, 눕혀 둔 원통 줄기의 PivotOffset으로 바로잡는다
+		local trunkPart = model.Trunk
+		model.PrimaryPart = trunkPart
+		trunkPart.PivotOffset = trunkPart.CFrame:ToObjectSpace(origin)
 		model.Parent = treeFolder
 	end
 end
