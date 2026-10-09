@@ -510,7 +510,8 @@ Config.Smelting = {
 
 -- 조합식 (2026-10-09 사용자 요청): 도구·무기·장비 만드는 법. 키 = 만들어지는 아이템 Id
 -- 1단계(From 없음): 골드 + 재료 조금으로 산다 (여러 개 살 수 있다)
--- 2단계부터: 같은 종류(칸) 바로 아래 단계 From.Count(3)개 + 재료 Items + 골드 Gold → 1개. 실패 확률 없음
+-- 2단계부터: 같은 종류(칸) 바로 아래 단계 From.Count개 + 재료 Items + 골드 Gold → 1개. 실패 확률 없음
+--   From.Count: 2·3단계는 3개, 4단계(다이아)부터는 2개 (2026-10-09 사용자 결정: 6단계 하나에 1단계 243개 → 108개)
 -- 재료 원칙 (2026-10-09 사용자 결정):
 --   도구·무기·장신구(목걸이·팔찌) = 광물(광석·괴) + 통나무 (+ 무기는 가끔 귀한 몹 부위: 송곳니·눈알·보스의 증표)
 --   방어구(헬멧·갑옷·신발·장갑) = 몹 전리품이 주재료 (젤리 → 뼈·천 → 케르베로스 털가죽·사이클롭스 가죽 → 보스의 증표) + 묶는 괴 조금
@@ -523,79 +524,79 @@ local RECIPES: { [string]: Recipe } = {
 	StonePickaxe = { Gold = 5, Items = { Stone = 3, Pine = 2 } },
 	CopperPickaxe = { From = { Id = "StonePickaxe", Count = 3 }, Gold = 30, Items = { Stone = 10, Oak = 4 } },
 	IronPickaxe = { From = { Id = "CopperPickaxe", Count = 3 }, Gold = 150, Items = { CopperIngot = 6, Coal = 8, Birch = 4 } },
-	SteelPickaxe = { From = { Id = "IronPickaxe", Count = 3 }, Gold = 600, Items = { SteelIngot = 5, IronIngot = 8, Coal = 15, Maple = 6 } },
-	MithrilPickaxe = { From = { Id = "SteelPickaxe", Count = 3 }, Gold = 1800, Items = { MithrilIngot = 6, SteelIngot = 6, Coal = 20, Ebony = 3 } },
-	OrichalcumPickaxe = { From = { Id = "MithrilPickaxe", Count = 3 }, Gold = 4500, Items = { OrichalcumIngot = 4, MithrilIngot = 8, SteelIngot = 6, Ebony = 6 } },
+	SteelPickaxe = { From = { Id = "IronPickaxe", Count = 2 }, Gold = 600, Items = { SteelIngot = 5, IronIngot = 8, Coal = 15, Maple = 6 } },
+	MithrilPickaxe = { From = { Id = "SteelPickaxe", Count = 2 }, Gold = 1800, Items = { MithrilIngot = 6, SteelIngot = 6, Coal = 20, Ebony = 3 } },
+	OrichalcumPickaxe = { From = { Id = "MithrilPickaxe", Count = 2 }, Gold = 4500, Items = { OrichalcumIngot = 4, MithrilIngot = 8, SteelIngot = 6, Ebony = 6 } },
 	-- 도끼
 	StoneAxe = { Gold = 5, Items = { Pine = 3, Stone = 2 } },
 	CopperAxe = { From = { Id = "StoneAxe", Count = 3 }, Gold = 30, Items = { CopperIngot = 2, Oak = 6 } },
 	IronAxe = { From = { Id = "CopperAxe", Count = 3 }, Gold = 150, Items = { IronIngot = 4, Birch = 8, Coal = 5 } },
-	DiamondAxe = { From = { Id = "IronAxe", Count = 3 }, Gold = 600, Items = { SteelIngot = 5, IronIngot = 6, Maple = 10, Birch = 10 } },
-	MithrilAxe = { From = { Id = "DiamondAxe", Count = 3 }, Gold = 1800, Items = { MithrilIngot = 5, SteelIngot = 5, Maple = 12, Ebony = 4 } },
-	OrichalcumAxe = { From = { Id = "MithrilAxe", Count = 3 }, Gold = 4500, Items = { OrichalcumIngot = 3, MithrilIngot = 6, Ebony = 10, Maple = 15 } },
+	DiamondAxe = { From = { Id = "IronAxe", Count = 2 }, Gold = 600, Items = { SteelIngot = 5, IronIngot = 6, Maple = 10, Birch = 10 } },
+	MithrilAxe = { From = { Id = "DiamondAxe", Count = 2 }, Gold = 1800, Items = { MithrilIngot = 5, SteelIngot = 5, Maple = 12, Ebony = 4 } },
+	OrichalcumAxe = { From = { Id = "MithrilAxe", Count = 2 }, Gold = 4500, Items = { OrichalcumIngot = 3, MithrilIngot = 6, Ebony = 10, Maple = 15 } },
 	-- 칼 (광물 + 통나무, 높은 단계는 귀한 몹 부위 조금)
 	WoodenSword = { Gold = 5, Items = { Pine = 4 } },
 	CopperSword = { From = { Id = "WoodenSword", Count = 3 }, Gold = 40, Items = { CopperIngot = 3, Oak = 3 } },
 	IronSword = { From = { Id = "CopperSword", Count = 3 }, Gold = 180, Items = { IronIngot = 5, CopperIngot = 2, Birch = 4 } },
-	DiamondSword = { From = { Id = "IronSword", Count = 3 }, Gold = 700, Items = { SteelIngot = 6, IronIngot = 6, CerberusFang = 4, CyclopsEye = 2 } },
-	MithrilSword = { From = { Id = "DiamondSword", Count = 3 }, Gold = 2000, Items = { MithrilIngot = 6, SteelIngot = 4, Ebony = 2, CerberusFang = 4 } },
-	OrichalcumSword = { From = { Id = "MithrilSword", Count = 3 }, Gold = 5000, Items = { OrichalcumIngot = 4, MithrilIngot = 6, CyclopsEye = 4, BossToken = 1 } },
+	DiamondSword = { From = { Id = "IronSword", Count = 2 }, Gold = 700, Items = { SteelIngot = 6, IronIngot = 6, CerberusFang = 4, CyclopsEye = 2 } },
+	MithrilSword = { From = { Id = "DiamondSword", Count = 2 }, Gold = 2000, Items = { MithrilIngot = 6, SteelIngot = 4, Ebony = 2, CerberusFang = 4 } },
+	OrichalcumSword = { From = { Id = "MithrilSword", Count = 2 }, Gold = 5000, Items = { OrichalcumIngot = 4, MithrilIngot = 6, CyclopsEye = 4, BossToken = 1 } },
 	-- 활
 	WoodenBow = { Gold = 5, Items = { Pine = 5 } },
 	CopperBow = { From = { Id = "WoodenBow", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, Oak = 5 } },
 	IronBow = { From = { Id = "CopperBow", Count = 3 }, Gold = 180, Items = { IronIngot = 4, Birch = 6, Maple = 3 } },
-	DiamondBow = { From = { Id = "IronBow", Count = 3 }, Gold = 700, Items = { SteelIngot = 5, Maple = 8, Ebony = 2, CerberusFang = 4 } },
-	MithrilBow = { From = { Id = "DiamondBow", Count = 3 }, Gold = 2000, Items = { MithrilIngot = 4, Ebony = 4, Maple = 10, CerberusFang = 3 } },
-	OrichalcumBow = { From = { Id = "MithrilBow", Count = 3 }, Gold = 5000, Items = { OrichalcumIngot = 3, MithrilIngot = 4, Ebony = 8, CyclopsEye = 3 } },
+	DiamondBow = { From = { Id = "IronBow", Count = 2 }, Gold = 700, Items = { SteelIngot = 5, Maple = 8, Ebony = 2, CerberusFang = 4 } },
+	MithrilBow = { From = { Id = "DiamondBow", Count = 2 }, Gold = 2000, Items = { MithrilIngot = 4, Ebony = 4, Maple = 10, CerberusFang = 3 } },
+	OrichalcumBow = { From = { Id = "MithrilBow", Count = 2 }, Gold = 5000, Items = { OrichalcumIngot = 3, MithrilIngot = 4, Ebony = 8, CyclopsEye = 3 } },
 	-- 방망이 (6단계 오리하르콘 거인망치는 보스의 증표가 들어간다)
 	BaseballBat = { Gold = 5, Items = { Oak = 4 } },
 	GoblinClub = { From = { Id = "BaseballBat", Count = 3 }, Gold = 40, Items = { CopperIngot = 3, Oak = 5 } },
 	MorningStar = { From = { Id = "GoblinClub", Count = 3 }, Gold = 180, Items = { IronIngot = 6, Coal = 6, Oak = 10 } },
-	DiamondMace = { From = { Id = "MorningStar", Count = 3 }, Gold = 700, Items = { SteelIngot = 7, IronIngot = 5, CyclopsEye = 3, Maple = 6 } },
-	MithrilHammer = { From = { Id = "DiamondMace", Count = 3 }, Gold = 2000, Items = { MithrilIngot = 7, SteelIngot = 5, Maple = 8, CyclopsEye = 3 } },
-	OrichalcumHammer = { From = { Id = "MithrilHammer", Count = 3 }, Gold = 5000, Items = { OrichalcumIngot = 4, MithrilIngot = 6, Ebony = 6, BossToken = 2 } },
+	DiamondMace = { From = { Id = "MorningStar", Count = 2 }, Gold = 700, Items = { SteelIngot = 7, IronIngot = 5, CyclopsEye = 3, Maple = 6 } },
+	MithrilHammer = { From = { Id = "DiamondMace", Count = 2 }, Gold = 2000, Items = { MithrilIngot = 7, SteelIngot = 5, Maple = 8, CyclopsEye = 3 } },
+	OrichalcumHammer = { From = { Id = "MithrilHammer", Count = 2 }, Gold = 5000, Items = { OrichalcumIngot = 4, MithrilIngot = 6, Ebony = 6, BossToken = 2 } },
 	-- 헬멧 (몹 전리품 주재료 + 묶는 괴 조금)
 	LeatherHelmet = { Gold = 8, Items = { SlimeJelly = 3 } },
 	CopperHelmet = { From = { Id = "LeatherHelmet", Count = 3 }, Gold = 40, Items = { SlimeJelly = 8, CopperIngot = 1 } },
 	IronHelmet = { From = { Id = "CopperHelmet", Count = 3 }, Gold = 180, Items = { Bone = 10, OldCloth = 4, IronIngot = 1 } },
-	DiamondHelmet = { From = { Id = "IronHelmet", Count = 3 }, Gold = 700, Items = { CerberusHide = 8, Bone = 10, CyclopsEye = 1, SteelIngot = 1 } },
-	MithrilHelmet = { From = { Id = "DiamondHelmet", Count = 3 }, Gold = 1800, Items = { CyclopsHide = 10, CerberusHide = 10, CyclopsEye = 2, MithrilIngot = 1 } },
-	OrichalcumHelmet = { From = { Id = "MithrilHelmet", Count = 3 }, Gold = 4500, Items = { CyclopsHide = 18, CerberusHide = 14, BossToken = 2, OrichalcumIngot = 1 } },
+	DiamondHelmet = { From = { Id = "IronHelmet", Count = 2 }, Gold = 700, Items = { CerberusHide = 8, Bone = 10, CyclopsEye = 1, SteelIngot = 1 } },
+	MithrilHelmet = { From = { Id = "DiamondHelmet", Count = 2 }, Gold = 1800, Items = { CyclopsHide = 10, CerberusHide = 10, CyclopsEye = 2, MithrilIngot = 1 } },
+	OrichalcumHelmet = { From = { Id = "MithrilHelmet", Count = 2 }, Gold = 4500, Items = { CyclopsHide = 18, CerberusHide = 14, BossToken = 2, OrichalcumIngot = 1 } },
 	-- 갑옷
 	LeatherArmor = { Gold = 12, Items = { SlimeJelly = 5 } },
 	CopperArmor = { From = { Id = "LeatherArmor", Count = 3 }, Gold = 50, Items = { SlimeJelly = 10, OldCloth = 2, CopperIngot = 1 } },
 	IronArmor = { From = { Id = "CopperArmor", Count = 3 }, Gold = 220, Items = { OldCloth = 10, Bone = 6, IronIngot = 2 } },
-	DiamondArmor = { From = { Id = "IronArmor", Count = 3 }, Gold = 850, Items = { CerberusHide = 10, CyclopsHide = 4, OldCloth = 10, SteelIngot = 2 } },
-	MithrilArmor = { From = { Id = "DiamondArmor", Count = 3 }, Gold = 2200, Items = { CyclopsHide = 14, CerberusHide = 12, CerberusFang = 4, MithrilIngot = 2 } },
-	OrichalcumArmor = { From = { Id = "MithrilArmor", Count = 3 }, Gold = 5500, Items = { CyclopsHide = 24, CerberusHide = 18, BossToken = 3, OrichalcumIngot = 1 } },
+	DiamondArmor = { From = { Id = "IronArmor", Count = 2 }, Gold = 850, Items = { CerberusHide = 10, CyclopsHide = 4, OldCloth = 10, SteelIngot = 2 } },
+	MithrilArmor = { From = { Id = "DiamondArmor", Count = 2 }, Gold = 2200, Items = { CyclopsHide = 14, CerberusHide = 12, CerberusFang = 4, MithrilIngot = 2 } },
+	OrichalcumArmor = { From = { Id = "MithrilArmor", Count = 2 }, Gold = 5500, Items = { CyclopsHide = 24, CerberusHide = 18, BossToken = 3, OrichalcumIngot = 1 } },
 	-- 신발
 	LeatherBoots = { Gold = 8, Items = { SlimeJelly = 3 } },
 	CopperBoots = { From = { Id = "LeatherBoots", Count = 3 }, Gold = 40, Items = { SlimeJelly = 8, CopperIngot = 1 } },
 	IronBoots = { From = { Id = "CopperBoots", Count = 3 }, Gold = 180, Items = { OldCloth = 8, Bone = 4, IronIngot = 1 } },
-	DiamondBoots = { From = { Id = "IronBoots", Count = 3 }, Gold = 700, Items = { CerberusHide = 8, OldCloth = 8, CerberusFang = 2, SteelIngot = 1 } },
-	MithrilBoots = { From = { Id = "DiamondBoots", Count = 3 }, Gold = 1800, Items = { CerberusHide = 14, CyclopsHide = 6, CerberusFang = 3, MithrilIngot = 1 } },
-	OrichalcumBoots = { From = { Id = "MithrilBoots", Count = 3 }, Gold = 4500, Items = { CerberusHide = 22, CyclopsHide = 10, BossToken = 2, OrichalcumIngot = 1 } },
+	DiamondBoots = { From = { Id = "IronBoots", Count = 2 }, Gold = 700, Items = { CerberusHide = 8, OldCloth = 8, CerberusFang = 2, SteelIngot = 1 } },
+	MithrilBoots = { From = { Id = "DiamondBoots", Count = 2 }, Gold = 1800, Items = { CerberusHide = 14, CyclopsHide = 6, CerberusFang = 3, MithrilIngot = 1 } },
+	OrichalcumBoots = { From = { Id = "MithrilBoots", Count = 2 }, Gold = 4500, Items = { CerberusHide = 22, CyclopsHide = 10, BossToken = 2, OrichalcumIngot = 1 } },
 	-- 장갑
 	LeatherGloves = { Gold = 8, Items = { SlimeJelly = 3 } },
 	CopperGloves = { From = { Id = "LeatherGloves", Count = 3 }, Gold = 40, Items = { SlimeJelly = 8, CopperIngot = 1 } },
 	IronGloves = { From = { Id = "CopperGloves", Count = 3 }, Gold = 180, Items = { OldCloth = 6, Bone = 6, IronIngot = 1 } },
-	DiamondGloves = { From = { Id = "IronGloves", Count = 3 }, Gold = 700, Items = { CerberusHide = 6, CyclopsHide = 3, Bone = 8, SteelIngot = 1 } },
-	MithrilGloves = { From = { Id = "DiamondGloves", Count = 3 }, Gold = 1800, Items = { CyclopsHide = 10, CerberusHide = 6, CerberusFang = 4, MithrilIngot = 1 } },
-	OrichalcumGloves = { From = { Id = "MithrilGloves", Count = 3 }, Gold = 4500, Items = { CyclopsHide = 16, CerberusHide = 10, BossToken = 2, OrichalcumIngot = 1 } },
+	DiamondGloves = { From = { Id = "IronGloves", Count = 2 }, Gold = 700, Items = { CerberusHide = 6, CyclopsHide = 3, Bone = 8, SteelIngot = 1 } },
+	MithrilGloves = { From = { Id = "DiamondGloves", Count = 2 }, Gold = 1800, Items = { CyclopsHide = 10, CerberusHide = 6, CerberusFang = 4, MithrilIngot = 1 } },
+	OrichalcumGloves = { From = { Id = "MithrilGloves", Count = 2 }, Gold = 4500, Items = { CyclopsHide = 16, CerberusHide = 10, BossToken = 2, OrichalcumIngot = 1 } },
 	-- 목걸이 (광물 + 통나무)
 	BoneNecklace = { Gold = 8, Items = { Stone = 4, Pine = 2 } },
 	CopperNecklace = { From = { Id = "BoneNecklace", Count = 3 }, Gold = 40, Items = { CopperIngot = 3, Stone = 6 } },
 	IronNecklace = { From = { Id = "CopperNecklace", Count = 3 }, Gold = 180, Items = { IronIngot = 4, CopperIngot = 3, Coal = 6 } },
-	DiamondNecklace = { From = { Id = "IronNecklace", Count = 3 }, Gold = 700, Items = { SteelIngot = 4, IronIngot = 5, Coal = 10, Ebony = 1 } },
-	MithrilNecklace = { From = { Id = "DiamondNecklace", Count = 3 }, Gold = 1800, Items = { MithrilIngot = 4, SteelIngot = 4, Ebony = 2 } },
-	OrichalcumNecklace = { From = { Id = "MithrilNecklace", Count = 3 }, Gold = 4500, Items = { OrichalcumIngot = 2, MithrilIngot = 5, Ebony = 3 } },
+	DiamondNecklace = { From = { Id = "IronNecklace", Count = 2 }, Gold = 700, Items = { SteelIngot = 4, IronIngot = 5, Coal = 10, Ebony = 1 } },
+	MithrilNecklace = { From = { Id = "DiamondNecklace", Count = 2 }, Gold = 1800, Items = { MithrilIngot = 4, SteelIngot = 4, Ebony = 2 } },
+	OrichalcumNecklace = { From = { Id = "MithrilNecklace", Count = 2 }, Gold = 4500, Items = { OrichalcumIngot = 2, MithrilIngot = 5, Ebony = 3 } },
 	-- 팔찌 (광물 + 통나무)
 	WoodBracelet = { Gold = 8, Items = { Pine = 3 } },
 	CopperBracelet = { From = { Id = "WoodBracelet", Count = 3 }, Gold = 40, Items = { CopperIngot = 2, Birch = 3 } },
 	IronBracelet = { From = { Id = "CopperBracelet", Count = 3 }, Gold = 180, Items = { IronIngot = 3, Maple = 4, Coal = 4 } },
-	DiamondBracelet = { From = { Id = "IronBracelet", Count = 3 }, Gold = 700, Items = { SteelIngot = 3, IronIngot = 4, Ebony = 2 } },
-	MithrilBracelet = { From = { Id = "DiamondBracelet", Count = 3 }, Gold = 1800, Items = { MithrilIngot = 3, SteelIngot = 3, Ebony = 3 } },
-	OrichalcumBracelet = { From = { Id = "MithrilBracelet", Count = 3 }, Gold = 4500, Items = { OrichalcumIngot = 2, MithrilIngot = 4, Ebony = 4 } },
+	DiamondBracelet = { From = { Id = "IronBracelet", Count = 2 }, Gold = 700, Items = { SteelIngot = 3, IronIngot = 4, Ebony = 2 } },
+	MithrilBracelet = { From = { Id = "DiamondBracelet", Count = 2 }, Gold = 1800, Items = { MithrilIngot = 3, SteelIngot = 3, Ebony = 3 } },
+	OrichalcumBracelet = { From = { Id = "MithrilBracelet", Count = 2 }, Gold = 4500, Items = { OrichalcumIngot = 2, MithrilIngot = 4, Ebony = 4 } },
 }
 Config.Recipes = RECIPES
 Config.Crafting = {
