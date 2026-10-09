@@ -8,11 +8,13 @@
 -- 만드는 것
 --   1. 도끼 Tool 4종  → ServerStorage/Templates/Pickaxes/{StoneAxe, CopperAxe, IronAxe, DiamondAxe}
 --      같은 티어 곡괭이 Tool을 복제해 손잡이·잡는 위치(Grip)는 그대로 쓰고, 머리만 도끼날로 바꾼다.
---   2. 나무 템플릿 5종 → ServerStorage/Templates/Ores/{Pine, Oak, Birch, Maple, Ebony}/ (모양 변형 3개씩)
---      기준점(Pivot)은 줄기 밑동 가운데, 줄기 굵기는 OreDefs.HitRadius와 같다 (잔상 고리가 줄기에 딱 맞게).
+--   2. 나무 템플릿 5종 → ServerStorage/Templates/Ores/{Pine, Oak, Birch, Maple, Ebony}/
+--      맵에 원래 있는 나무(이름에 "Tree")를 본떠 종류별로 잎·줄기 색만 바꾼다. 맵 나무가 없으면 부품으로 만든다.
+--      기준점(Pivot)은 줄기 밑동 가운데, 잰 줄기 반지름은 속성 HitRadius (잔상 고리가 줄기에 딱 맞게).
 --   3. 아이콘           → ReplicatedStorage/ItemIcons/{통나무 5종, 도끼 4종}
 --   4. 스폰 자리        → Workspace/OreSpawns (속성 OreType)
---      소나무·참나무·자작나무는 마을(TownArrival) 둘레 곳곳, 단풍나무는 근처에서 가장 높은 곳에 모아서,
+--      맵 나무가 서 있던 자리를 그대로 쓴다 (원본 나무는 지운다). 맵 나무가 적으면 빈 땅에 더 심는다.
+--      소나무·참나무·자작나무는 곳곳, 단풍나무는 근처에서 가장 높은 곳에 모아서,
 --      흑단나무는 마을에서 가장 먼 후보 자리들(속성 RandomPool = "Ebony", 그중 Config.RandomPools.Ebony.Active개만 선다)
 --
 -- 실행 뒤 할 일: 플레이 테스트로 도끼 날 방향을 확인. 날이 뒤로 달렸으면 FLIP_BLADE = true로 바꿔 다시 실행.
@@ -127,14 +129,21 @@ local function buildAxe(spec): Tool
 		tool = source:Clone()
 		local handle = tool.Handle
 		-- 곡괭이 머리가 뻗은 방향(손잡이 기준)을 알아낸 뒤, 머리 부품은 전부 지운다
-		local far, farDist = nil, -1
+		-- 머리 = 손잡이를 뺀 가장 큰 부품. 그 부품의 가장 긴 변이 곡괭이 끝이 향하는 앞뒤 방향이다
+		local headPart, headVolume = nil, -1
 		for _, d in tool:GetDescendants() do
 			if d:IsA("BasePart") and d ~= handle then
-				local offset = handle.CFrame:PointToObjectSpace(d.Position)
-				if offset.Magnitude > farDist then
-					far, farDist = offset, offset.Magnitude
+				local volume = d.Size.X * d.Size.Y * d.Size.Z
+				if volume > headVolume then
+					headPart, headVolume = d, volume
 				end
 			end
+		end
+		local far: Vector3? = nil
+		if headPart then
+			local hs = headPart.Size
+			local longest = if hs.X >= hs.Y and hs.X >= hs.Z then Vector3.xAxis elseif hs.Y >= hs.Z then Vector3.yAxis else Vector3.zAxis
+			far = handle.CFrame:VectorToObjectSpace(headPart.CFrame:VectorToWorldSpace(longest))
 		end
 		for _, child in tool:GetChildren() do
 			if child ~= handle and not child:IsA("LuaSourceContainer") then
@@ -169,8 +178,6 @@ local function buildAxe(spec): Tool
 	else
 		a = principal(u:Cross(Vector3.zAxis).Magnitude > 0.5 and u:Cross(Vector3.zAxis) or u:Cross(Vector3.xAxis))
 	end
-	-- 곡괭이 머리 방향에서 손잡이 축으로 90도 돌린 쪽이 도끼날 방향 (플레이 테스트로 확인, 2026-10-09)
-	a = principal(u:Cross(a))
 	if FLIP_BLADE then
 		a = -a
 	end
@@ -331,17 +338,17 @@ local TREE_BUILDERS = {}
 
 -- 소나무: 곧고 높은 줄기 + 층층이 좁아지는 잎
 TREE_BUILDERS.Pine = function(model, origin, def, scale)
-	local height = 11 * scale
+	local height = 18 * scale
 	trunk(model, origin, def.HitRadius, height, def.Color, Enum.Material.Wood)
-	local layers = 4
+	local layers = 5
 	for i = 1, layers do
 		local t = (i - 1) / (layers - 1)
-		local width = (7.5 - t * 4.5) * scale
-		local y = height * 0.45 + t * height * 0.55
+		local width = (10 - t * 6.5) * scale
+		local y = height * 0.35 + t * height * 0.62
 		part({
 			Name = "Leaves",
 			Shape = Enum.PartType.Cylinder,
-			Size = Vector3.new(1.8 * scale, width, width),
+			Size = Vector3.new(2.6 * scale, width, width),
 			CFrame = origin * CFrame.new(0, y, 0) * CFrame.Angles(0, random:NextNumber(0, 6.28), math.rad(90)),
 			Color = def.LeafColor:Lerp(Color3.new(0, 0, 0), t * 0.15),
 			Material = LEAF_MATERIAL,
@@ -353,14 +360,14 @@ end
 
 -- 참나무: 굵고 낮은 줄기 + 크고 넓은 잎
 TREE_BUILDERS.Oak = function(model, origin, def, scale)
-	local height = 7 * scale
+	local height = 12 * scale
 	trunk(model, origin, def.HitRadius, height, def.Color, Enum.Material.Wood)
-	broadleaf(model, origin, def.HitRadius, height, 8 * scale, def.LeafColor, 5)
+	broadleaf(model, origin, def.HitRadius, height, 12 * scale, def.LeafColor, 5)
 end
 
 -- 자작나무: 가늘고 높은 흰 줄기에 검은 줄무늬 + 작은 연두 잎
 TREE_BUILDERS.Birch = function(model, origin, def, scale)
-	local height = 11 * scale
+	local height = 17 * scale
 	trunk(model, origin, def.HitRadius, height, def.Color, Enum.Material.SmoothPlastic)
 	for i = 1, 6 do
 		local y = random:NextNumber(1, height - 1)
@@ -373,21 +380,21 @@ TREE_BUILDERS.Birch = function(model, origin, def, scale)
 			CanCollide = false,
 		}, model)
 	end
-	broadleaf(model, origin, def.HitRadius, height, 5.5 * scale, def.LeafColor, 4)
+	broadleaf(model, origin, def.HitRadius, height, 8 * scale, def.LeafColor, 5)
 end
 
 -- 단풍나무: 붉은 잎
 TREE_BUILDERS.Maple = function(model, origin, def, scale)
-	local height = 8 * scale
+	local height = 13 * scale
 	trunk(model, origin, def.HitRadius, height, def.Color, Enum.Material.Wood)
-	broadleaf(model, origin, def.HitRadius, height, 7.5 * scale, def.LeafColor, 6)
+	broadleaf(model, origin, def.HitRadius, height, 11 * scale, def.LeafColor, 6)
 end
 
 -- 흑단나무: 검보라 줄기와 잎, 은은한 빛과 반짝이 (희귀)
 TREE_BUILDERS.Ebony = function(model, origin, def, scale)
-	local height = 9 * scale
+	local height = 15 * scale
 	trunk(model, origin, def.HitRadius, height, def.Color, Enum.Material.Wood)
-	broadleaf(model, origin, def.HitRadius, height, 7 * scale, def.LeafColor, 6)
+	broadleaf(model, origin, def.HitRadius, height, 11 * scale, def.LeafColor, 6)
 	local glow = part({
 		Name = "Glow",
 		Shape = Enum.PartType.Ball,
@@ -416,6 +423,188 @@ end
 
 local TREE_IDS = { "Pine", "Oak", "Birch", "Maple", "Ebony" }
 local VARIANT_SCALES = { 0.9, 1.0, 1.12 }
+local HIT_HEIGHT = 2.5 -- OreDefs.HitHeight와 같게 (줄기 굵기를 재는 높이)
+
+-- 맵에 원래 있던 나무 찾기 (이름에 "tree"가 들어간 모델·부품). 광산·바위·NPC 쪽은 뺀다
+local function isTreeName(name: string): boolean
+	local lower = string.lower(name)
+	-- "Street"(가로등·길)은 나무가 아니다
+	return string.find(lower, "tree", 1, true) ~= nil and string.find(lower, "street", 1, true) == nil
+end
+local function insideTreeModel(instance: Instance): boolean
+	local parent = instance.Parent
+	while parent and parent ~= workspace do
+		if parent:IsA("Model") and isTreeName(parent.Name) then
+			return true
+		end
+		parent = parent.Parent
+	end
+	return false
+end
+local excludedRoots = { workspace:FindFirstChild("Ores"), workspace:FindFirstChild("OreSpawns"), workspace:FindFirstChild("NPCs"), workspace:FindFirstChild("ClientEffects") }
+local function isExcluded(instance: Instance): boolean
+	for _, root in excludedRoots do
+		if root and instance:IsDescendantOf(root) then
+			return true
+		end
+	end
+	return false
+end
+
+-- 모델(또는 부품)의 부품 목록
+local function partsOf(instance: Instance): { BasePart }
+	local list = {}
+	if instance:IsA("BasePart") then
+		table.insert(list, instance)
+	end
+	for _, d in instance:GetDescendants() do
+		if d:IsA("BasePart") then
+			table.insert(list, d)
+		end
+	end
+	return list
+end
+
+-- 줄기 밑동 위치: 가장 아래에 닿은 부품(줄기)의 가운데 x,z + 나무 전체의 가장 낮은 y
+local function treeBase(parts: { BasePart }): Vector3
+	local minY, lowest, lowestY = math.huge, nil, math.huge
+	for _, p in parts do
+		local extentY = math.abs(p.CFrame.RightVector.Y) * p.Size.X / 2 + math.abs(p.CFrame.UpVector.Y) * p.Size.Y / 2 + math.abs(p.CFrame.LookVector.Y) * p.Size.Z / 2
+		local bottom = p.Position.Y - extentY
+		minY = math.min(minY, bottom)
+		if bottom < lowestY then
+			lowest, lowestY = p, bottom
+		end
+	end
+	return Vector3.new(lowest.Position.X, minY, lowest.Position.Z)
+end
+
+-- 줄기 반지름: 타격 높이에서 네 방향으로 줄기를 향해 쏴서 잰다
+local function measureRadius(parts: { BasePart }, base: Vector3): number
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = parts
+	local center = base + Vector3.new(0, HIT_HEIGHT, 0)
+	local total, count = 0, 0
+	for _, dir in { Vector3.xAxis, -Vector3.xAxis, Vector3.zAxis, -Vector3.zAxis } do
+		local result = workspace:Raycast(center + dir * 12, -dir * 12, params)
+		if result then
+			total += (result.Position - center).Magnitude
+			count += 1
+		end
+	end
+	return if count > 0 then math.clamp(total / count, 0.4, 3) else 1
+end
+
+local mapTrees = {} -- { Instance = 원본, Base = 밑동, Radius = 줄기 반지름 }
+for _, d in workspace:GetDescendants() do
+	if (d:IsA("Model") or d:IsA("BasePart")) and isTreeName(d.Name) and not insideTreeModel(d) and not isExcluded(d) then
+		local parts = partsOf(d)
+		if #parts > 0 and d.Archivable then
+			local base = treeBase(parts)
+			table.insert(mapTrees, { Instance = d, Base = base, Radius = measureRadius(parts, base) })
+		end
+	end
+end
+
+-- 나무 종류별 색: 잎은 LeafColor로, 줄기는 자작나무(흰색)·흑단나무(검보라)만 바꾼다
+local RECOLOR_TRUNK = { Birch = true, Ebony = true }
+local RECOLOR_LEAF = { Pine = 0.5, Oak = 0, Birch = 0.8, Maple = 1, Ebony = 1 } -- 원래 잎 색에서 LeafColor로 바꾸는 정도
+local TYPE_SCALE = { Pine = 1.1, Oak = 1, Birch = 1, Maple = 1.05, Ebony = 1.15 }
+
+local function isLeaf(p: BasePart): boolean
+	local c = p.Color
+	return p.Material == Enum.Material.Grass or p.Material == Enum.Material.LeafyGrass or (c.G > c.R * 1.05 and c.G > c.B)
+end
+
+-- 맵 나무를 그 종류의 템플릿으로 만든다 (복제 → 고정 → 색 → 기준점 = 밑동 → 크기)
+local function templateFromMapTree(entry, id: string): Model
+	local def = OreDefs[id]
+	local source = entry.Instance:Clone()
+	local model: Model
+	if source:IsA("Model") then
+		model = source
+	else
+		model = Instance.new("Model")
+		source.Parent = model
+	end
+	for _, d in model:GetDescendants() do
+		if d:IsA("LuaSourceContainer") or d:IsA("Sound") then
+			d:Destroy()
+		end
+	end
+	for _, p in partsOf(model) do
+		p.Anchored = true
+		local leaf = isLeaf(p)
+		local amount = if leaf then RECOLOR_LEAF[id] else (if RECOLOR_TRUNK[id] then 1 else 0)
+		if amount > 0 then
+			local target = if leaf then def.LeafColor else def.Color
+			p.Color = p.Color:Lerp(target, amount)
+			-- 텍스처가 덮여 있으면 색이 안 보이므로 뺀다
+			if amount >= 0.8 then
+				for _, c in p:GetChildren() do
+					if c:IsA("SurfaceAppearance") then
+						c:Destroy()
+					end
+				end
+				if p:IsA("MeshPart") then
+					pcall(function()
+						p.TextureID = ""
+					end)
+				end
+			end
+		end
+		if leaf then
+			p.CanCollide = false
+		end
+	end
+	model.PrimaryPart = nil -- 기준점이 부품 방향을 따라가지 않게
+	model.WorldPivot = CFrame.new(entry.Base)
+	model:ScaleTo(TYPE_SCALE[id])
+	model:SetAttribute("HitRadius", entry.Radius * TYPE_SCALE[id]) -- 잔상 고리·타격 위치용 줄기 반지름
+	model:PivotTo(CFrame.new())
+	if id == "Ebony" then
+		local glow = Instance.new("Attachment")
+		glow.Position = Vector3.new(0, model:GetExtentsSize().Y * 0.7, 0)
+		local light = Instance.new("PointLight")
+		light.Color = Color3.fromRGB(190, 120, 255)
+		light.Range = 16
+		light.Brightness = 1.2
+		light.Parent = glow
+		local sparkles = Instance.new("ParticleEmitter")
+		sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		sparkles.Color = ColorSequence.new(Color3.fromRGB(210, 160, 255))
+		sparkles.LightEmission = 1
+		sparkles.Size = NumberSequence.new(0.5, 0)
+		sparkles.Lifetime = NumberRange.new(1.5, 2.5)
+		sparkles.Speed = NumberRange.new(0.3, 0.8)
+		sparkles.SpreadAngle = Vector2.new(180, 180)
+		sparkles.Rate = 4
+		sparkles.Parent = glow
+		local holder = partsOf(model)[1]
+		glow.Parent = holder
+		glow.WorldPosition = model:GetPivot().Position + Vector3.new(0, model:GetExtentsSize().Y * 0.7, 0)
+	end
+	return model
+end
+
+-- 템플릿으로 쓸 맵 나무 (이름이 다른 것 우선, 최대 4개)
+local sourceTrees = {}
+local seenNames = {}
+for _, entry in mapTrees do
+	if #sourceTrees < 4 and not seenNames[entry.Instance.Name] then
+		seenNames[entry.Instance.Name] = true
+		table.insert(sourceTrees, entry)
+	end
+end
+for _, entry in mapTrees do
+	if #sourceTrees >= 2 then
+		break
+	end
+	if not table.find(sourceTrees, entry) then
+		table.insert(sourceTrees, entry)
+	end
+end
 
 for _, id in TREE_IDS do
 	local def = OreDefs[id]
@@ -424,20 +613,27 @@ for _, id in TREE_IDS do
 		old:Destroy()
 	end
 	local treeFolder = folder(oreFolder, def.TemplateName)
-	for index, scale in VARIANT_SCALES do
-		local model = Instance.new("Model")
-		model.Name = `{id}{index}`
-		local origin = CFrame.new(0, 0, 0)
-		TREE_BUILDERS[id](model, origin, def, scale)
-		-- 기준점 = 줄기 밑동 가운데, 똑바로 선 방향 (OreService·연출이 이 점을 기준으로 쓴다)
-		-- PrimaryPart가 있으면 기준점은 그 부품을 따라가므로, 눕혀 둔 원통 줄기의 PivotOffset으로 바로잡는다
-		local trunkPart = model.Trunk
-		model.PrimaryPart = trunkPart
-		trunkPart.PivotOffset = trunkPart.CFrame:ToObjectSpace(origin)
-		model.Parent = treeFolder
+	if #sourceTrees > 0 then
+		for index, entry in sourceTrees do
+			local model = templateFromMapTree(entry, id)
+			model.Name = `{id}{index}`
+			model.Parent = treeFolder
+		end
+	else
+		-- 맵에 나무가 없으면 부품으로 만든 나무를 쓴다
+		for index, scale in VARIANT_SCALES do
+			local model = Instance.new("Model")
+			model.Name = `{id}{index}`
+			local origin = CFrame.new(0, 0, 0)
+			TREE_BUILDERS[id](model, origin, def, scale)
+			model.PrimaryPart = nil -- 기준점 = 줄기 밑동 가운데, 똑바로 선 방향
+			model.WorldPivot = origin
+			model:SetAttribute("HitRadius", def.HitRadius)
+			model.Parent = treeFolder
+		end
 	end
 end
-print("[BuildTreesAndAxes] 나무 5종 x 3모양 완료")
+print(`[BuildTreesAndAxes] 맵 나무 {#mapTrees}그루 발견. 나무 5종 템플릿 완료 ({if #sourceTrees > 0 then "맵 나무 모양" else "부품으로 만든 모양"})`)
 
 ---------------------------------------------------------------- 3. 통나무 아이콘
 for _, id in TREE_IDS do
@@ -519,9 +715,14 @@ local function groundAt(x: number, z: number): Vector3?
 	return result.Position
 end
 
--- 후보 땅 자리를 고루 모은다
+-- 후보 땅 자리를 고루 모은다. 맵 나무가 서 있던 자리가 먼저다 (원본 나무는 지우고 그 자리에 캘 수 있는 나무가 선다)
 local candidates = {}
-for _ = 1, 1500 do
+for _, entry in mapTrees do
+	table.insert(candidates, entry.Base)
+	entry.Instance:Destroy()
+end
+local MAP_TREES_ENOUGH = 20 -- 맵 나무가 이만큼 있으면 빈 땅에 더 심지 않는다
+for _ = 1, if #mapTrees >= MAP_TREES_ENOUGH then 0 else 1500 do
 	local angle = random:NextNumber(0, math.pi * 2)
 	local distance = math.sqrt(random:NextNumber(SCATTER_MIN ^ 2, SCATTER_MAX ^ 2)) -- 넓이 기준 고르게
 	local ground = groundAt(center.X + math.cos(angle) * distance, center.Z + math.sin(angle) * distance)
@@ -531,9 +732,10 @@ for _ = 1, 1500 do
 end
 
 local placed = {}
+local minSpacing = if #mapTrees >= MAP_TREES_ENOUGH then 4 else MIN_SPACING -- 맵 나무는 원래 간격 그대로 둔다
 local function farFromOthers(position: Vector3): boolean
 	for _, other in placed do
-		if (other - position).Magnitude < MIN_SPACING then
+		if (other - position).Magnitude < minSpacing then
 			return false
 		end
 	end
@@ -563,6 +765,7 @@ end
 table.sort(candidates, function(a, b)
 	return (a - center).Magnitude > (b - center).Magnitude
 end)
+local ebonySpacing = if #candidates > 0 then (candidates[1] - center).Magnitude * 0.4 else 0
 local ebony = 0
 for _, position in candidates do
 	if ebony >= EBONY_CANDIDATES then
@@ -570,7 +773,7 @@ for _, position in candidates do
 	end
 	local spread = true
 	for _, other in placed do
-		if (other - position).Magnitude < SCATTER_MAX * 0.5 then
+		if (other - position).Magnitude < ebonySpacing then
 			spread = false
 			break
 		end
@@ -589,7 +792,22 @@ for _, position in candidates do
 	end
 end
 local maple = 0
-if peak then
+if peak and #mapTrees >= MAP_TREES_ENOUGH then
+	-- 맵 나무 자리 중 가장 높은 곳에서 가까운 순서로
+	local near = {}
+	for _, position in candidates do
+		if farFromOthers(position) then
+			table.insert(near, position)
+		end
+	end
+	table.sort(near, function(a, b)
+		return (a - peak).Magnitude < (b - peak).Magnitude
+	end)
+	for i = 1, math.min(MAPLE_COUNT, #near) do
+		addSpawn(near[i], "Maple")
+		maple += 1
+	end
+elseif peak then
 	for _ = 1, 300 do
 		if maple >= MAPLE_COUNT then
 			break
@@ -609,10 +827,22 @@ for i = #candidates, 2, -1 do
 	local j = random:NextInteger(1, i)
 	candidates[i], candidates[j] = candidates[j], candidates[i]
 end
-local commonCounts = {}
+local commonCounts = { Pine = 0, Oak = 0, Birch = 0 }
 local cursor = 1
+if #mapTrees >= MAP_TREES_ENOUGH then
+	-- 맵 나무 자리는 남김없이 흔한 나무로 채운다 (비율은 COUNTS)
+	local total = COUNTS.Pine + COUNTS.Oak + COUNTS.Birch
+	for _, position in candidates do
+		if farFromOthers(position) then
+			local roll = random:NextNumber(0, total)
+			local oreType = if roll < COUNTS.Pine then "Pine" elseif roll < COUNTS.Pine + COUNTS.Oak then "Oak" else "Birch"
+			addSpawn(position, oreType)
+			commonCounts[oreType] += 1
+		end
+	end
+	cursor = #candidates + 1
+end
 for oreType, count in COUNTS do
-	commonCounts[oreType] = 0
 	while commonCounts[oreType] < count and cursor <= #candidates do
 		local position = candidates[cursor]
 		cursor += 1

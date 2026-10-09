@@ -57,4 +57,14 @@ function TargetController.focusPosition(rock: Model, pivot: CFrame?): Vector3
 	return base
 end
 
+-- 나무 줄기 반지름: 템플릿 속성 HitRadius(맵 나무에서 잰 값)가 있으면 그것, 없으면 OreDefs 값
+function TargetController.hitRadius(rock: Model): number
+	local attribute = rock:GetAttribute("HitRadius")
+	if typeof(attribute) == "number" then
+		return attribute
+	end
+	local def = TargetController.getDef(rock)
+	return if def and def.HitRadius then def.HitRadius else 1
+end
+
 return TargetController
