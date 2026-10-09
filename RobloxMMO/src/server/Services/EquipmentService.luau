@@ -242,7 +242,7 @@ function EquipmentService.useArrow(player: Player): boolean
 	if nextId then
 		slots.Shield = nextId
 		loadQuiver(player, nextId)
-		NotifyService.send(player, `{EquipmentDefs.Items[nextId].DisplayName}로 바꿔 꼈어요. (화살 {arrows[player] or 0}개)`, "good")
+		NotifyService.send(player, `{EquipmentDefs.Items[nextId].DisplayName}으로 바꿔 꼈어요. (화살 {arrows[player] or 0}개)`, "good")
 	end
 	recompute(player)
 	return true

@@ -293,7 +293,7 @@ src/
     - 수치는 Config.Weapons (칼 빠름 / 방망이 느리지만 세고 밀쳐 냄 / 활 약하지만 멀리). 치명타·흔들림은 Config.Combat
     - 나무 검은 시작 지급, 나머지는 사냥꾼 카엘 상점 칼·활·방망이 탭에서 구매 (골드 + 괴·통나무·전리품)
     - 모양은 제작 스크립트가 돌 곡괭이 Tool의 쥐는 각도를 그대로 쓰고 부품으로 짓는다. 연출: 맞으면 하얗게 번쩍, 데미지 숫자(치명타 노랑), 티어별 불꽃·빛줄기(Config.Combat.TierEffects), 활은 화살이 날아간다
-  - 활은 화살 없이 언제든 쏜다 (몹이 없으면 앞으로). 화면 가운데 BowAimAngle 안의 몹을 먼저 노린다. 치명타면 몹이 짧게 불탄다(CritBurnTime)
+  - 활은 화살통에 화살이 있어야 쏜다 (아래 "활 화살·화살통"). 몹이 없으면 앞으로 쏜다. 화면 가운데 BowAimAngle 안의 몹을 먼저 노린다. 치명타면 몹이 짧게 불탄다(CritBurnTime)
   - 무기를 들고 있으면 바위·나무 체력바는 띄우지 않는다
 - [x] 체력·마나 (2026-10-09): 오른쪽 위(리더보드 아래)에 체력바, 그 아래 마나바, 그 아래 골드 (항상 보임, Roblox 기본 체력바는 끔. StatusHUD)
   - 마나: 플레이어 속성 Mana·MaxMana, 서버 ManaService. 스킬·차징 스매시(예정)·달리기에 쓴다. 안 쓰면 RegenDelay 뒤 Regen/초로 참
@@ -342,6 +342,15 @@ src/
 - [x] 보스 바위·나무 (2026-10-09): 생길 때 Config.BossNodes.Chance로 1.5~3배 크기(Model:ScaleTo), 체력 크기^2배, 산출량 크기^1.5배. 속성 Boss·ExtraReach(커진 만큼 더 멀리서 침, 서버 AntiCheat 거리에도 더함). 체력바 이름 "👑 보스 ~" 금색. 나무는 HitRadius도 같이 커짐
 - [x] 광산 광석: MineScale(1.4)배로 키우고, 옆으로 광선을 쏴 벽 속에 묻힌 만큼 밀어낸 뒤 다시 땅에 맞춘다 (OreService.pushOutOfWalls)
 - [x] 배경음악 (MusicController, Config.Music): 밖에서 잔잔한 곡을 차례로, 광산에선 줄임. 곡 Id는 팬 사이트에서 찾은 값이라 안 나오면 Creator Store 곡으로 교체
+- [x] 활 화살·화살통 (2026-10-09)
+  - 장비 칸 8개: 무기 다음에 "방패" 칸(Slot Shield). 지금은 화살통만 들어간다 (EquipmentDefs.QuiverOrder, Order와 따로 둬서 장비 아이콘 제작 스크립트에 안 섞임). 가방 분류 "무기"
+  - 나무 화살통(화살 30) / 철 화살통(화살 60). 사냥꾼 "활" 탭 아래에서 통나무 잔뜩 + 골드 조금 (Config.Quiver.Items, ShopAction "BuyQuiver"). 여러 개 살 수 있고, 안 끼고 있으면 사자마자 낀다
+  - 서버 EquipmentService가 끼운 화살통의 남은 화살을 센다 (속성 Arrows). 활 한 발에 1개 (CombatService → useArrow). 몹 없이 쏜 화살도 AttackRequest(nil)로 1개. 화살이 없으면 클라가 쏘지 않고 "화살통이 필요해요"/"화살이 없어요"
+  - 0개가 되면 화살통이 가방에서 사라지고 "화살을 다 썼어요", 가방에 다른 화살통이 있으면 저절로 바꿔 낀다. 덜 쓴 화살통을 빼면 종류마다 남은 수를 기억(stash)해서 다시 끼우면 그 수로
+  - 저장: DataService 칸 "Quivers" = { Arrows(끼운 것), Stash }
+  - 모양: GearVisualService가 등에 비스듬히(Config.Quiver.Tilt) 가죽 화살통 + 금속 입구 테·띠·바느질 + 가슴을 가로지르는 어깨끈·버클. 화살(나무대 + 빨강/파랑·흰 깃)이 min(남은 수, 7)개 꽂혀 보이고 줄면 같이 줄어든다
+  - 아이콘: Studio 아이콘 모델이 없으면 ItemIcon이 부품으로 화살통 아이콘을 짓는다. 장비 창 방패 칸에 "🏹남은 수"
+  - Studio 테스트: Config.Debug.GiveQuivers(처음 들어올 때 종류마다 지급)
 - [ ] 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)
