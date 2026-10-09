@@ -267,6 +267,16 @@ Config.HitFeel = {
 	HpBarRange = 12, -- 이 거리 안의 가장 가까운 바위에 체력바 표시(스터드)
 	-- 좋은 곡괭이일수록 강한 타격 연출: 충격파 고리, 튀는 광석 조각, 카메라 흔들림
 	-- Chunks: 튀는 조각 수, Ring: 충격파 최대 크기(스터드), Shake: 카메라 흔들림 배수, Sparkle: 반짝이 가루
+	-- 나무 타격 연출: 덜 흔들리고, 나뭇조각과 잎이 떨어지고, 다 베면 쓰러진다
+	Tree = {
+		ShakeScale = 0.35, -- 바위 떨림 대비 나무 떨림 배수
+		ChopVolume = 0.8, -- "퍽" 소리 볼륨
+		LeafCount = 5, -- 칠 때마다 떨어지는 잎 수
+		BreakLeafCount = 30, -- 쓰러질 때 떨어지는 잎 수
+		FallTime = 1.1, -- 쓰러지는 시간(초)
+		FadeTime = 0.5, -- 쓰러진 뒤 사라지는 시간(초)
+		GhostRingHeight = 1.6, -- 타이밍 잔상 고리 높이(스터드). 나무는 줄기 둘레에 고리가 줄어든다
+	},
 	TierEffects = {
 		[2] = { Color = Color3.fromRGB(235, 140, 70), Chunks = 3, Ring = 3.5, Shake = 1.2, Sparkle = false },
 		[3] = { Color = Color3.fromRGB(225, 230, 240), Chunks = 6, Ring = 5, Shake = 1.45, Sparkle = false },

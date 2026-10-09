@@ -4,7 +4,10 @@
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+
+local OreDefs = require(ReplicatedStorage.Shared.OreDefs)
 
 local ORE_TAG = "OreNode"
 
@@ -35,6 +38,23 @@ function TargetController.getNearestRock(range: number): Model?
 		end
 	end
 	return best
+end
+
+-- 노드 정의 (바위·나무). 모르는 노드면 nil
+function TargetController.getDef(rock: Instance): OreDefs.OreDef?
+	local oreType = rock:GetAttribute("OreType")
+	return if typeof(oreType) == "string" then OreDefs[oreType] else nil
+end
+
+-- 연출 기준 위치: 바위는 기준점(가운데), 나무는 밑동 위 HitHeight 높이(줄기 타격 높이)
+-- pivot을 주면 그 위치 기준으로 계산한다 (떨림 중에도 원래 위치를 쓰기 위해)
+function TargetController.focusPosition(rock: Model, pivot: CFrame?): Vector3
+	local base = (pivot or rock:GetPivot()).Position
+	local def = TargetController.getDef(rock)
+	if def and def.Kind == "Tree" then
+		return base + Vector3.new(0, def.HitHeight or 2.5, 0)
+	end
+	return base
 end
 
 return TargetController

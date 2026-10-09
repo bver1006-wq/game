@@ -1,6 +1,6 @@
 --!strict
--- 대장장이: 제련(재료 + 수수료 → 괴)과 곡괭이 판매.
--- 클라이언트는 "이 레시피를 몇 번 / 이 곡괭이를 사겠다"만 보내고, 거리·재료·골드는 서버가 확인한다.
+-- 대장장이: 제련(재료 + 수수료 → 괴)과 곡괭이·도끼 판매.
+-- 클라이언트는 "이 레시피를 몇 번 / 이 곡괭이(도끼)를 사겠다"만 보내고, 거리·재료·골드는 서버가 확인한다.
 -- 모루 타이밍 미니게임으로 직접 만드는 제작은 나중에 추가한다 (지금은 NPC 의뢰 구매만).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -51,20 +51,21 @@ local function smeltOnce(player: Player, recipeId: string): (boolean, string?)
 	return true, nil
 end
 
--- 곡괭이 구매
-local function buyPickaxe(player: Player, pickaxeId: string)
-	local def = PickaxeDefs[pickaxeId]
-	local config = Config.Pickaxes[pickaxeId]
-	if not def or not config or not config.Price then
+-- 곡괭이·도끼 구매. 종류(Kind)마다 따로 단계를 밟는다 (곡괭이 티어와 도끼 티어는 별개)
+local function buyTool(player: Player, toolId: string, kind: PickaxeDefs.ToolKind)
+	local def = PickaxeDefs[toolId]
+	local config = Config.Pickaxes[toolId]
+	if not def or def.Kind ~= kind or not config or not config.Price then
 		return
 	end
-	local currentTier = PickaxeService.getTier(player)
-	if InventoryService.count(player, pickaxeId) > 0 or def.Tier <= currentTier then
-		NotifyService.send(player, "이미 이 곡괭이나 더 좋은 곡괭이를 가지고 있어요.", "info")
+	local kindName = if kind == "Axe" then "도끼" else "곡괭이"
+	local currentTier = PickaxeService.getTier(player, kind)
+	if InventoryService.count(player, toolId) > 0 or def.Tier <= currentTier then
+		NotifyService.send(player, `이미 이 {kindName}나 더 좋은 {kindName}를 가지고 있어요.`, "info")
 		return
 	end
 	if def.Tier > currentTier + 1 then
-		NotifyService.send(player, "바로 아래 단계 곡괭이부터 사야 해요.", "bad")
+		NotifyService.send(player, `바로 아래 단계 {kindName}부터 사야 해요.`, "bad")
 		return
 	end
 	local price = config.Price
@@ -82,7 +83,7 @@ local function buyPickaxe(player: Player, pickaxeId: string)
 	end
 	InventoryService.removeAll(player, price.Items)
 	InventoryService.spendGold(player, price.Gold)
-	PickaxeService.give(player, pickaxeId)
+	PickaxeService.give(player, toolId)
 	NotifyService.send(player, `{def.DisplayName} 구매 완료!`, "good")
 	print(`[CraftingService] {player.Name} {def.DisplayName} 구매`)
 end
@@ -122,7 +123,9 @@ local function onShopAction(player: Player, shopId: unknown, action: unknown, id
 			NotifyService.send(player, failReason, "bad")
 		end
 	elseif action == "BuyPickaxe" then
-		buyPickaxe(player, idArg)
+		buyTool(player, idArg, "Pickaxe")
+	elseif action == "BuyAxe" then
+		buyTool(player, idArg, "Axe")
 	end
 end
 

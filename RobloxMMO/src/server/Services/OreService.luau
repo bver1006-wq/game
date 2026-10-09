@@ -147,12 +147,16 @@ local function spawnRock(spawnPart: BasePart): Model?
 end
 
 -- 희귀 노드 무리(스폰 파트 속성 RandomPool)에서 비어 있는 자리 하나에 노드를 만든다
-local function spawnInPool(poolName: string)
+-- avoid를 주면 다른 빈 자리가 있는 한 그 자리는 고르지 않는다 (방금 벤 자리)
+local function spawnInPool(poolName: string, avoid: BasePart?)
 	local free = {}
 	for _, part in pools[poolName] or {} do
-		if not occupied[part] and part.Parent then
+		if not occupied[part] and part.Parent and part ~= avoid then
 			table.insert(free, part)
 		end
+	end
+	if #free == 0 and avoid and not occupied[avoid] and avoid.Parent then
+		table.insert(free, avoid)
 	end
 	if #free > 0 then
 		spawnRock(free[random:NextInteger(1, #free)])
@@ -273,7 +277,7 @@ function OreService.breakRock(state: RockState)
 	task.delay(Config.Ores[state.OreType].RespawnTime, function()
 		if typeof(poolName) == "string" then
 			-- 희귀 노드는 같은 자리가 아니라 무리 안의 다른 빈 자리에 다시 생긴다
-			spawnInPool(poolName)
+			spawnInPool(poolName, spawnPart)
 		elseif spawnPart.Parent then
 			-- 리스폰 대기 중에 스폰 파트가 지워졌으면 다시 만들지 않는다
 			spawnRock(spawnPart)

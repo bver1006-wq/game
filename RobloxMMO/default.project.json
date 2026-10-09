@@ -31,6 +31,9 @@
           "$className": "Folder",
           "$ignoreUnknownInstances": true
         }
+      },
+      "StudioTools": {
+        "$path": "studio"
       }
     }
   }
