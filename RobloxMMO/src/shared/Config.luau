@@ -380,8 +380,8 @@ Config.OreSpawn = {
 -- 바위 하나당 산출량: 랜덤 BaseMin~BaseMax개 (판정과 상관없음)
 -- 여러 명이 같이 캤으면 기여도(준 데미지 비율)대로 나눈다. 피버 보너스는 피버를 연 사람에게 더한다
 Config.Reward = {
-	BaseMin = 2, -- 기본 개수 최소
-	BaseMax = 5, -- 기본 개수 최대
+	BaseMin = 5, -- 기본 개수 최소 (2026-10-09 보상 키우기: 2~5 → 5~10)
+	BaseMax = 10, -- 기본 개수 최대
 	MinPerContributor = 1, -- 조금이라도 친 사람은 최소 이만큼 받는다
 }
 
@@ -423,9 +423,13 @@ Config.HitFeel = {
 	Clang = { Volume = 0.55, PerfectVolume = 0.8, NicePitch = 1.08, PerfectPitch = 1.18 }, -- 곡괭이 "깡!" 볼륨·음높이
 	RockShake = { Amplitude = 0.12, Duration = 0.12 }, -- 바위 떨림(스터드, 초)
 	DebrisCount = { Normal = 8, Nice = 14, Perfect = 22, Break = 40 }, -- 파편 파티클 개수
-	OreChunkMax = 15, -- 깨질 때 튀어나오는 광석 조각 최대 개수 (보상이 더 많아도 이 이상은 안 그림)
-	OreSuckDelay = 0.4, -- 광석이 쏟아진 뒤 캐릭터에게 빨려오기까지(초)
-	OreSuckDuration = 0.35, -- 빨려오는 시간(초)
+	OreChunkMax = 20, -- 깨질 때 튀어나오는 조각 최대 개수 (보상이 더 많아도 이 이상은 안 그림)
+	-- 줍기 연출: 조각이 땅에 떨어져 있다가 가까이 가면(또는 잠시 뒤 저절로) 빨려 와서 "획득" 알림이 뜬다
+	-- (보상은 서버가 이미 가방에 넣었다. 잃어버리지 않게 PickupAutoTime이 지나면 저절로 빨려 온다)
+	PickupMagnetRange = 10, -- 이 거리 안에 들어오면 빨려 온다(스터드)
+	PickupAutoTime = 3, -- 이만큼 지나면 멀리 있어도 빨려 온다(초)
+	PickupLandTime = 0.6, -- 튀어나와 땅에 떨어지는 동안은 안 빨려 온다(초)
+	OreSuckDuration = 0.3, -- 빨려오는 시간(초)
 	JudgmentPopupDuration = 0.8, -- Perfect!/Nice! 말풍선이 떠 있는 시간(초)
 	HpBarRange = 12, -- 이 거리 안의 가장 가까운 바위에 체력바 표시(스터드)
 	-- 좋은 곡괭이일수록 강한 타격 연출: 충격파 고리, 튀는 광석 조각, 카메라 흔들림
