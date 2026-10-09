@@ -32,6 +32,7 @@ Remotes.Names = table.freeze({
 	CombatEffect = "CombatEffect", -- 서버 → 클라: (mob, damage, isCrit, weaponKind, tier, attackerUserId, fromPosition, hitPosition, charged, blocked)
 	MobAttack = "MobAttack", -- 서버 → 클라: (mob, targetUserId, damage) 몹이 플레이어를 때렸다
 	MobDied = "MobDied", -- 서버 → 클라: (position, mobType, killerUserId, gold, lootId, lootCount)
+	ReturnHome = "ReturnHome", -- 클라 → 서버: () 마을로 귀환 (다시 누르면 취소)
 	SaveHotbar = "SaveHotbar", -- 클라 → 서버: ({ itemId 또는 "" }) 빠른 칸 배치 저장 (들어올 때는 플레이어 속성 SavedHotbar로 돌려받는다)
 })
 

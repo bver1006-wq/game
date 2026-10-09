@@ -233,10 +233,6 @@ function PickaxeService.init()
 		end
 		-- 아래 테스트 지급(Studio에서만)은 처음 들어왔을 때만 (저장된 게 계속 불어나지 않게)
 		local firstTime = DataService.isNew(player)
-		-- 테스트용 귀환 주문서 (Studio에서만)
-		if firstTime and RunService:IsStudio() and Config.Debug.GiveReturnScrolls > 0 then
-			InventoryService.add(player, "ReturnScroll", Config.Debug.GiveReturnScrolls)
-		end
 		-- 테스트용 장비 전부 (Studio에서만)
 		if firstTime and RunService:IsStudio() and Config.Debug.GiveAllEquipment then
 			for _, equipmentId in EquipmentDefs.Order do

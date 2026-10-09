@@ -24,6 +24,9 @@ local calm: Channel
 local battle: Channel
 local ambience: Sound? = nil
 local lastCombat = -math.huge
+local musicGroup: SoundGroup -- 모든 배경음이 들어가는 묶음. 끄기·크기 조절은 이 볼륨으로
+local muted = false
+local level = 0 -- 크기 단계 (Config.Music.VolumeLevels의 번호)
 local mode = "" -- "Calm" | "Battle" | "Mine"
 
 -- 소리 하나를 만든다
@@ -32,6 +35,7 @@ local function makeSound(name: string, looped: boolean): Sound
 	sound.Name = name
 	sound.Looped = looped
 	sound.Volume = 0
+	sound.SoundGroup = musicGroup
 	sound.Parent = SoundService
 	return sound
 end
@@ -103,9 +107,45 @@ local function markCombat()
 	lastCombat = os.clock()
 end
 
+-- 묶음 볼륨을 지금 설정(끄기·크기 단계)에 맞춘다
+local function applyMaster()
+	musicGroup.Volume = if muted then 0 else Config.Music.VolumeLevels[level]
+end
+
+-- 배경음 끄기·켜기 (음표 버튼)
+function MusicController.setMuted(value: boolean)
+	muted = value
+	applyMaster()
+end
+
+function MusicController.isMuted(): boolean
+	return muted
+end
+
+-- 크기 한 단계 키우기(+1)·줄이기(-1). 지금 단계와 전체 단계 수를 돌려준다
+function MusicController.changeLevel(delta: number): (number, number)
+	local levels = Config.Music.VolumeLevels
+	level = math.clamp(level + delta, 1, #levels)
+	if delta > 0 then
+		muted = false
+	end
+	applyMaster()
+	return level, #levels
+end
+
+function MusicController.getLevel(): (number, number)
+	return level, #Config.Music.VolumeLevels
+end
+
 -- 클라이언트 시작 시 한 번 호출
 function MusicController.init()
 	local music = Config.Music
+	local group = Instance.new("SoundGroup")
+	group.Name = "MusicGroup"
+	group.Parent = SoundService
+	musicGroup = group
+	level = music.DefaultLevel
+	applyMaster()
 	calm = makeChannel("CalmMusic", music.Calm, music.Volume)
 	battle = makeChannel("BattleMusic", music.Battle, music.BattleVolume)
 	if music.Ambience ~= "" then

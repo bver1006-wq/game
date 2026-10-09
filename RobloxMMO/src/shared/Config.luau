@@ -378,22 +378,29 @@ Config.Save = {
 
 Config.Debug = {
 	GiveAllPickaxes = true, -- true면 들어올 때 곡괭이·도끼를 전부 지급 (테스트용, 2026-10-09 사용자 요청으로 켬)
-	GiveReturnScrolls = 5, -- 들어오면 귀환 주문서를 이만큼 지급. 테스트 끝나면 0
 	StartSlots = 60, -- Studio 테스트 때 가방 칸 수 (도구·무기·장비를 전부 받으면 45칸이 넘는다)
 	GiveAllEquipment = true, -- Studio에서 들어오면 장비 24종을 전부 지급 (테스트용)
 	GiveFoods = 5, -- Studio에서 들어오면 음식을 종류마다 이만큼 지급. 테스트 끝나면 0
 	GiveQuivers = 1, -- Studio에서 처음 들어오면 화살통을 종류마다 이만큼 지급. 테스트 끝나면 0
 }
 
--- 귀환 주문서: 쓰면 CastTime초 뒤 마을(태그 TownArrival)로 돌아간다. 그사이 움직이면 취소
-Config.ReturnScroll = {
+-- 화면 가장자리 작은 버튼 위치 (QuickButtonsHUD)
+Config.QuickButtons = {
+	MusicPosition = UDim2.fromOffset(96, 18), -- 왼쪽 위 가방 그림 오른쪽
+	MusicSize = 40,
+	ReturnPosition = UDim2.new(0, 16, 0.4, 0), -- 왼쪽 가운데 (공격 버튼·가방과 멀리)
+	ReturnSize = UDim2.fromOffset(120, 44),
+}
+
+-- 귀환 버튼(왼쪽, 2026-10-09 주문서 대신): 누르면 CastTime초 뒤 마을(태그 TownArrival)로. 그사이 움직이거나 다시 누르면 취소
+Config.ReturnHome = {
 	CastTime = 2.5,
 	CancelMoveDistance = 2, -- 이만큼(스터드) 움직이면 취소
+	Cooldown = 20, -- 한 번 돌아온 뒤 다시 쓰기까지(초)
 }
 
 -- 상인이 파는 잡화 (순서대로 표시). TODO(미정): 가격은 임시값
 Config.MerchantGoods = {
-	{ ItemId = "ReturnScroll", Price = 15 },
 	{ ItemId = "Bread", Price = 8 },
 	{ ItemId = "ManaBerry", Price = 8 },
 	{ ItemId = "LunchBox", Price = 25 },
@@ -792,6 +799,9 @@ Config.Music = {
 		"rbxassetid://1836104037", -- Determined Epic Theme (Alt 2)
 	},
 	BattleHoldTime = 10, -- 마지막으로 때리거나 맞은 뒤 전투곡을 유지하는 시간(초)
+	-- 왼쪽 위 음표 버튼: 누르면 끄기·켜기, 옆 -/+로 크기 단계 (2026-10-09). 각 곡 볼륨에 곱해진다
+	VolumeLevels = { 0.25, 0.5, 0.75, 1, 1.4, 1.8 },
+	DefaultLevel = 4,
 	BattleVolume = 0.3,
 	-- 새소리 같은 자연 소리 (계속 반복). TODO: Creator Store에서 "birds forest ambience"를 찾아 Id 넣기. 빈 값이면 안 틂
 	Ambience = "",
