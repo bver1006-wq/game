@@ -2,7 +2,8 @@
 -- 차징 자세 (클라이언트, 내 캐릭터만).
 -- 애니메이션 위에 어깨·허리 관절(Motor6D C0)을 살짝 돌려 자세를 만든다. 애니메이션은 Transform만 바꾸므로 겹쳐도 된다.
 --   windUp: 무기를 머리 위 뒤로 들어 올리고 상체를 살짝 젖힌다 (놓으면 휘두르기 애니메이션과 함께 원래대로 내려온다)
---   bowDraw: 왼손을 앞으로 뻗어 시위를 잡고, 시위가 뒤로 당겨지며 화살이 걸린다. 놓으면 시위가 튕겨 돌아온다
+--   bowDraw: 시위가 뒤로 당겨지며 화살이 걸리고, 왼손이 당기는 점을 따라간다 (R15는 IKControl, R6는 어깨 각도)
+--            놓으면 시위가 튕겨 돌아온다
 -- 관절 바꾼 값은 다른 플레이어에게는 보이지 않는다 (연출용)
 
 local Players = game:GetService("Players")
@@ -27,6 +28,8 @@ local bow: {
 	Upper: BasePart,
 	Lower: BasePart,
 	Arrow: BasePart,
+	Pull: BasePart, -- 왼손이 따라갈 점 (IK 목표)
+	IK: IKControl?,
 	Draw: number, -- 0~1 지금 당긴 정도
 	Target: number,
 }? = nil
@@ -83,11 +86,12 @@ end
 -- 무기를 머리 위 뒤로 들어 올린다
 function PoseController.windUp()
 	blendSpeed = 10
+	-- 2026-10-09: 더 뒤로 젖히게 (어깨 115° → 165°, 허리 -12° → -28°)
 	if isR6() then
-		setJoint("Right", CFrame.Angles(0, 0, math.rad(115)))
+		setJoint("Right", CFrame.Angles(0, 0, math.rad(165)))
 	else
-		setJoint("Right", CFrame.Angles(math.rad(115), 0, 0))
-		setJoint("Waist", CFrame.Angles(math.rad(-12), 0, 0)) -- 상체를 살짝 뒤로
+		setJoint("Right", CFrame.Angles(math.rad(165), 0, 0))
+		setJoint("Waist", CFrame.Angles(math.rad(-28), 0, 0)) -- 상체를 뒤로
 	end
 end
 
@@ -123,10 +127,36 @@ function PoseController.bowDraw(tool: Tool)
 		return
 	end
 	blendSpeed = 14
-	if isR6() then
-		setJoint("Left", CFrame.Angles(0, 0, math.rad(-85)))
+	local character = localPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local leftHand = character and character:FindFirstChild("LeftHand")
+	local leftUpper = character and character:FindFirstChild("LeftUpperArm")
+	-- 왼손이 따라갈 점 (보이지 않는 부품 + 첨부점)
+	local pull = Instance.new("Part")
+	pull.Name = "BowPullTarget"
+	pull.Size = Vector3.new(0.2, 0.2, 0.2)
+	pull.Transparency = 1
+	pull.Anchored = true
+	pull.CanCollide = false
+	pull.CanQuery = false
+	pull.CanTouch = false
+	pull.Parent = Workspace
+	local pullAttachment = Instance.new("Attachment")
+	pullAttachment.Parent = pull
+	local ik: IKControl? = nil
+	if humanoid and leftHand and leftUpper and leftHand:IsA("BasePart") and leftUpper:IsA("BasePart") then
+		local control = Instance.new("IKControl")
+		control.Name = "BowDrawIK"
+		control.Type = Enum.IKControlType.Position
+		control.EndEffector = leftHand
+		control.ChainRoot = leftUpper
+		control.Target = pullAttachment
+		control.Weight = 1
+		control.SmoothTime = 0.03
+		control.Parent = humanoid
+		ik = control
 	else
-		setJoint("Left", CFrame.Angles(math.rad(85), 0, math.rad(30))) -- 앞으로, 몸 안쪽으로
+		setJoint("Left", CFrame.Angles(0, 0, math.rad(-85))) -- R6: 왼팔을 앞으로
 	end
 	stringPart.LocalTransparencyModifier = 1
 	bow = {
@@ -135,6 +165,8 @@ function PoseController.bowDraw(tool: Tool)
 		Upper = localRod("DrawStringUpper", 0.04, stringPart.Color, Enum.Material.SmoothPlastic),
 		Lower = localRod("DrawStringLower", 0.04, stringPart.Color, Enum.Material.SmoothPlastic),
 		Arrow = localRod("NockedArrow", 0.1, Color3.fromRGB(150, 110, 70), Enum.Material.Wood),
+		Pull = pull,
+		IK = ik,
 		Draw = 0,
 		Target = 1,
 	}
@@ -152,6 +184,10 @@ function PoseController.release()
 		current.Upper:Destroy()
 		current.Lower:Destroy()
 		current.Arrow:Destroy()
+		current.Pull:Destroy()
+		if current.IK then
+			current.IK:Destroy()
+		end
 		if current.String.Parent then
 			current.String.LocalTransparencyModifier = 0
 		end
@@ -192,6 +228,7 @@ local function update(dt: number)
 		placeRod(current.Upper, top, pull)
 		placeRod(current.Lower, bottom, pull)
 		placeRod(current.Arrow, pull, pull - back * 2.2)
+		current.Pull.CFrame = CFrame.new(pull) -- 왼손이 여기로 (IK)
 	end
 end
 

@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
 local MobDefs = require(ReplicatedStorage.Shared.MobDefs)
 
 local GENERATED = "BuildWeaponsAndMobs"
@@ -444,13 +445,14 @@ WEAPONS.IronBow = function(k) -- 크고 곧은 장궁, 쇠 마구리
 	end
 	bowString(k, top, bottom, C(230, 230, 235))
 end
-WEAPONS.DiamondBow = function(k) -- 빛나는 수정 활대 + 날개 장식
-	local top, bottom = bowLimbs(k, 2.2, 0.6, 0.25, 0.2, 0.12, C(120, 230, 255), NEON)
-	k.rod("Grip", -0.3, 0.3, 0.3, GOLD, METAL)
+WEAPONS.DiamondBow = function(k) -- 빛나는 수정 활대 + 날개 장식. 다른 활보다 20% 크게 (2026-10-09 사용자 요청)
+	local S = 1.2
+	local top, bottom = bowLimbs(k, 2.2 * S, 0.6 * S, 0.25 * S, 0.2 * S, 0.12 * S, C(120, 230, 255), NEON)
+	k.rod("Grip", -0.3 * S, 0.3 * S, 0.3 * S, GOLD, METAL)
 	for _, y in { 1, -1 } do
-		k.plate({ V(-0.05, 0.4 * y), V(0.45, 0.9 * y), V(-0.15, 1.3 * y) }, 0.12, C(95, 205, 245), GLASS)
+		k.plate({ V(-0.05 * S, 0.4 * y * S), V(0.45 * S, 0.9 * y * S), V(-0.15 * S, 1.3 * y * S) }, 0.12 * S, C(95, 205, 245), GLASS)
 	end
-	k.plate({ V(0.12, 0), V(0.32, 0.2), V(0.12, 0.4), V(0.0, 0.2) }, 0.2, C(210, 250, 255), NEON)
+	k.plate({ V(0.12 * S, 0), V(0.32 * S, 0.2 * S), V(0.12 * S, 0.4 * S), V(0.0, 0.2 * S) }, 0.2 * S, C(210, 250, 255), NEON)
 	bowString(k, top, bottom, C(200, 245, 255))
 	k.glow(k.at(0, 0), C(120, 230, 255))
 end
@@ -740,6 +742,63 @@ for id, build in LOOT_ICONS do
 	local m = Instance.new("Model")
 	m.Name = id
 	build(m)
+	m:SetAttribute("GeneratedBy", GENERATED)
+	m.Parent = iconFolder
+end
+
+---------------------------------------------------------------- 3-2. 장비 아이콘 (칸마다 모양, 단계마다 색)
+local EQUIPMENT_ICONS = {
+	Helmet = function(m, color, accent)
+		local dome = part({ Name = "Dome", Size = Vector3.new(1.6, 1.3, 1.6), Color = color, Material = METAL }, m)
+		Instance.new("SpecialMesh", dome).MeshType = Enum.MeshType.Sphere
+		part({ Name = "Brim", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 1.75, 1.75), CFrame = CFrame.new(0, -0.35, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = accent, Material = METAL }, m)
+		part({ Name = "Crest", Size = Vector3.new(0.15, 0.5, 1.1), CFrame = CFrame.new(0, 0.6, 0), Color = accent, Material = METAL }, m)
+	end,
+	Armor = function(m, color, accent)
+		part({ Name = "Chest", Size = Vector3.new(1.6, 1.7, 0.6), Color = color, Material = METAL }, m)
+		for _, x in { 0.95, -0.95 } do
+			local pad = part({ Name = "Shoulder", Size = Vector3.new(0.7, 0.45, 0.8), CFrame = CFrame.new(x, 0.7, 0), Color = accent, Material = METAL }, m)
+			Instance.new("SpecialMesh", pad).MeshType = Enum.MeshType.Sphere
+		end
+		part({ Name = "Belt", Size = Vector3.new(1.65, 0.22, 0.65), CFrame = CFrame.new(0, -0.55, 0), Color = Color3.fromRGB(90, 60, 35), Material = Enum.Material.Leather }, m)
+	end,
+	Boots = function(m, color, accent)
+		for _, x in { 0.45, -0.45 } do
+			part({ Name = "Leg", Size = Vector3.new(0.55, 1.0, 0.6), CFrame = CFrame.new(x, 0.3, 0.1), Color = color, Material = METAL }, m)
+			part({ Name = "Foot", Size = Vector3.new(0.6, 0.4, 1.0), CFrame = CFrame.new(x, -0.3, -0.15), Color = accent, Material = METAL }, m)
+		end
+	end,
+	Gloves = function(m, color, accent)
+		part({ Name = "Palm", Size = Vector3.new(0.9, 1.0, 0.4), Color = color, Material = Enum.Material.Leather }, m)
+		for i = -1, 2 do
+			part({ Name = "Finger", Size = Vector3.new(0.2, 0.5, 0.3), CFrame = CFrame.new(-0.3 + i * 0.22, 0.7, 0), Color = color, Material = Enum.Material.Leather }, m)
+		end
+		part({ Name = "Cuff", Size = Vector3.new(1.0, 0.35, 0.5), CFrame = CFrame.new(0, -0.6, 0), Color = accent, Material = METAL }, m)
+	end,
+	Necklace = function(m, color, accent)
+		for i = 0, 11 do
+			local angle = i / 12 * math.pi * 2
+			part({ Name = "Bead", Shape = Enum.PartType.Ball, Size = Vector3.new(0.22, 0.22, 0.22), CFrame = CFrame.new(math.cos(angle) * 0.8, math.sin(angle) * 0.8 + 0.3, 0), Color = accent, Material = METAL }, m)
+		end
+		part({ Name = "Pendant", Size = Vector3.new(0.5, 0.65, 0.25), CFrame = CFrame.new(0, -0.65, 0) * CFrame.Angles(0, 0, math.rad(45)), Color = color, Material = Enum.Material.Neon }, m)
+	end,
+	Bracelet = function(m, color, accent)
+		for i = 0, 13 do
+			local angle = i / 14 * math.pi * 2
+			part({ Name = "Link", Size = Vector3.new(0.3, 0.3, 0.45), CFrame = CFrame.new(math.cos(angle) * 0.7, math.sin(angle) * 0.7, 0) * CFrame.Angles(0, 0, angle), Color = if i % 3 == 0 then accent else color, Material = METAL }, m)
+		end
+	end,
+}
+for _, id in EquipmentDefs.Order do
+	local def = EquipmentDefs.Items[id]
+	local old = iconFolder:FindFirstChild(id)
+	if old then
+		old:Destroy()
+	end
+	local m = Instance.new("Model")
+	m.Name = id
+	local accent = if def.Tier >= 3 then GOLD else def.Color:Lerp(Color3.new(0, 0, 0), 0.3)
+	EQUIPMENT_ICONS[def.Slot](m, def.Color, accent)
 	m:SetAttribute("GeneratedBy", GENERATED)
 	m.Parent = iconFolder
 end

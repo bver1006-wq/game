@@ -18,21 +18,19 @@ local function stop(player: Player)
 	player:SetAttribute("Charging", false)
 end
 
--- 모은 정도(0~1)를 꺼내고 기록을 지운다. 휘두르기·공격을 처리할 때 한 번 부른다
-function ChargeService.consume(player: Player): number
+-- 모은 정도(0~1)와 누르고 있던 시간(초)을 꺼내고 기록을 지운다. 휘두르기·공격을 처리할 때 한 번 부른다
+-- (활의 추가 차징은 누른 시간으로 판단한다)
+function ChargeService.consume(player: Player): (number, number)
 	local start = started[player]
 	stop(player)
 	if not start then
-		return 0
+		return 0, 0
 	end
 	local held = os.clock() - start
-	if held > Config.Charge.MaxHold + Config.Charge.Time then
-		return 1 -- 아주 오래 누르고 있었어도 다 모은 것
-	end
 	if held < Config.Charge.TapThreshold then
-		return 0
+		return 0, held
 	end
-	return math.clamp(held / Config.Charge.Time, 0, 1)
+	return math.clamp(held / Config.Charge.Time, 0, 1), held
 end
 
 -- 서버 시작 시 한 번 호출

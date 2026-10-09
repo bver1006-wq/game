@@ -21,6 +21,10 @@ type Bag = {
 
 local InventoryService = {}
 
+-- 가방이 바뀔 때마다 (player) — 장비가 가방에서 사라지면 벗기는 데 쓴다 (EquipmentService)
+local changedEvent = Instance.new("BindableEvent")
+InventoryService.Changed = changedEvent.Event
+
 local bags: { [Player]: Bag } = {}
 local changedRemote: RemoteEvent
 
@@ -69,6 +73,7 @@ local function push(player: Player)
 		return
 	end
 	updateLeaderstats(player, bag.Gold)
+	changedEvent:Fire(player)
 	changedRemote:FireClient(player, {
 		Items = table.clone(bag.Items),
 		Gold = bag.Gold,

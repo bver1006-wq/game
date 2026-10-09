@@ -11,6 +11,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
 local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 
 local InventoryService = require(script.Parent.InventoryService)
@@ -170,6 +171,12 @@ function PickaxeService.init()
 		-- 테스트용 귀환 주문서 (Studio에서만)
 		if RunService:IsStudio() and Config.Debug.GiveReturnScrolls > 0 then
 			InventoryService.add(player, "ReturnScroll", Config.Debug.GiveReturnScrolls)
+		end
+		-- 테스트용 장비 전부 (Studio에서만)
+		if RunService:IsStudio() and Config.Debug.GiveAllEquipment then
+			for _, equipmentId in EquipmentDefs.Order do
+				InventoryService.add(player, equipmentId, 1)
+			end
 		end
 		-- 테스트용 음식 (Studio에서만)
 		if RunService:IsStudio() and Config.Debug.GiveFoods > 0 then

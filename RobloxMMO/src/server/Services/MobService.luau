@@ -16,6 +16,7 @@ local ItemDefs = require(ReplicatedStorage.Shared.ItemDefs)
 local MobDefs = require(ReplicatedStorage.Shared.MobDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
+local EquipmentService = require(script.Parent.EquipmentService)
 local FeverService = require(script.Parent.FeverService)
 local InventoryService = require(script.Parent.InventoryService)
 local NotifyService = require(script.Parent.NotifyService)
@@ -207,8 +208,9 @@ local function stepMob(state: MobState, dt: number, now: number)
 				state.LungeUntil = now + 0.15
 				local player = state.Target :: Player
 				if not FeverService.isActive(player) then
-					humanoid:TakeDamage(config.Damage)
-					fireNearby(attackRemote, state.Position, state.Model, player.UserId, config.Damage)
+					local damage = EquipmentService.reduceDamage(player, config.Damage) -- 방어구로 줄인다
+					humanoid:TakeDamage(damage)
+					fireNearby(attackRemote, state.Position, state.Model, player.UserId, damage)
 				end
 			end
 		end
