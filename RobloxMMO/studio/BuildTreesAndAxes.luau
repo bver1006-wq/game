@@ -111,7 +111,7 @@ local AXES = {
 		Trail = Color3.fromRGB(255, 150, 70), TrailLife = 0.16,
 	},
 	{
-		Id = "IronAxe", From = "IronPickaxe", Design = "Great", Scale = 1.35, Reach = 1.15, Shaft = 0.3,
+		Id = "IronAxe", From = "IronPickaxe", Design = "Great", Scale = 1.215, Reach = 1.035, Shaft = 0.27, -- 곡괭이보다 너무 커서 10% 줄임 (2026-10-09)
 		Head = Color3.fromRGB(150, 152, 158), Edge = Color3.fromRGB(235, 238, 245), Material = METAL,
 		ShaftColor = Color3.fromRGB(70, 72, 78), ShaftMaterial = METAL, Gold = Color3.fromRGB(215, 170, 70),
 		Trail = Color3.fromRGB(230, 235, 255), TrailLife = 0.2,
@@ -474,7 +474,55 @@ for _, spec in AXES do
 	end
 	iconFromTool(tool, spec.Id).Parent = iconFolder
 end
-print("[BuildTreesAndAxes] (버전 10, 철·다이아 모양 교환) 도끼 4종 완료")
+print("[BuildTreesAndAxes] (버전 11) 도끼 4종 완료")
+
+-- 곡괭이 크기 조정 (Studio에서 만든 곡괭이 Tool을 손잡이 기준으로 키운다). 도끼를 다 만든 뒤에 해야 도끼 크기에 영향이 없다
+-- 이미 키운 Tool은 속성 ScaledBy로 표시해서 두 번 키우지 않는다
+local PICKAXE_SCALES = { SteelPickaxe = 1.1 } -- 다이아몬드 곡괭이 10% 크게 (2026-10-09 사용자 요청)
+
+local function scaleTool(tool: Tool, factor: number)
+	local handle = tool:FindFirstChild("Handle")
+	if not handle or not handle:IsA("BasePart") then
+		return
+	end
+	local origin = handle.CFrame
+	-- 용접을 잠시 끄고 부품을 손잡이 기준으로 옮긴 뒤 다시 켠다 (켜질 때 새 위치로 다시 붙는다)
+	local welds = {}
+	for _, d in tool:GetDescendants() do
+		if d:IsA("WeldConstraint") and d.Enabled then
+			d.Enabled = false
+			table.insert(welds, d)
+		end
+	end
+	for _, d in tool:GetDescendants() do
+		if d:IsA("BasePart") then
+			local relative = origin:ToObjectSpace(d.CFrame)
+			d.Size *= factor
+			d.CFrame = origin * (relative - relative.Position + relative.Position * factor)
+		elseif d:IsA("SpecialMesh") then
+			d.Scale *= factor
+			d.Offset *= factor
+		elseif d:IsA("Attachment") then
+			d.Position *= factor
+		elseif d:IsA("JointInstance") then
+			d.C0 = d.C0 - d.C0.Position + d.C0.Position * factor
+			d.C1 = d.C1 - d.C1.Position + d.C1.Position * factor
+		end
+	end
+	for _, weld in welds do
+		weld.Enabled = true
+	end
+	tool.Grip = tool.Grip - tool.Grip.Position + tool.Grip.Position * factor
+end
+
+for id, factor in PICKAXE_SCALES do
+	local tool = pickaxeFolder:FindFirstChild(id)
+	if tool and tool:IsA("Tool") and tool:GetAttribute("ScaledBy") ~= factor then
+		scaleTool(tool, factor / (tool:GetAttribute("ScaledBy") or 1))
+		tool:SetAttribute("ScaledBy", factor)
+		print(`[BuildTreesAndAxes] {id} 크기 x{factor}`)
+	end
+end
 
 ---------------------------------------------------------------- 2. 나무
 local LEAF_MATERIAL = Enum.Material.LeafyGrass

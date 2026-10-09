@@ -92,7 +92,11 @@ Config.Pickaxes = {
 	StoneAxe = { Power = 1 }, -- 시작 지급
 	CopperAxe = { Power = 1.5, Price = { Gold = 50, Items = { CopperIngot = 2, Pine = 3 } } },
 	IronAxe = { Power = 2, Price = { Gold = 250, Items = { IronIngot = 3, Birch = 3 } } },
-	DiamondAxe = { Power = 3, Price = { Gold = 1000, Items = { SteelIngot = 5, Maple = 3 } } },
+	DiamondAxe = {
+		Power = 3,
+		Price = { Gold = 1000, Items = { SteelIngot = 5, Maple = 3 } },
+		LightningChance = 0.2, -- 나무를 칠 때 이 확률로 번개가 내려쳐 한 방에 벤다 (2026-10-09 사용자 요청)
+	},
 }
 
 -- 가방: 칸 단위. 쌓이는 아이템(광석·괴)은 한 칸에 MaxStack개까지, 도구는 1개가 1칸
@@ -267,6 +271,18 @@ Config.HitFeel = {
 	HpBarRange = 12, -- 이 거리 안의 가장 가까운 바위에 체력바 표시(스터드)
 	-- 좋은 곡괭이일수록 강한 타격 연출: 충격파 고리, 튀는 광석 조각, 카메라 흔들림
 	-- Chunks: 튀는 조각 수, Ring: 충격파 최대 크기(스터드), Shake: 카메라 흔들림 배수, Sparkle: 반짝이 가루
+	-- 번개 (다이아몬드 도끼): 하늘에서 지그재그 빛줄기가 내려와 나무를 한 방에 벤다
+	Lightning = {
+		Height = 60, -- 번개가 시작하는 높이(스터드)
+		Segments = 9, -- 지그재그 마디 수
+		Jitter = 2.5, -- 마디가 옆으로 벗어나는 정도(스터드)
+		Color = Color3.fromRGB(170, 230, 255),
+		Duration = 0.35, -- 번개가 보이는 시간(초)
+		FlashBrightness = 12, -- 번쩍이는 빛 밝기
+		Shake = 3, -- 카메라 흔들림 배수
+		ThunderPitch = 0.55, -- 천둥 소리 음높이 (폭발음을 낮게 깔아 쓴다)
+		ThunderVolume = 1,
+	},
 	-- 나무 타격 연출: 덜 흔들리고, 나뭇조각과 잎이 떨어지고, 다 베면 쓰러진다
 	Tree = {
 		ShakeScale = 0.35, -- 바위 떨림 대비 나무 떨림 배수
