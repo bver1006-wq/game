@@ -97,7 +97,8 @@ local function owlLoop()
 		task.wait(random:NextNumber(cfg.OwlIntervalMin, cfg.OwlIntervalMax))
 		local character = localPlayer.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if cfg.OwlSound ~= "" and root and root:IsA("BasePart") and daylight(Lighting.ClockTime) < 0.3 and MineAtmosphereController.getFloor() == nil then
+		local outside = localPlayer:GetAttribute("InTown") ~= true -- 부엉이는 마을 밖에서만
+		if cfg.OwlSound ~= "" and outside and root and root:IsA("BasePart") and daylight(Lighting.ClockTime) < 0.3 and MineAtmosphereController.getFloor() == nil then
 			local angle = random:NextNumber(0, math.pi * 2)
 			local attachment = Instance.new("Attachment")
 			attachment.WorldPosition = root.Position + Vector3.new(math.cos(angle) * 25, 8, math.sin(angle) * 25)

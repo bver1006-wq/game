@@ -1,17 +1,15 @@
 --!strict
--- 마나와 달리기 모드.
--- 마나는 플레이어 속성 Mana·MaxMana로 클라이언트에 보인다. 스킬·차징 스매시(나중에)·달리기에 쓴다.
--- 달리기 모드(속성 Sprinting)는 클라이언트 버튼이 켜고 끄지만, 속도와 마나 소모는 서버가 정한다.
--- 움직이는 동안만 마나가 줄고, 마나가 바닥나면 달리기가 저절로 꺼진다.
+-- 마나·이동 속도·마을 회복.
+-- 마나는 플레이어 속성 Mana·MaxMana로 클라이언트에 보인다. 스킬·차징 강타·구르기에 쓴다.
+-- 2026-10-09: 달리기 버튼을 없애고 항상 달린다(Movement.RunSpeed). 체력·마나는 마을(안전지대) 안에서만 서서히 찬다
+--   마을 밖에서는 음식으로만 회복. 플레이어 속성 InTown으로 클라에 알린다
 
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
-local Remotes = require(ReplicatedStorage.Shared.Remotes)
-
-local NotifyService = require(script.Parent.NotifyService)
 
 local ManaService = {}
 
@@ -55,42 +53,66 @@ function ManaService.isFull(player: Player): boolean
 	return getMana(player) >= Config.Mana.Max
 end
 
--- 달리기 끄기·켜기
-local function setSprint(player: Player, on: boolean)
-	if on and getMana(player) <= 0 then
-		NotifyService.send(player, "마나가 없어서 달릴 수 없어요.", "bad")
-		on = false
+-- 마을(안전지대) 중심들. TownArrival 부품과 상점 NPC 위치 (몇 초마다 다시 찾는다)
+local townCenters: { Vector3 } = {}
+local lastTownScan = -math.huge
+
+local function refreshTownCenters()
+	local centers: { Vector3 } = {}
+	for _, part in CollectionService:GetTagged("TownArrival") do
+		if part:IsA("BasePart") then
+			table.insert(centers, part.Position)
+		end
 	end
-	player:SetAttribute("Sprinting", on)
+	for _, npc in CollectionService:GetTagged("ShopNPC") do
+		if npc:IsA("Model") then
+			table.insert(centers, npc:GetPivot().Position)
+		end
+	end
+	townCenters = centers
 end
 
--- 매 프레임: 달리는 중이면 속도를 올리고 마나를 쓰고, 아니면 마나를 채운다
+-- 이 위치가 마을 안인가 (몹 안전지대와 같은 반경)
+function ManaService.isInTown(position: Vector3): boolean
+	local radius = Config.MobAI.SafeZoneRadius
+	for _, center in townCenters do
+		if ((center - position) * Vector3.new(1, 0, 1)).Magnitude <= radius then
+			return true
+		end
+	end
+	return false
+end
+
+-- 매 프레임: 항상 달리는 속도(모으는 중엔 천천히), 마을 안에서만 체력·마나가 찬다 (2026-10-09 사용자 요청)
 local function step(dt: number)
 	local now = os.clock()
+	if now - lastTownScan > 3 then
+		lastTownScan = now
+		refreshTownCenters()
+	end
 	local movement = Config.Movement
+	local regen = Config.TownRegen
 	for _, player in Players:GetPlayers() do
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if humanoid and root and root:IsA("BasePart") and humanoid.Health > 0 then
-			-- 모으는(차징) 중에는 달리기 모드여도 천천히 걷고 마나도 쓰지 않는다
 			local charging = player:GetAttribute("Charging") == true
-			local sprinting = player:GetAttribute("Sprinting") == true and not charging
-			local velocity = root.AssemblyLinearVelocity * Vector3.new(1, 0, 1)
-			local moving = velocity.Magnitude > movement.MovingThreshold
-			local speed = if charging then Config.Charge.WalkSpeed elseif sprinting then movement.SprintSpeed else movement.WalkSpeed
+			local speed = if charging then Config.Charge.WalkSpeed else movement.RunSpeed
 			if humanoid.WalkSpeed ~= speed then
 				humanoid.WalkSpeed = speed
 			end
-			if sprinting and moving then
-				setMana(player, getMana(player) - movement.SprintManaPerSecond * dt)
-				lastSpend[player] = now
-				if getMana(player) <= 0 then
-					player:SetAttribute("Sprinting", false)
-					NotifyService.send(player, "마나가 바닥나서 달리기를 멈췄어요.", "info")
+			local inTown = ManaService.isInTown(root.Position)
+			if player:GetAttribute("InTown") ~= inTown then
+				player:SetAttribute("InTown", inTown)
+			end
+			if inTown then
+				if now - (lastSpend[player] or 0) >= Config.Mana.RegenDelay and not ManaService.isFull(player) then
+					setMana(player, getMana(player) + regen.ManaPerSecond * dt)
 				end
-			elseif now - (lastSpend[player] or 0) >= Config.Mana.RegenDelay and not ManaService.isFull(player) then
-				setMana(player, getMana(player) + Config.Mana.Regen * dt)
+				if humanoid.Health < humanoid.MaxHealth then
+					humanoid.Health = math.min(humanoid.MaxHealth, humanoid.Health + regen.HpPerSecond * dt)
+				end
 			end
 		end
 	end
@@ -101,11 +123,13 @@ function ManaService.init()
 	local function onPlayerAdded(player: Player)
 		player:SetAttribute("MaxMana", Config.Mana.Max)
 		player:SetAttribute("Mana", Config.Mana.Max)
-		player:SetAttribute("Sprinting", false)
-		-- 다시 태어나면 마나를 채우고 달리기는 끈다
-		player.CharacterAdded:Connect(function()
+		-- 다시 태어나면 마나를 채운다. Roblox 기본 체력 회복 스크립트(Health)는 지운다 (마을에서만 차게)
+		player.CharacterAdded:Connect(function(character)
 			player:SetAttribute("Mana", Config.Mana.Max)
-			player:SetAttribute("Sprinting", false)
+			local healthScript = character:WaitForChild("Health", 5)
+			if healthScript and healthScript:IsA("Script") then
+				healthScript:Destroy()
+			end
 		end)
 	end
 	Players.PlayerAdded:Connect(onPlayerAdded)
@@ -114,9 +138,6 @@ function ManaService.init()
 	end
 	Players.PlayerRemoving:Connect(function(player)
 		lastSpend[player] = nil
-	end)
-	Remotes.get(Remotes.Names.SetSprint).OnServerEvent:Connect(function(player, on)
-		setSprint(player, on == true)
 	end)
 	RunService.Heartbeat:Connect(step)
 end

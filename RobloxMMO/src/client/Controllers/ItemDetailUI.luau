@@ -1,8 +1,12 @@
 --!strict
 -- 아이템 상세 창 (2026-10-09 사용자 요청): 가방·상점에서 아이템을 한 번 누르면 뜬다.
--- 왼쪽: 아이템 3D 모델(ReplicatedStorage/ItemIcons, ItemIcon과 같은 모델)을 크게, 천천히 360° 돌린다. 카메라는 모델 크기에 맞춘다
--- 오른쪽: 이름·단계 별·분류, 자세한 능력치(Config에서 읽음), 만드는 법, 쓰이는 곳, 판매가
--- X 버튼이나 창 바깥을 누르면 닫힌다. 처음 열 때 화면을 만든다 (Main.client에서 init을 부르지 않아도 된다)
+-- 세로로 긴 창이 연 창(host: 가방 창·상점 창) 바로 오른쪽에 붙는다 (장비 창처럼). 화면 가운데를 가리지 않고 어두운 배경도 없다
+-- 오른쪽에 자리가 모자라면 host 무리(가방이면 장비 창까지)를 왼쪽으로 조금 밀고, 그래도 안 되면(휴대폰) host 창 오른쪽 안에 겹쳐 띄운다
+-- host가 움직이거나 크기가 바뀌거나 화면 크기가 바뀌면 다시 맞춘다. host가 닫히면 같이 닫힌다
+-- 위→아래: 돌아가는 큰 3D 모델(ReplicatedStorage/ItemIcons) · 이름·단계 별 · 분류 · 능력치 · 가진 개수·판매가 · 만드는 법 · 쓰이는 곳 (길면 스크롤)
+-- X 버튼으로 닫는다. 처음 열 때 화면을 만든다 (Main.client에서 init을 부르지 않아도 된다)
+-- 2026-10-09 고침: 예전 창은 panel.ZIndex = 2인데 안쪽 글자·모델은 ZIndex 1이었다. Instance.new로 만든 ScreenGui는
+--   ZIndexBehavior가 Global이라 안쪽이 전부 패널 배경 뒤에 그려져 빈 상자 + 어두운 전체 화면만 보였다 → Sibling으로 정한다
 -- 화면 표시용이며 능력치 계산은 서버(EquipmentService.itemStats 등)와 같은 식을 Config로 다시 계산한다
 
 local Players = game:GetService("Players")
@@ -42,8 +46,10 @@ local panel: Frame
 local nameLabel: TextLabel
 local starsLabel: TextLabel
 local kindLabel: TextLabel
+local viewHolder: Frame
 local viewport: ViewportFrame
-local info: ScrollingFrame
+local info: ScrollingFrame -- 창 전체 스크롤 (모델·이름·능력치 ...)
+local body: Frame -- info 안에서 아이템마다 다시 그리는 부분 (능력치~쓰이는 곳)
 local camera: Camera
 local spinConnection: RBXScriptConnection? = nil
 local currentItem: string? = nil
@@ -51,8 +57,14 @@ local model: Model? = nil
 local modelCenter = Vector3.zero -- 모델 기준점에서 본 상자 가운데
 local modelRadius = 1
 local angle = 0
-local openedAt = 0
-local OPEN_GUARD = 0.35 -- 연 뒤 이 시간(초) 동안은 바깥 클릭으로 닫지 않는다
+
+-- 붙어 있는 창(host)과 같이 움직이는 창들(group, 가방이면 장비 창). 자리를 내려고 왼쪽으로 민 만큼(appliedShift)은 닫을 때 되돌린다
+local host: GuiObject? = nil
+local hostGroup: { GuiObject } = {}
+local hostOrigins: { [GuiObject]: UDim2 } = {}
+local hostConnections: { RBXScriptConnection } = {}
+local appliedShift = 0
+local positioning = false
 
 -- 숫자를 보기 좋게 (소수 첫째 자리까지)
 local function num(value: number): string
@@ -121,9 +133,6 @@ local function describeKind(itemId: string): (string, number?)
 	if (Config.Foods :: any)[itemId] then
 		return "음식", nil
 	end
-	if itemId == "ReturnScroll" then
-		return "주문서", nil
-	end
 	local ore = OreDefs[itemId]
 	if ore then
 		return if ore.Kind == "Tree" then "통나무 · 재료" else "광석 · 재료", nil
@@ -141,7 +150,7 @@ end
 
 -- 정보 영역을 비운다
 local function clearInfo()
-	for _, child in info:GetChildren() do
+	for _, child in body:GetChildren() do
 		if child:IsA("GuiObject") then
 			child:Destroy()
 		end
@@ -153,7 +162,8 @@ local lineOrder = 0
 -- 정보 영역에 섹션 제목 한 줄
 local function addHeader(text: string)
 	lineOrder += 1
-	local label = UiKit.label(info, text, UDim2.new(1, -8, 0, 24), nil, UiKit.Colors.Gold, 16)
+	local label = UiKit.label(body, text, UDim2.new(1, -8, 0, 22), nil, UiKit.Colors.Gold, 15)
+	label.AutomaticSize = Enum.AutomaticSize.Y
 	label.LayoutOrder = lineOrder
 end
 
@@ -165,16 +175,17 @@ local function addStat(name: string, value: string, color: Color3?)
 	row.Size = UDim2.new(1, -8, 0, 22)
 	row.AutomaticSize = Enum.AutomaticSize.Y
 	row.LayoutOrder = lineOrder
-	row.Parent = info
-	UiKit.label(row, name, UDim2.new(0.45, 0, 0, 22), nil, UiKit.Colors.SubText, 14)
-	local valueLabel = UiKit.label(row, value, UDim2.new(0.55, 0, 0, 22), UDim2.fromScale(0.45, 0), color or UiKit.Colors.Text, 15)
+	row.Parent = body
+	-- 창이 좁으니 이름 42% · 값 58%
+	UiKit.label(row, name, UDim2.new(0.42, -4, 0, 22), nil, UiKit.Colors.SubText, 13)
+	local valueLabel = UiKit.label(row, value, UDim2.new(0.58, 0, 0, 22), UDim2.fromScale(0.42, 0), color or UiKit.Colors.Text, 14)
 	valueLabel.AutomaticSize = Enum.AutomaticSize.Y
 end
 
 -- 정보 영역에 설명 글 한 줄 (여러 줄로 감김)
 local function addText(text: string, color: Color3?)
 	lineOrder += 1
-	local label = UiKit.label(info, text, UDim2.new(1, -8, 0, 20), nil, color or UiKit.Colors.Text, 14)
+	local label = UiKit.label(body, text, UDim2.new(1, -8, 0, 20), nil, color or UiKit.Colors.Text, 13)
 	label.AutomaticSize = Enum.AutomaticSize.Y
 	label.LayoutOrder = lineOrder
 end
@@ -187,7 +198,7 @@ local function addRecipe(recipe: RecipeView.RecipeLike)
 	holder.Size = UDim2.new(1, -8, 0, 58)
 	holder.AutomaticSize = Enum.AutomaticSize.Y
 	holder.LayoutOrder = lineOrder
-	holder.Parent = info
+	holder.Parent = body
 	RecipeView.chips(holder, recipe, UDim2.new(), UDim.new(1, 0), function(id)
 		openDetail(id)
 	end)
@@ -201,7 +212,7 @@ local function addItemList(itemIds: { string })
 	holder.Size = UDim2.new(1, -8, 0, 62)
 	holder.AutomaticSize = Enum.AutomaticSize.Y
 	holder.LayoutOrder = lineOrder
-	holder.Parent = info
+	holder.Parent = body
 	local layout = Instance.new("UIGridLayout")
 	layout.CellSize = UDim2.fromOffset(62, 62)
 	layout.CellPadding = UDim2.fromOffset(4, 4)
@@ -343,9 +354,6 @@ local function drawUsableStats(itemId: string)
 			addStat("마나 회복", `+{food.Mana}`, Color3.fromRGB(130, 170, 255))
 		end
 		addStat("다시 먹기", `{Config.FoodCooldown}초 뒤`)
-	elseif itemId == "ReturnScroll" then
-		addStat("마을로 돌아가기", `{num(Config.ReturnScroll.CastTime)}초`)
-		addText("쓰는 동안 움직이면 취소돼요.", UiKit.Colors.SubText)
 	end
 	addText("빠른 칸에 놓고 누르면 써요.", UiKit.Colors.SubText)
 end
@@ -419,6 +427,7 @@ local function drawInfo(itemId: string)
 	end
 end
 
+
 -- 모델을 돌리고 카메라를 모델 크기·창 비율에 맞춘다 (매 프레임)
 local function updateSpin(dt: number)
 	local current = model
@@ -430,7 +439,7 @@ local function updateSpin(dt: number)
 	current:PivotTo(CFrame.Angles(0, angle, 0) * CFrame.new(-modelCenter))
 	-- 창이 좁으면 가로 시야가 더 좁으니 둘 중 작은 쪽에 맞춘다
 	local size = viewport.AbsoluteSize
-	local aspect = if size.Y > 0 then size.X / size.Y else 1
+	local aspect = if size.Y > 0 and size.X > 0 then size.X / size.Y else 1
 	local halfV = math.rad(camera.FieldOfView / 2)
 	local halfH = math.atan(math.tan(halfV) * aspect)
 	local distance = modelRadius / math.sin(math.min(halfV, halfH)) * 1.02
@@ -464,83 +473,204 @@ local function setModel(itemId: string)
 	updateSpin(0)
 end
 
+-- 자리를 내려고 host 무리를 왼쪽으로 shift(px)만큼 민다 (0이면 원래 자리)
+local function applyShift(shift: number)
+	if math.abs(shift - appliedShift) < 0.5 then
+		return
+	end
+	appliedShift = shift
+	for frame, origin in hostOrigins do
+		if frame.Parent then
+			frame.Position = origin + UDim2.fromOffset(-shift, 0)
+		end
+	end
+end
+
+-- 창 위치·크기를 host 옆에 맞춘다 (host가 움직이거나 화면 크기가 바뀌면 다시 부른다)
+local function reposition()
+	local screen = gui
+	if not screen or not screen.Enabled or positioning then
+		return
+	end
+	positioning = true
+	local settings = Config.ItemDetail
+	local screenSize = screen.AbsoluteSize
+	local origin = screen.AbsolutePosition
+	if screenSize.X <= 0 or screenSize.Y <= 0 then
+		positioning = false
+		return
+	end
+	local margin = settings.ScreenMargin
+	local gap = settings.Gap
+	local width = math.min(settings.PanelWidth, screenSize.X - margin * 2)
+	local x, y, w, h
+	local shift = 0
+	local current = host
+	if current then
+		-- 밀기 전 원래 자리 기준으로 계산한다 (이미 민 만큼 되돌려 본다)
+		local hostPos = current.AbsolutePosition - origin + Vector2.new(appliedShift, 0)
+		local hostSize = current.AbsoluteSize
+		local hostRight = hostPos.X + hostSize.X
+		local groupLeft = hostPos.X
+		for _, frame in hostGroup do
+			if frame ~= current and frame.Visible then
+				groupLeft = math.min(groupLeft, frame.AbsolutePosition.X - origin.X + appliedShift)
+			end
+		end
+		local room = screenSize.X - margin - (hostRight + gap) -- 오른쪽 빈 자리
+		local need = width - room -- 모자란 만큼
+		if need <= 0 or groupLeft - margin >= need then
+			-- 오른쪽에 붙인다 (모자라면 host 무리를 need만큼 왼쪽으로)
+			shift = math.max(need, 0)
+			w = width
+			x = hostRight - shift + gap
+			y = hostPos.Y
+			h = math.max(hostSize.Y, settings.MinHeight)
+		else
+			-- 자리가 없다(휴대폰): host 창 오른쪽 안에 겹친다 (화면 전체는 가리지 않음)
+			w = math.min(width, math.max(hostSize.X * settings.OverlayRatio, 170))
+			x = hostRight - w - 6
+			y = hostPos.Y + 6
+			h = math.max(hostSize.Y - 12, 120)
+		end
+	else
+		-- 붙을 창이 없으면 화면 오른쪽에 세로로
+		w = width
+		x = screenSize.X - margin - w
+		y = margin + 60
+		h = screenSize.Y * 0.7
+	end
+	-- 화면 밖으로 나가지 않게
+	h = math.min(h, screenSize.Y - margin * 2)
+	y = math.clamp(y, margin, math.max(margin, screenSize.Y - margin - h))
+	x = math.clamp(x, margin, math.max(margin, screenSize.X - margin - w))
+	panel.Position = UDim2.fromOffset(x, y)
+	panel.Size = UDim2.fromOffset(w, h)
+	-- 모델 칸 높이: 창 너비만큼(정사각형), 단 창 높이의 42%·Config 값보다 크지 않게
+	viewHolder.Size = UDim2.new(1, -8, 0, math.floor(math.clamp(math.min(w - 24, h * 0.42), 80, settings.ViewHeight)))
+	applyShift(shift)
+	positioning = false
+end
+
+-- 붙어 있던 창을 놓는다 (밀었던 창들을 원래 자리로)
+local function releaseHost()
+	for _, connection in hostConnections do
+		connection:Disconnect()
+	end
+	table.clear(hostConnections)
+	for frame, origin in hostOrigins do
+		if frame.Parent then
+			frame.Position = origin
+		end
+	end
+	table.clear(hostOrigins)
+	table.clear(hostGroup)
+	appliedShift = 0
+	host = nil
+end
+
+-- 이 창(newHost) 옆에 붙인다. group은 같이 밀 창들 (가방이면 장비 창)
+local function setHost(newHost: GuiObject, group: { GuiObject })
+	if host == newHost then
+		return
+	end
+	releaseHost()
+	host = newHost
+	table.insert(hostGroup, newHost)
+	for _, frame in group do
+		table.insert(hostGroup, frame)
+	end
+	for _, frame in hostGroup do
+		hostOrigins[frame] = frame.Position
+	end
+	table.insert(hostConnections, newHost:GetPropertyChangedSignal("AbsolutePosition"):Connect(reposition))
+	table.insert(hostConnections, newHost:GetPropertyChangedSignal("AbsoluteSize"):Connect(reposition))
+end
+
+-- host가 아직 보이는지 (닫혔으면 상세 창도 닫는다)
+local function hostShown(current: GuiObject): boolean
+	if not current.Visible or not current.Parent then
+		return false
+	end
+	local screen = current:FindFirstAncestorWhichIsA("ScreenGui")
+	return screen == nil or screen.Enabled
+end
+
 -- 창 화면을 만든다 (처음 열 때 한 번)
 local function build(): ScreenGui
 	local screen = Instance.new("ScreenGui")
 	screen.Name = "ItemDetailGui"
 	screen.ResetOnSpawn = false
+	screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling -- 자식은 언제나 부모 위에 (예전 버그의 원인)
 	screen.DisplayOrder = 20 -- 가방(5)·상점(10)보다 위, 끌기 아이콘(50)보다 아래
 	screen.Enabled = false
 	screen.Parent = localPlayer:WaitForChild("PlayerGui")
 
-	-- 창 바깥을 누르면 닫힌다
-	local backdrop = Instance.new("TextButton")
-	backdrop.Name = "Backdrop"
-	backdrop.Text = ""
-	backdrop.AutoButtonColor = false
-	backdrop.BackgroundColor3 = Color3.new(0, 0, 0)
-	backdrop.BackgroundTransparency = 0.45
-	backdrop.Size = UDim2.fromScale(1, 1)
-	backdrop.Parent = screen
-	backdrop.Activated:Connect(function()
-		-- 막 연 순간의 두 번째 클릭(더블클릭)으로 바로 닫히지 않게
-		if os.clock() - openedAt >= OPEN_GUARD then
-			ItemDetailUI.close()
-		end
-	end)
-
-	panel = UiKit.panel(screen, UDim2.fromScale(0.92, 0.86), UDim2.fromScale(0.5, 0.5), Vector2.new(0.5, 0.5))
-	panel.ZIndex = 2
-	local constraint = Instance.new("UISizeConstraint")
-	constraint.MaxSize = Vector2.new(600, 430)
-	constraint.Parent = panel
-	-- 창 안을 눌러도 뒤로 새지 않게 (빈 곳은 아무 일 없음)
+	panel = UiKit.panel(screen, UDim2.fromOffset(Config.ItemDetail.PanelWidth, 400), UDim2.fromOffset(0, 0))
+	-- 창 안을 눌러도 뒤(가방·상점)로 새지 않게 (빈 곳은 아무 일 없음). 맨 먼저 만들어 다른 것들 아래에 깔린다
 	local blocker = Instance.new("TextButton")
+	blocker.Name = "Blocker"
 	blocker.Text = ""
 	blocker.AutoButtonColor = false
 	blocker.BackgroundTransparency = 1
 	blocker.Size = UDim2.fromScale(1, 1)
 	blocker.Parent = panel
 
-	nameLabel = UiKit.label(panel, "", UDim2.new(1, -70, 0, 34), UDim2.fromOffset(16, 8), UiKit.Colors.Text, 24)
-	nameLabel.TextScaled = true
-	local nameLimit = Instance.new("UITextSizeConstraint")
-	nameLimit.MaxTextSize = 24
-	nameLimit.Parent = nameLabel
-	local closeButton = UiKit.button(panel, "X", UDim2.fromOffset(40, 40), UDim2.new(1, -50, 0, 6), function()
-		ItemDetailUI.close()
-	end)
-	closeButton.TextSize = 20
+	-- 창 전체 스크롤: 모델 → 이름 → 별 → 분류 → 능력치 ...
+	info = UiKit.list(panel, UDim2.new(1, -10, 1, -16), UDim2.fromOffset(8, 8))
+	info.ZIndex = 2
 
-	-- 왼쪽: 돌아가는 모델 + 별·분류
-	local left = Instance.new("Frame")
-	left.BackgroundTransparency = 1
-	left.Size = UDim2.new(0.44, -16, 1, -56)
-	left.Position = UDim2.fromOffset(12, 48)
-	left.Parent = panel
+	viewHolder = Instance.new("Frame")
+	viewHolder.Name = "View"
+	viewHolder.BackgroundTransparency = 1
+	viewHolder.Size = UDim2.new(1, -8, 0, Config.ItemDetail.ViewHeight)
+	viewHolder.LayoutOrder = 1
+	viewHolder.Parent = info
 	viewport = Instance.new("ViewportFrame")
-	viewport.Size = UDim2.new(1, 0, 1, -50)
+	viewport.Size = UDim2.fromScale(1, 1)
 	viewport.BackgroundColor3 = UiKit.Colors.PanelLight
 	viewport.BorderSizePixel = 0
 	viewport.Ambient = Color3.fromRGB(175, 175, 175)
 	viewport.LightColor = Color3.new(1, 1, 1)
 	viewport.LightDirection = Vector3.new(-1, -2, -1)
-	viewport.Parent = left
+	viewport.Parent = viewHolder
 	UiKit.corner(viewport, 10)
 	camera = Instance.new("Camera")
 	camera.FieldOfView = Config.ItemDetail.FieldOfView
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera
 
-	starsLabel = UiKit.label(left, "", UDim2.new(1, 0, 0, 26), UDim2.new(0, 0, 1, -48), UiKit.Colors.Gold, 22)
+	nameLabel = UiKit.label(info, "", UDim2.new(1, -8, 0, 26), nil, UiKit.Colors.Text, 20)
+	nameLabel.TextXAlignment = Enum.TextXAlignment.Center
+	nameLabel.AutomaticSize = Enum.AutomaticSize.Y
+	nameLabel.LayoutOrder = 2
+	starsLabel = UiKit.label(info, "", UDim2.new(1, -8, 0, 22), nil, UiKit.Colors.Gold, 20)
 	starsLabel.TextXAlignment = Enum.TextXAlignment.Center
-	kindLabel = UiKit.label(left, "", UDim2.new(1, 0, 0, 20), UDim2.new(0, 0, 1, -22), UiKit.Colors.SubText, 14)
+	starsLabel.LayoutOrder = 3
+	kindLabel = UiKit.label(info, "", UDim2.new(1, -8, 0, 18), nil, UiKit.Colors.SubText, 13)
 	kindLabel.TextXAlignment = Enum.TextXAlignment.Center
+	kindLabel.LayoutOrder = 4
 
-	-- 오른쪽: 능력치·만드는 법 (스크롤)
-	info = UiKit.list(panel, UDim2.new(0.56, -8, 1, -56), UDim2.new(0.44, 4, 0, 48))
-	info.ZIndex = 3
+	body = Instance.new("Frame")
+	body.Name = "Body"
+	body.BackgroundTransparency = 1
+	body.Size = UDim2.new(1, 0, 0, 0)
+	body.AutomaticSize = Enum.AutomaticSize.Y
+	body.LayoutOrder = 5
+	body.Parent = info
+	local bodyLayout = Instance.new("UIListLayout")
+	bodyLayout.Padding = UDim.new(0, 6)
+	bodyLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	bodyLayout.Parent = body
 
+	-- 닫기 X: 모델 칸 오른쪽 위에 겹쳐 둔다 (스크롤해도 그 자리)
+	local closeButton = UiKit.button(panel, "X", UDim2.fromOffset(34, 34), UDim2.new(1, -40, 0, 6), function()
+		ItemDetailUI.close()
+	end)
+	closeButton.TextSize = 18
+	closeButton.ZIndex = 5
+
+	screen:GetPropertyChangedSignal("AbsoluteSize"):Connect(reposition)
 	gui = screen
 	return screen
 end
@@ -556,27 +686,39 @@ function ItemDetailUI.current(): string?
 end
 
 -- 아이템 상세 창을 연다 (이미 열려 있으면 내용만 바꾼다)
-function ItemDetailUI.open(itemId: string)
+-- hostFrame: 옆에 붙을 창 (가방 창·상점 창). nil이면 지금 붙어 있는 창 그대로 (상세 창 안에서 다른 아이템으로 넘어갈 때)
+-- group: hostFrame과 같이 왼쪽으로 밀어도 되는 창들 (가방이면 장비 창)
+function ItemDetailUI.open(itemId: string, hostFrame: GuiObject?, group: { GuiObject }?)
 	local def = ItemDefs.Items[itemId]
 	if not def then
 		return
 	end
 	local screen = gui or build()
-	if not ItemDetailUI.isOpen() then
-		openedAt = os.clock()
+	if hostFrame then
+		setHost(hostFrame, group or {})
 	end
 	currentItem = itemId
 	local kindText, tier = describeKind(itemId)
 	nameLabel.Text = def.DisplayName
 	nameLabel.TextColor3 = if tier then TIER_COLORS[tier] or UiKit.Colors.Text else UiKit.Colors.Text
 	starsLabel.Text = if tier then string.rep("★", tier) .. string.rep("☆", 4 - tier) else ""
+	starsLabel.Visible = tier ~= nil
 	kindLabel.Text = kindText
+	screen.Enabled = true
+	reposition()
 	setModel(itemId)
 	drawInfo(itemId)
 	info.CanvasPosition = Vector2.zero
-	screen.Enabled = true
 	if not spinConnection then
-		spinConnection = RunService.RenderStepped:Connect(updateSpin)
+		spinConnection = RunService.RenderStepped:Connect(function(dt: number)
+			-- 붙어 있던 창이 닫히면 같이 닫는다
+			local current = host
+			if current and not hostShown(current) then
+				ItemDetailUI.close()
+				return
+			end
+			updateSpin(dt)
+		end)
 	end
 end
 
@@ -586,6 +728,7 @@ function ItemDetailUI.close()
 		gui.Enabled = false
 	end
 	currentItem = nil
+	releaseHost()
 	if spinConnection then
 		spinConnection:Disconnect()
 		spinConnection = nil
@@ -596,7 +739,9 @@ function ItemDetailUI.close()
 	end
 end
 
-openDetail = ItemDetailUI.open
+openDetail = function(itemId: string)
+	ItemDetailUI.open(itemId)
+end
 
 -- 가방이 바뀌면 열린 창의 숫자(가진 개수·재료 색)를 다시 그린다
 InventoryState.Changed:Connect(function()

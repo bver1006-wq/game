@@ -62,6 +62,7 @@ src/
 │     ├─ MobService.luau        몹 생성·AI·체력·처치 보상 (2026-10-09 추가)
 │     ├─ CombatService.luau     무기 공격 검증·데미지, 사냥꾼 무기 판매 (2026-10-09 추가)
 │     ├─ OwnershipService.luau  바위·나무·몹 주인 정하기 (2026-10-09 추가)
+│     ├─ SkillService.luau      구르기·무기별 스킬 검증 (2026-10-09 추가)
 │     └─ TrophyService.luau     (MVP-1) 트로피, 뱃지
 ├─ client/                      → StarterPlayerScripts
 │  ├─ Main.client.luau
@@ -73,7 +74,8 @@ src/
 │     ├─ HitFeelController.luau 히트스톱, 카메라, 파티클, 소리
 │     ├─ RockHUD.luau           바위 체력바, 판정 문구, 획득량 (BillboardGui)
 │     ├─ FeverController.luau   피버 연출, 연타 입력
-│     └─ CombatController.luau  무기 공격·몹 조준·타격/처치 연출·몹 체력바 (2026-10-09 추가)
+│     ├─ CombatController.luau  무기 공격·몹 조준·타격/처치 연출·몹 체력바 (2026-10-09 추가)
+│     └─ SkillController.luau   구르기(Q)·스킬 칸(F) 버튼·입력·연출 (2026-10-09 추가)
 └─ shared/                      → ReplicatedStorage/Shared
    ├─ Config.luau               모든 밸런스 수치
    ├─ OreDefs.luau              자원 노드(광석·나무) 정의
@@ -265,11 +267,12 @@ src/
   - 광석 스폰은 벽에 붙여 무작위, 35%는 두 개가 붙어 나옴. 통로 절반에 나무 지지대, 막다른 길에 버려진 광차, 층마다 거미줄 30개
   - 석탄 바위는 다른 광석의 1/2 크기
   - 광산 구역(태그 MineZone) 안에서는 클라이언트가 조명을 어둡게, 입장 음악·배경음·물방울 소리, 박쥐(무작위 비행)를 켠다
-- [x] 귀환 주문서: 빠른 칸에서 사용 → 2.5초 뒤 마을(태그 TownArrival), 움직이면 취소. 상인 잡화 탭 15G
+- [x] 귀환: 주문서는 2026-10-09 삭제(예전 저장의 주문서는 Unknown에 보관). 왼쪽 가운데 "🏠 마을로" 버튼(QuickButtonsHUD → 서버 ReturnHome) → Config.ReturnHome.CastTime초 뒤 마을(태그 TownArrival), 움직이거나 다시 누르면 취소, 쿨타임 Cooldown초
+- [x] 음악 버튼 (2026-10-09): 왼쪽 위 가방 옆 🎵 = 배경음 끄기·켜기(🔇), −/+ = 크기 단계(Config.Music.VolumeLevels, MusicGroup SoundGroup 볼륨). 설정은 저장 안 됨
 - [x] 미니맵(M 키): 밖은 마을·NPC·광산·바위, 동굴은 직접 가 본 칸만 표시 (층의 BatWaypoints 칸 정보 사용)
 - [x] 지도: 손그림 지도·광산 미로 벽·출구 표시 (2026-10-09, MinimapController + MapData, 수치 Config.Minimap)
   - M 키·"지도" 버튼 = 화면 가운데 큰 지도 창(화면 높이의 72%, ✕ 닫기, "작게" = 오른쪽 위 작은 지도, 누르면 다시 크게). 그림은 열 때 한 번만 그리고 화살표·다른 플레이어 점만 매 프레임 옮긴다
-  - 밖: 양피지 배경 + 가장자리 그늘 + 나침반. 처음 열 때 지형에 아래로 광선 격자(SampleStep)를 쏴서 물·풀·모래·바위·흙길·눈과 높이를 알고, 줄마다 같은 종류를 둥근 띠로 이어 그린다(손그림 덩어리). 높은 곳 ^ 언덕, 물결 ~, 나무 자리(OreSpawns 나무) 나무 그림, 마을 집 그림(이름에 House·집 등이 든 모델, 없으면 광장 둘레), 몹 구역(MobSpawns Zone) 색 동그라미 + 이름, NPC 아이콘 + 직업 이름, 광산 입구 "광산"
+  - 밖: 양피지 배경 + 가장자리 그늘 + 나침반. 처음 열 때 지형에 아래로 광선 격자(SampleStep)를 쏴서 물·풀·모래·바위·흙길·눈과 높이를 알고, 줄마다 같은 종류를 둥근 띠로 이어 그린다(손그림 덩어리). 높은 곳 ^ 언덕, 물결 ~, 나무 자리(OreSpawns 나무) 나무 그림, 마을 집 그림(이름에 House·집 등이 든 모델, 없으면 광장 둘레), 몹 사는 곳(MobSpawns를 Zone별로 묶어 생성 자리 가운데에 주인 몹 = Config.MobZones의 MobType, 없으면 가장 많은 MobType의 큰 손그림 얼굴 하나 + 양피지 이름표, 몹 하나하나는 안 그림. 프레임·UICorner·UIStroke 잉크로 그림, ±HabitatTilt° 기울임. 작은 지도에선 HabitatCornerScale로 줄이고 이름표 숨김. 수치 Config.Minimap.Habitat*), NPC 아이콘 + 직업 이름, 광산 입구 "광산"
   - 광산: BatWaypoints(칸 중심, Links)로 미로 격자를 만들고, 이웃 칸 사이를 바닥 + WallRayHeight 높이에서 옆으로 광선을 쏴 벽인지 확인(층마다 한 번, 기억). 지형을 못 찾으면 Links로 대신. 벽은 굵은 갈색 선, 안 가 본 칸은 어둡게. 갱도(MinePortal TargetFloor)로 "출구 ↑"(초록)·"N층 ↓"(파랑, 필요 곡괭이)·"🔒 공사 중" 표시
 - [x] 곡괭이 Power: T1 1 / T2 1.5 / T3 2 / T4 3 (2026-10-09 결정). 가격은 임시값
   - T4 이름은 '다이아몬드 곡괭이'(2026-10-09 변경, Id는 SteelPickaxe 그대로). 티어마다 모양·크기가 다른 부품 모델, 휘두를 때 궤적(Trail)
@@ -318,7 +321,7 @@ src/
   - 장비 24종(칸 6개 × 4단계: 가죽·뼈·나무 / 구리 / 철 / 다이아몬드), 사냥꾼 "방어구"·"장신구" 탭에서 구매. 능력치 = 칸 기본값 × 단계 배수 (Config.Equipment)
   - 능력치: 공격(무기 데미지에 더함)·방어(몹 피해 × 100/(100+방어))·체력(최대 체력에 더함)·치명타%(확률에 더함)
   - 전투력 = 공격×3 + 방어×4 + 체력×1 + 치명타×15, 착용 장비 합산(손에 든 무기 포함). 플레이어 속성 CombatPower → 모든 플레이어 머리 위 "⚔ 전투력" (CombatPowerHUD)
-  - 가방에서 장착 아이템(도구·무기·장비)은 더블클릭해야 장착, 빠른 칸은 한 번 클릭. 가방 창 왼쪽에 장비 창(칸 7개·전투력·능력치, 칸 더블클릭으로 빼기). 끼운 아이템은 가방에서 금색 테두리 + E
+  - 가방에서 장착 아이템(도구·무기·장비)은 더블클릭해야 장착, 빠른 칸은 한 번 클릭. 가방 창 왼쪽에 장비 창(EquipmentPanel, 2026-10-09 새로 그림: 내 캐릭터를 복제해 정면 차렷 자세로 세우고(관절 C0·C1로 다시 세움, 안 되면 노란 머리·파란 몸·초록 다리 블록 사람), 몸 위치마다 칸 네모 + 금색 선 — 헬멧=머리·목걸이=목·갑옷=가슴·방패(화살통)=등·장갑=왼손·팔찌=오른 손목·무기=오른손·신발=발. 칸 한 번 = 상세 창, 두 번 = 빼기. 아래 전투력·능력치. 가방+장비 창을 묶어 화면 가운데에, 수치 Config.EquipFigure). 끼운 아이템은 가방에서 금색 테두리 + E
   - 장비 모양은 서버 GearVisualService가 부품으로 지어 캐릭터에 용접한다 (폴더 GearVisuals, 모두에게 보임, 크기는 몸 부품 비율, 수치 Config.GearVisual). 단계가 높을수록 조각이 늘어남(투구 코·볼 가리개·볏, 갑옷 어깨 보호대·보석 등). 헬멧을 쓰면 머리카락·모자 숨김 (2026-10-09)
 - [x] 자연 회복·장비 벽 (2026-10-09)
   - 바위·나무·몹은 Regen.Delay초 동안 안 맞으면 최대 체력의 일정 비율씩 천천히 찬다 (Config.Regen. 몹은 쫓는 중엔 안 참)
@@ -377,7 +380,30 @@ src/
   - 같은 도구를 여러 개 가질 수 있다: 개수는 가방 아이템, 실제 Tool은 종류마다 하나 (PickaxeService.give·giveIfMissing·removeCount·hold). 시작 도구는 그 종류 도구가 하나도 없을 때만 준다. 장비 "이미 가지고 있어요" 제한 없앰
   - 상점 위쪽 탭은 큰 그림 버튼(대표 아이템 3D 아이콘 + 짧은 이름, ShopDefs Icon, "@Bag"/"@Coin"은 그린 그림). 고른 탭은 금색 테두리. 사냥꾼 탭: 칼·활·방망이·투구·갑옷·신발·장갑·장신구 (넘치면 옆으로 밀기). 창이 낮으면 인사말을 숨기고 탭을 줄인다
   - 목록 줄: 결과 아이콘(가진 개수 x2) · 이름 ★ · 조합식 그림(RecipeView: 재료 아이콘 + 가진/필요 초록·빨강, 아래 단계는 금색 테두리, 골드 동전) · 만들기/사기 버튼. 좁은 화면이면 그림이 줄 전체로 내려간다
-  - 아이템 상세 창(ItemDetailUI): 상점 아이콘·재료 그림·가방 칸을 한 번 누르면 뜬다 (가방의 장착 아이템은 더블클릭인지 0.4초 기다렸다 연다. 더블클릭은 장착 그대로). 아이콘 모델이 Config.ItemDetail.SpinSeconds초에 한 바퀴 돈다(카메라는 모델 크기·창 비율에 맞춤). 이름·별·분류, 능력치(도구 힘·캘 수 있는 것·번개 / 무기 공격·간격·사거리·밀쳐 내기·치명타·잘 싸우는 몹 / 장비 공격·방어·체력·치명타·전투력 / 화살 수 / 음식 회복), 판매가, 만드는 법, 이걸로 만들 수 있는 것(누르면 그 아이템으로). X나 바깥을 누르면 닫힘
+  - 아이템 상세 창(ItemDetailUI): 상점 아이콘·재료 그림·가방 칸을 한 번 누르면 뜬다 (가방의 장착 아이템은 더블클릭인지 0.4초 기다렸다 연다. 더블클릭은 장착 그대로). 아이콘 모델이 Config.ItemDetail.SpinSeconds초에 한 바퀴 돈다(카메라는 모델 크기·창 비율에 맞춤). 이름·별·분류, 능력치(도구 힘·캘 수 있는 것·번개 / 무기 공격·간격·사거리·밀쳐 내기·치명타·잘 싸우는 몹 / 장비 공격·방어·체력·치명타·전투력 / 화살 수 / 음식 회복), 판매가, 만드는 법, 이걸로 만들 수 있는 것(누르면 그 아이템으로)
+    - 2026-10-09 고침: 창이 빈 상자만 보이던 버그 = Instance.new ScreenGui의 ZIndexBehavior 기본값(Global) + panel.ZIndex 2라 안쪽(ZIndex 1)이 패널 뒤에 그려짐 → ItemDetailGui·InventoryGui는 ZIndexBehavior = Sibling
+    - 모양: 어두운 전체 화면 배경 없이, 연 창(가방 창·상점 창) 오른쪽에 붙는 세로 창(Config.ItemDetail.PanelWidth·MinHeight·Gap). 위→아래 돌아가는 모델·이름·별·분류·능력치·가진 개수·판매가·만드는 법·쓰이는 곳, 길면 스크롤. 오른쪽 자리가 모자라면 가방+장비 창(또는 상점 창)을 왼쪽으로 밀고, 그래도 안 되면(휴대폰) 연 창 오른쪽 안에 겹친다(OverlayRatio). 연 창이 움직이거나 화면 크기가 바뀌면 다시 맞추고, 연 창이 닫히면 같이 닫힘. X로 닫기. ItemDetailUI.open(itemId, host, group)
+- [x] 항상 달리기·마을 회복·해시계·밤 (2026-10-09)
+  - 달리기 버튼 삭제: 항상 Config.Movement.RunSpeed (모으는 중엔 Charge.WalkSpeed). SetSprint 리모트는 안 씀
+  - 체력·마나는 마을(TownArrival·ShopNPC 둘레 SafeZoneRadius) 안에서만 Config.TownRegen만큼 찬다. Roblox 기본 Health 스크립트는 캐릭터에서 지움. 속성 InTown
+  - 해시계: 체력바 왼쪽 둥근 판(낮 노랑·밤 남색 점), 바늘 = Lighting.ClockTime, 아래 "밤까지 m:ss"/"아침까지 m:ss" (StatusHUD)
+  - 밤을 덜 깜깜하게(달빛 푸르스름, Config.DayNight.Night). 밤 음악(Config.Music.Night: 잔잔한 곡을 PlaybackSpeed 0.85·작게), 밤에 마을 밖이면 풀벌레(NightAmbience)·부엉이(OwlSound) — 둘 다 Id를 못 찾아 빈 값
+- [x] 횃불: 마을·길 (2026-10-09 사용자 요청: 밤에 너무 깜깜함). 제작 스크립트 `studio/BuildTorches.luau`(게임 시작 때 실행, 다시 실행하면 지우고 새로) → Workspace/Torches (속성 GeneratedBy), 수치 Config.Torches
+  - 마을 가로등(따뜻한 주황 등불, 팔에 매단 등): 광장 둘레 + NPC 가판대 옆 + 마을 둘레 고리 3겹(마을 반경 = 가장 먼 NPC + TownMargin). 그림자는 ShadowEvery개마다 하나
+  - 길 횃불(나무 기둥 + 쇠 그릇 + 불꽃·Fire): 마을 둘레 RoadScanRadius를 RoadScanStep 격자로 아래로 쏴서 길 칸 = 지형 돌길(Cobblestone·Pavement·Brick·Asphalt·Concrete·WoodPlanks) / 이름에 Road·Path·Street·길·도로가 든 납작한 부품 / 좁은 흙(Ground·Mud) 띠(DirtRoadMaxWidth). 마을에서 가까운 길부터 RoadSpacing 간격, 길 가장자리 바깥에. 물·지붕·건물·광산 구역·도착점·생성 자리·원래 있던 불빛 근처는 피함
+  - 길을 거의 못 찾으면(RouteFallbackMin) 마을 → 광산 입구 직선을 따라 지그재그. Output에 개수·못 세운 이유 요약
+  - 서버 TorchService가 Lighting.ClockTime을 보고 해 지기 LightBefore시간 전 ~ 해 뜨고 LightAfter시간 뒤에만 불을 켠다 (편집 상태에선 켜진 채)
+- [x] 구르기·무기별 스킬 (2026-10-09 사용자 요청)
+  - 버튼: 모바일은 공격 버튼 둘레(MobileControls.ringPosition, 각도 Config.MobileControls.JumpAngle·RollAngle·SkillAngle, 지름 SmallSize) = 왼쪽 점프 / 왼쪽 위 🌀 구르기 / 위 스킬 칸(위에 스킬 이름). PC는 오른쪽 아래에 작게(PcSize) [Q] 구르기·[F] 스킬. 패드 X·Y. E키는 ProximityPrompt가 써서 F
+  - 쿨다운은 버튼 위 어두운 덮개가 아래로 줄고 남은 초 숫자. 마나가 모자라면 흐리게 (클라 SkillController)
+  - 구르기(Config.Roll): 움직이는 쪽(가만히면 바라보는 쪽)으로 Distance 12스터드를 Duration 0.3초에 (클라가 LinearVelocity로 수평 속도만, 벽은 레이로 보고 그 앞까지). 몸통 뿌리 관절(R15 Root·R6 RootJoint) C0를 앞으로 한 바퀴 + 흙먼지 + "휙". 서버 SkillService가 RollRequest(방향)를 받아 쿨다운 1.2초·마나 4를 확인하고 IFrame 0.4초 무적, 다른 사람에게 SkillEffect "Roll"로 구르는 모습
+  - 스킬 칸(Config.Skills, Kind로 들고 있는 도구 종류에 맞춤, 아무것도 안 들면 빈 칸). 클라는 SkillRequest(대상)만, 서버 SkillService가 종류·마나·쿨다운·거리·주인·장비 벽·피버를 확인하고 SkillEffect(kind, userId, position, data)를 보내면 연출·쿨다운 시작
+    - 칼 🛡 방패 막기(Block): 마나 12·쿨 6초, 1.5초 동안 몹 피해 80% 줄임. 캐릭터 둘레 파란 ForceField 공
+    - 방망이 💥 내려찍기(Slam): 마나 15·쿨 7초, 둘레 8스터드 몹에게 무기 데미지 ×1.8 + 밀쳐 내기 6 + 기절 1.5초(MobService.stun: 안 움직이고 공격 안 함). 충격파 고리·흙먼지·쿵 소리·카메라 흔들림, 몹 머리 위 💫. 남의 몹·흠집 못 내는 몹(장비 벽)은 기절 안 함
+    - 활 🏹 연사(RapidFire): 마나 12·쿨 6초, 노리는 몹에게 화살 3발을 0.15초 간격(화살 3개 씀, 한 발 ×0.8). 화살은 CombatEffect 11번째 인자 fromSkill로 내 화면에서도 날아감
+    - 곡괭이·도끼 ⚒ 강하게 찍기(PowerStrike): 마나 10·쿨 6초, 가까운 바위·나무를 확인하고(맞는 도구·거리·주인·단계) 5초 안의 다음 한 번이 ×3 (MiningService.armPowerStrike, HitEffect "Charged" 연출). 걸리자마자 클라가 한 번 휘두른다
+  - 몹 공격 막기: MobService.protect(player, 출처, 줄이는 비율, 초)를 공격 때 확인. MobAttack 4번째 인자 guarded → 클라 "피함!"(0)·"막음! -X"
+  - 데미지 계산은 CombatService applyHit 하나로 (보통 공격·CombatService.skillHit 공통: 장비 공격·치명타·장비 벽·연출)
 - [ ] 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)

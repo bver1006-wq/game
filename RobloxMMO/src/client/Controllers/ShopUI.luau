@@ -2,7 +2,7 @@
 -- NPC 상점 UI. NPC의 ProximityPrompt(속성 ShopId)를 누르면 그 상점 창을 연다.
 -- 위쪽 탭은 큰 그림 버튼(대표 아이템 3D 아이콘 + 아래 짧은 이름, ShopDefs의 Icon). 누르면 그 목록이 보인다 (2026-10-09)
 -- 도구·무기·장비 줄: 결과 아이콘·이름·별 + 조합식 그림(아래 단계 3개·재료·골드, 가진 수/필요 수 초록·빨강) + 만들기/사기 버튼
--- 아이콘을 한 번 누르면 아이템 상세 창(ItemDetailUI)이 뜬다
+-- 아이콘을 한 번 누르면 아이템 상세 창(ItemDetailUI)이 상점 창 오른쪽에 세로로 붙어 뜬다
 -- 창 바깥을 누르거나 NPC에서 멀어지면 닫힌다.
 -- 버튼은 서버에 "무엇을 하겠다"만 보내고(ShopAction), 결과는 가방 변화와 알림으로 돌아온다.
 
@@ -70,6 +70,11 @@ local function send(action: string, ...: any)
 	end
 end
 
+-- 아이템 상세 창을 상점 창 오른쪽에 붙여 연다 (자리가 없으면 ItemDetailUI가 상점 창을 왼쪽으로 조금 밀거나 창 안에 겹친다)
+local function openDetail(itemId: string)
+	ItemDetailUI.open(itemId, panel)
+end
+
 -- 아이콘 상자 (itemId가 nil이면 가방 그림). 아이템이면 누르면 상세 창이 뜬다
 local function iconBox(row: GuiObject, itemId: string?, size: number, position: UDim2?): GuiObject
 	local box = Instance.new("TextButton")
@@ -90,7 +95,7 @@ local function iconBox(row: GuiObject, itemId: string?, size: number, position: 
 		ItemIcon.create(inner, itemId)
 		local id = itemId
 		box.Activated:Connect(function()
-			ItemDetailUI.open(id)
+			openDetail(id)
 		end)
 	else
 		UiKit.bagIcon(inner)
@@ -162,7 +167,7 @@ local function recipeRow(order: number, itemId: string, title: string, recipe: R
 	if wide then
 		local rightMargin = BUTTON_WIDTH + 16
 		header(row, rightMargin)
-		RecipeView.chips(row, recipe, UDim2.fromOffset(ROW_ICON + 18, if note then 50 else 34), UDim.new(1, -(ROW_ICON + 18 + rightMargin)), ItemDetailUI.open)
+		RecipeView.chips(row, recipe, UDim2.fromOffset(ROW_ICON + 18, if note then 50 else 34), UDim.new(1, -(ROW_ICON + 18 + rightMargin)), openDetail)
 		-- 버튼: 오른쪽 위에 세로로
 		local y = 8
 		for index, info in buttons do
@@ -197,7 +202,7 @@ local function recipeRow(order: number, itemId: string, title: string, recipe: R
 	middle.AutomaticSize = Enum.AutomaticSize.Y
 	middle.LayoutOrder = 2
 	middle.Parent = row
-	RecipeView.chips(middle, recipe, UDim2.fromOffset(8, 0), UDim.new(1, -16), ItemDetailUI.open)
+	RecipeView.chips(middle, recipe, UDim2.fromOffset(8, 0), UDim.new(1, -16), openDetail)
 	local bottom = Instance.new("Frame")
 	bottom.BackgroundTransparency = 1
 	bottom.Size = UDim2.new(1, -16, 0, 44)

@@ -25,7 +25,9 @@ local MobService = require(Services.MobService)
 local NpcService = require(Services.NpcService)
 local OreService = require(Services.OreService)
 local PickaxeService = require(Services.PickaxeService)
+local SkillService = require(Services.SkillService)
 local TimingService = require(Services.TimingService)
+local TorchService = require(Services.TorchService)
 
 Remotes.setup()
 
@@ -34,7 +36,7 @@ Remotes.setup()
 local studioTools = ServerStorage:FindFirstChild("StudioTools")
 -- 광산을 지하로 옮기고(MoveMineUnderground, 광석 자리도 같이 옮기므로 맨 먼저), 무기·몹 템플릿과 몹 생성 자리도 만든다
 -- (BuildWeaponsAndMobs는 곡괭이 Tool이 있어야 해서 뒤에 돈다)
-for _, name in { "MoveMineUnderground", "BuildTreesAndAxes", "BuildWeaponsAndMobs" } do
+for _, name in { "MoveMineUnderground", "BuildTreesAndAxes", "BuildWeaponsAndMobs", "BuildTorches" } do
 	local builder = studioTools and studioTools:FindFirstChild(name)
 	if builder and builder:IsA("ModuleScript") then
 		local ok, err = pcall(require, builder)
@@ -50,6 +52,7 @@ TimingService.init()
 FeverService.init()
 DataService.init()
 DayNightService.init()
+TorchService.init()
 InventoryService.init()
 ManaService.init()
 ChargeService.init()
@@ -61,6 +64,7 @@ EconomyService.init()
 CraftingService.init()
 MobService.init()
 CombatService.init()
+SkillService.init() -- 구르기·무기별 스킬 (MobService·CombatService·MiningService 다음)
 MineService.init()
 ItemUseService.init()
 

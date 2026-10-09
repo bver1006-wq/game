@@ -2,7 +2,7 @@
 -- 모바일 화면 조작 (2026-10-09 사용자 요청): 왼쪽 아래 이동 패드, 오른쪽 아래 큰 공격 버튼
 --   이동 패드: Roblox 기본 고정 조이스틱 (서버가 플레이어 DevTouchMovementMode = Thumbstick으로 정한다)
 --   공격 버튼: 누르고 있으면 모으고, 떼면 휘두른다 (InputController와 같은 흐름). 도구·무기를 안 들었으면 흐리게
---   점프 버튼은 공격 버튼 왼쪽 위로 옮긴다
+--   점프 버튼은 공격 버튼 왼쪽으로 옮긴다. 공격 버튼 둘레(왼쪽 위·위)에는 구르기·스킬 버튼 (SkillController, 2026-10-09)
 -- 터치 화면이 아니면 아무것도 만들지 않는다
 
 local Players = game:GetService("Players")
@@ -18,7 +18,17 @@ local localPlayer = Players.LocalPlayer
 
 local MobileControls = {}
 
--- 기본 점프 버튼을 공격 버튼 왼쪽 위로 옮긴다 (TouchGui는 늦게 생길 수 있어 기다린다)
+-- 공격 버튼 둘레의 작은 버튼 자리 (가운데 기준, AnchorPoint 0.5). angle: 0° = 오른쪽, 270° = 위 (화면 좌표)
+function MobileControls.ringPosition(angle: number): UDim2
+	local layout = Config.MobileControls
+	local center = -(layout.Margin + layout.AttackSize / 2)
+	local radius = layout.AttackSize / 2 + layout.Gap + layout.SmallSize / 2
+	local rad = math.rad(angle)
+	return UDim2.new(1, center + math.cos(rad) * radius, 1, center + math.sin(rad) * radius)
+end
+
+-- 기본 점프 버튼을 공격 버튼 왼쪽으로 옮긴다 (TouchGui는 늦게 생길 수 있어 기다린다)
+-- 구르기·스킬 버튼과 겹치지 않게 크기도 SmallSize로 맞춘다
 local function moveJumpButton()
 	local layout = Config.MobileControls
 	local playerGui = localPlayer:WaitForChild("PlayerGui")
@@ -27,12 +37,25 @@ local function moveJumpButton()
 	local jump = frame and frame:WaitForChild("JumpButton", 10)
 	if jump and jump:IsA("GuiObject") then
 		local function place()
-			jump.AnchorPoint = Vector2.new(1, 1)
-			jump.Position = UDim2.new(1, -(layout.Margin + layout.AttackSize + layout.Gap), 1, -(layout.Margin + layout.AttackSize * 0.55))
+			local position = MobileControls.ringPosition(layout.JumpAngle)
+			local size = UDim2.fromOffset(layout.SmallSize, layout.SmallSize)
+			-- 같은 값이면 다시 넣지 않는다 (속성 변경 신호가 끝없이 돌지 않게)
+			if jump.AnchorPoint ~= Vector2.new(0.5, 0.5) then
+				jump.AnchorPoint = Vector2.new(0.5, 0.5)
+			end
+			if jump.Position ~= position then
+				jump.Position = position
+			end
+			if jump.Size ~= size then
+				jump.Size = size
+			end
 		end
 		place()
 		-- 화면 크기가 바뀌면 Roblox가 다시 배치하므로 그때마다 되돌린다
 		jump:GetPropertyChangedSignal("Position"):Connect(function()
+			task.defer(place)
+		end)
+		jump:GetPropertyChangedSignal("Size"):Connect(function()
 			task.defer(place)
 		end)
 	end

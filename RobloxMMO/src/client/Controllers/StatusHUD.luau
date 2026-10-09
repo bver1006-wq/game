@@ -1,8 +1,9 @@
 --!strict
 -- 체력·마나 바(오른쪽 위, 항상 보임. 체력 아래 마나)와 달리기 모드 버튼(오른쪽).
--- 체력은 캐릭터 Humanoid, 마나·달리기는 서버가 정한 플레이어 속성(Mana·MaxMana·Sprinting)을 보여 준다.
--- 버튼은 서버에 "달리기 켜기/끄기"만 보낸다 (SetSprint).
+-- 체력은 캐릭터 Humanoid, 마나는 서버가 정한 플레이어 속성(Mana·MaxMana)을 보여 준다.
+-- 2026-10-09: 달리기 버튼은 없앴다(항상 달림). 체력바 왼쪽에 해시계(낮·밤이 얼마나 남았는지)
 
+local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -18,7 +19,6 @@ local TOP = 8 -- 오른쪽 맨 위 (2026-10-09: Roblox 리더보드를 끄고 �
 
 local HP_COLOR = Color3.fromRGB(225, 70, 70)
 local MANA_COLOR = Color3.fromRGB(70, 130, 240)
-local SPRINT_ON = Color3.fromRGB(70, 180, 90)
 
 local localPlayer = Players.LocalPlayer
 
@@ -87,8 +87,7 @@ end
 -- 클라이언트 시작 시 한 번 호출
 function StatusHUD.init()
 	task.spawn(disableDefaultHealth)
-	local sprintRemote = Remotes.get(Remotes.Names.SetSprint)
-
+	
 	local gui = Instance.new("ScreenGui")
 	gui.Name = "StatusGui"
 	gui.ResetOnSpawn = false
@@ -99,29 +98,75 @@ function StatusHUD.init()
 	local hpBar = makeBar(gui, TOP, HP_COLOR)
 	local manaBar = makeBar(gui, TOP + BAR_HEIGHT + 4, MANA_COLOR)
 
-	-- 달리기 버튼 (오른쪽 가운데)
-	local sprintButton = Instance.new("TextButton")
-	sprintButton.Name = "SprintButton"
-	sprintButton.AnchorPoint = Vector2.new(1, 0.5)
-	sprintButton.Position = UDim2.new(1, -16, 0.5, 0)
-	sprintButton.Size = UDim2.fromOffset(120, 48)
-	sprintButton.AutoButtonColor = true
-	sprintButton.Font = Enum.Font.FredokaOne
-	sprintButton.TextSize = 18
-	sprintButton.TextColor3 = Color3.new(1, 1, 1)
-	sprintButton.Parent = gui
-	UiKit.corner(sprintButton, 12)
-	UiKit.stroke(sprintButton)
-	local function renderSprint()
-		local on = localPlayer:GetAttribute("Sprinting") == true
-		sprintButton.Text = if on then "달리기 ON" else "달리기 OFF"
-		sprintButton.BackgroundColor3 = if on then SPRINT_ON else UiKit.Colors.Panel
+	-- 해시계: 체력바 왼쪽. 낮(노랑)·밤(남색) 바퀴 위를 바늘이 돌고, 아래에 남은 시간
+	local dialSize = 58
+	local dial = Instance.new("Frame")
+	dial.Name = "Sundial"
+	dial.AnchorPoint = Vector2.new(1, 0)
+	dial.Position = UDim2.new(1, -(16 + BAR_WIDTH + 10), 0, TOP)
+	dial.Size = UDim2.fromOffset(dialSize, dialSize)
+	dial.BackgroundColor3 = Color3.fromRGB(40, 50, 90)
+	dial.Parent = gui
+	UiKit.corner(dial, dialSize / 2)
+	UiKit.stroke(dial, UiKit.Colors.Border, 2)
+	-- 낮 부분: 바퀴를 시각(0~24)으로 보고, 낮 구간을 작은 노란 점들로 칠한다
+	local dayNight = Config.DayNight
+	for hour = 0, 23.5, 0.5 do
+		local isDayHour = hour >= dayNight.DayStart and hour < dayNight.NightStart
+		local angle = math.rad(hour / 24 * 360 - 90)
+		local dot = Instance.new("Frame")
+		dot.AnchorPoint = Vector2.new(0.5, 0.5)
+		dot.Size = UDim2.fromOffset(7, 7)
+		dot.Position = UDim2.new(0.5, math.cos(angle) * (dialSize / 2 - 7), 0.5, math.sin(angle) * (dialSize / 2 - 7))
+		dot.BackgroundColor3 = if isDayHour then Color3.fromRGB(255, 205, 70) else Color3.fromRGB(90, 105, 170)
+		dot.BorderSizePixel = 0
+		dot.Parent = dial
+		UiKit.corner(dot, 4)
 	end
-	sprintButton.Activated:Connect(function()
-		sprintRemote:FireServer(localPlayer:GetAttribute("Sprinting") ~= true)
+	local center = UiKit.label(dial, "☀", UDim2.fromOffset(24, 24), UDim2.new(0.5, -12, 0.5, -12), Color3.new(1, 1, 1), 18)
+	center.TextXAlignment = Enum.TextXAlignment.Center
+	-- 바늘: 회전은 가운데 기준이라, 다이얼만 한 투명 틀을 돌리고 그 안에 가운데→위로 바늘을 둔다
+	local needleHolder = Instance.new("Frame")
+	needleHolder.Size = UDim2.fromScale(1, 1)
+	needleHolder.BackgroundTransparency = 1
+	needleHolder.ZIndex = 2
+	needleHolder.Parent = dial
+	local needle = Instance.new("Frame")
+	needle.AnchorPoint = Vector2.new(0.5, 1)
+	needle.Position = UDim2.fromScale(0.5, 0.5)
+	needle.Size = UDim2.fromOffset(3, dialSize / 2 - 4)
+	needle.BackgroundColor3 = Color3.fromRGB(255, 120, 60)
+	needle.BorderSizePixel = 0
+	needle.ZIndex = 2
+	needle.Parent = needleHolder
+	local remainLabel = UiKit.label(gui, "", UDim2.fromOffset(90, 18), UDim2.new(1, -(16 + BAR_WIDTH + 10 + dialSize / 2 + 45), 0, TOP + dialSize + 2), UiKit.Colors.Text, 13)
+	remainLabel.TextXAlignment = Enum.TextXAlignment.Center
+	local remainStroke = Instance.new("UIStroke")
+	remainStroke.Thickness = 1.5
+	remainStroke.Parent = remainLabel
+
+	-- 지금 시각에서 낮(또는 밤)이 끝날 때까지 실제 남은 초 (서버와 같은 빠르기로 계산)
+	local function secondsLeft(clock: number): (boolean, number)
+		local dayHours = dayNight.NightStart - dayNight.DayStart
+		local isDay = clock >= dayNight.DayStart and clock < dayNight.NightStart
+		if isDay then
+			return true, (dayNight.NightStart - clock) / dayHours * dayNight.DaySeconds
+		end
+		local untilDawn = (dayNight.DayStart - clock) % 24
+		return false, untilDawn / (24 - dayHours) * dayNight.NightSeconds
+	end
+	task.spawn(function()
+		while true do
+			local clock = Lighting.ClockTime
+			needleHolder.Rotation = clock / 24 * 360 -- 바늘 끝이 바퀴의 그 시각을 가리킨다 (0시 = 위, 시계 방향)
+			local isDay, left = secondsLeft(clock)
+			center.Text = if isDay then "☀" else "🌙"
+			local minutes = math.floor(left / 60)
+			local seconds = math.floor(left % 60)
+			remainLabel.Text = `{if isDay then "밤까지" else "아침까지"} {minutes}:{string.format("%02d", seconds)}`
+			task.wait(0.5)
+		end
 	end)
-	localPlayer:GetAttributeChangedSignal("Sprinting"):Connect(renderSprint)
-	renderSprint()
 
 	-- 매 프레임 체력·마나 반영
 	RunService.Heartbeat:Connect(function()

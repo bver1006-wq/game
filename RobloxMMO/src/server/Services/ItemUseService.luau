@@ -97,14 +97,21 @@ local function findTown(): BasePart?
 	return nil
 end
 
--- 귀환 주문서 사용
-local function useReturnScroll(player: Player)
+local lastReturn: { [Player]: number } = {}
+
+-- 마을로 귀환 (왼쪽 귀환 버튼, ReturnHome). 주문서는 없어졌다 (2026-10-09)
+local function returnHome(player: Player)
 	if casting[player] then
 		casting[player] = nil -- 다시 누르면 취소
 		NotifyService.send(player, "귀환을 취소했어요.", "info")
 		return
 	end
 	if FeverService.isActive(player) then
+		return
+	end
+	local now = os.clock()
+	if now - (lastReturn[player] or -math.huge) < Config.ReturnHome.Cooldown then
+		NotifyService.send(player, `귀환은 {math.ceil(Config.ReturnHome.Cooldown - (now - lastReturn[player]))}초 뒤에 다시 쓸 수 있어요.`, "info")
 		return
 	end
 	local character = player.Character
@@ -119,12 +126,12 @@ local function useReturnScroll(player: Player)
 	casting[player] = castId
 	local startPosition = root.Position
 	local effect = attachCastEffect(root)
-	NotifyService.send(player, `귀환 중... ({Config.ReturnScroll.CastTime}초, 움직이면 취소)`, "info")
+	NotifyService.send(player, `귀환 중... ({Config.ReturnHome.CastTime}초, 움직이면 취소)`, "info")
 
 	local elapsed = 0
-	while elapsed < Config.ReturnScroll.CastTime do
+	while elapsed < Config.ReturnHome.CastTime do
 		elapsed += task.wait(0.1)
-		local moved = root.Parent and (root.Position - startPosition).Magnitude > Config.ReturnScroll.CancelMoveDistance
+		local moved = root.Parent and (root.Position - startPosition).Magnitude > Config.ReturnHome.CancelMoveDistance
 		if casting[player] ~= castId or not root.Parent or moved then
 			if casting[player] == castId then
 				casting[player] = nil
@@ -137,9 +144,7 @@ local function useReturnScroll(player: Player)
 	casting[player] = nil
 	effect:Destroy()
 
-	if not InventoryService.remove(player, "ReturnScroll", 1) then
-		return
-	end
+	lastReturn[player] = os.clock()
 	local target = town.CFrame + Vector3.new(0, 3, 0)
 	pcall(function()
 		player:RequestStreamAroundAsync(target.Position)
@@ -159,9 +164,7 @@ local function onUseItem(player: Player, itemArg: unknown)
 	if not def or not def.Usable or InventoryService.count(player, itemArg) <= 0 then
 		return
 	end
-	if itemArg == "ReturnScroll" then
-		task.spawn(useReturnScroll, player)
-	elseif Config.Foods[itemArg] then
+	if Config.Foods[itemArg] then
 		eat(player, itemArg)
 	end
 end
@@ -170,9 +173,13 @@ end
 function ItemUseService.init()
 	cooldownRemote = Remotes.get(Remotes.Names.ItemCooldown)
 	Remotes.get(Remotes.Names.UseItem).OnServerEvent:Connect(onUseItem)
+	Remotes.get(Remotes.Names.ReturnHome).OnServerEvent:Connect(function(player)
+		task.spawn(returnHome, player)
+	end)
 	Players.PlayerRemoving:Connect(function(player)
 		casting[player] = nil
 		lastEat[player] = nil
+		lastReturn[player] = nil
 	end)
 end
 

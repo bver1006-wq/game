@@ -29,6 +29,7 @@ local MiningService = {}
 local random = Random.new()
 local hitEffectRemote: RemoteEvent
 local rockBrokenRemote: RemoteEvent
+local powerArmed: { [Player]: number } = {} -- 강하게 찍기 스킬: 이 시각(os.clock)까지의 다음 한 번이 세다 (SkillService)
 
 -- 위치 근처(EffectBroadcastRange 이내)에 있는 플레이어에게 이벤트를 보낸다
 local function fireNearby(remote: RemoteEvent, position: Vector3, ...: any)
@@ -189,6 +190,15 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 		special = "Charged"
 		damage *= Config.Charge.Multiplier
 	end
+	-- 강하게 찍기 스킬(SkillService가 마나·쿨다운 확인 뒤 걸어 둠): 이번 한 번이 Multiplier배, 쓰면 풀린다
+	local armedUntil = powerArmed[player]
+	if armedUntil then
+		powerArmed[player] = nil
+		if os.clock() <= armedUntil then
+			special = "Charged"
+			damage *= Config.Skills.PowerStrike.Multiplier
+		end
+	end
 	if oreDef.Kind == "Tree" and toolConfig and toolConfig.LightningChance and random:NextNumber() < toolConfig.LightningChance then
 		special = "Lightning"
 		damage = math.max(damage, state.Hp)
@@ -210,8 +220,16 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 	end
 end
 
+-- 강하게 찍기 스킬: seconds초 안의 다음 휘두르기 한 번을 세게 (장비 벽에 막힌 타격은 안 쓰고 남는다)
+function MiningService.armPowerStrike(player: Player, seconds: number)
+	powerArmed[player] = os.clock() + seconds
+end
+
 -- 서버 시작 시 한 번 호출 (OreService.init 이후)
 function MiningService.init()
+	Players.PlayerRemoving:Connect(function(player)
+		powerArmed[player] = nil
+	end)
 	hitEffectRemote = Remotes.get(Remotes.Names.HitEffect)
 	rockBrokenRemote = Remotes.get(Remotes.Names.RockBroken)
 	Remotes.get(Remotes.Names.SwingRequest).OnServerEvent:Connect(onSwingRequest)

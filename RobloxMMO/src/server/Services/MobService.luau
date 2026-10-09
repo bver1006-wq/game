@@ -51,6 +51,7 @@ export type MobState = {
 	Knockback: Vector3, -- 밀려나는 속도 (스터드/초)
 	KnockbackUntil: number,
 	LungeUntil: number,
+	StunUntil: number, -- 이 시각까지 기절 (움직이지도 공격하지도 못함, 방망이 내려찍기)
 	Phase: number, -- 걷기·통통 튀기 흔들림 위상
 	LastHit: number, -- 마지막으로 맞은 시각 (자연 회복용)
 	Owner: number?, -- 주인 UserId (OwnershipService)
@@ -72,6 +73,27 @@ local attackRemote: RemoteEvent
 local diedRemote: RemoteEvent
 
 local safePoints: { Vector3 } = {} -- 안전지대 가운데들 (마을 도착점·NPC)
+
+-- 플레이어가 몹 피해를 덜 받는 시간 (구르기 무적·방패 막기). 출처마다 { 줄이는 비율, 끝 시각 }
+type Guard = { Reduction: number, Until: number }
+local guards: { [Player]: { [string]: Guard } } = {}
+
+-- 지금 받는 피해를 얼마나 줄이는지 (0~1, 1이면 안 맞음). 끝난 기록은 지운다
+local function guardReduction(player: Player, now: number): number
+	local list = guards[player]
+	if not list then
+		return 0
+	end
+	local best = 0
+	for source, guard in list do
+		if now >= guard.Until then
+			list[source] = nil
+		else
+			best = math.max(best, guard.Reduction)
+		end
+	end
+	return best
+end
 
 local groundParams = RaycastParams.new()
 groundParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -242,6 +264,7 @@ local function spawnMob(spawnPart: BasePart)
 		Knockback = Vector3.zero,
 		KnockbackUntil = 0,
 		LungeUntil = 0,
+		StunUntil = 0,
 		Phase = random:NextNumber(0, math.pi * 2),
 		LastHit = 0,
 		Owner = nil,
@@ -303,6 +326,9 @@ local function stepMob(state: MobState, dt: number, now: number)
 		else
 			state.Position = nextPosition
 		end
+	elseif now < state.StunUntil then
+		-- 기절: 제자리에서 꼼짝 못 하고 공격도 못 한다 (쫓던 대상은 기억한다)
+		goal = nil
 	elseif state.FleeFrom then
 		-- 도망: 때린 사람 반대쪽으로 빠르게
 		fleeing = true
@@ -322,13 +348,20 @@ local function stepMob(state: MobState, dt: number, now: number)
 				goal = root.Position
 			elseif now >= state.NextAttack and state.Damage > 0 then
 				-- 공격: 앞으로 살짝 들이받고 피해를 준다 (피버 중인 플레이어는 무적)
+				-- 구르기 무적·방패 막기 중이면 피해를 줄인다 (1이면 0, guarded = true로 알려 클라가 "피함!"·"막음!")
 				state.NextAttack = now + config.AttackInterval
 				state.LungeUntil = now + 0.15
 				local player = state.Target :: Player
 				if not FeverService.isActive(player) then
 					local damage = EquipmentService.reduceDamage(player, state.Damage) -- 방어구로 줄인다
-					humanoid:TakeDamage(damage)
-					fireNearby(attackRemote, state.Position, state.Model, player.UserId, damage)
+					local reduction = guardReduction(player, now)
+					if reduction > 0 then
+						damage = if reduction >= 1 then 0 else damage * (1 - reduction)
+					end
+					if damage > 0 then
+						humanoid:TakeDamage(damage)
+					end
+					fireNearby(attackRemote, state.Position, state.Model, player.UserId, math.round(damage * 10) / 10, reduction > 0)
 				end
 			end
 		end
@@ -493,8 +526,42 @@ function MobService.damage(mob: Model, player: Player, amount: number, direction
 	return false
 end
 
+-- 몹을 seconds초 동안 기절시킨다 (방망이 내려찍기). 검증은 부르는 쪽(SkillService)이 끝낸 뒤 부른다
+function MobService.stun(mob: Model, seconds: number)
+	local state = states[mob]
+	if not state or state.Dead or seconds <= 0 then
+		return
+	end
+	state.StunUntil = math.max(state.StunUntil, os.clock() + seconds)
+end
+
+-- 플레이어가 seconds초 동안 몹 피해를 reduction(0~1)만큼 덜 받게 한다. source마다 따로 ("Roll" 구르기, "Block" 방패)
+-- 겹치면 가장 많이 줄이는 것을 쓴다. 검증은 부르는 쪽(SkillService)이 끝낸 뒤 부른다
+function MobService.protect(player: Player, source: string, reduction: number, seconds: number)
+	local list = guards[player]
+	if not list then
+		list = {}
+		guards[player] = list
+	end
+	list[source] = { Reduction = math.clamp(reduction, 0, 1), Until = os.clock() + seconds }
+end
+
+-- 모든 살아 있는 몹 상태 (방망이 내려찍기처럼 둘레의 몹을 찾을 때)
+function MobService.getAllStates(): { MobState }
+	local list = {}
+	for _, state in states do
+		if not state.Dead then
+			table.insert(list, state)
+		end
+	end
+	return list
+end
+
 -- 서버 시작 시 한 번 호출 (InventoryService.init 이후)
 function MobService.init()
+	Players.PlayerRemoving:Connect(function(player)
+		guards[player] = nil
+	end)
 	attackRemote = Remotes.get(Remotes.Names.MobAttack)
 	diedRemote = Remotes.get(Remotes.Names.MobDied)
 

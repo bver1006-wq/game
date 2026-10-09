@@ -2,7 +2,8 @@
 -- 가방 UI: 오른쪽 위 골드, 왼쪽 위 가방 그림 버튼(모바일에서 누르기 쉽게), 누르면 아이콘 칸 가방 창.
 -- 칸마다 아이콘 아래에 아이템 이름을 쓴다.
 -- 위쪽 탭(전체/무기/방어구/도구/기타)으로 분류해서 보고, 칸을 끌어서 하단 빠른 호출 칸에 놓는다.
--- 칸을 한 번 누르면 아이템 상세 창(ItemDetailUI), 도구·무기·장비는 더블클릭하면 장착. 창 바깥을 누르거나 B 키로 닫는다.
+-- 칸을 한 번 누르면 아이템 상세 창(ItemDetailUI, 가방 창 오른쪽에 세로로 붙음), 도구·무기·장비는 더블클릭하면 장착. 창 바깥을 누르거나 B 키로 닫는다.
+-- 가방 창 왼쪽에는 장비 창(EquipmentPanel: 사람 그림 + 몸 위치 장비 칸). 둘을 묶어 화면 가운데에 둔다
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,6 +17,7 @@ local InventoryState = require(script.Parent.InventoryState)
 local CooldownController = require(script.Parent.CooldownController)
 local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local EquipmentPanel = require(script.Parent.EquipmentPanel)
 local ItemDetailUI = require(script.Parent.ItemDetailUI)
 local ItemIcon = require(script.Parent.ItemIcon)
 local UiKit = require(script.Parent.UiKit)
@@ -39,13 +41,19 @@ local grid: ScrollingFrame
 local infoLabel: TextLabel
 local currentTabIndex = 1
 local equipPanel: Frame
-local equipRows: { [string]: { Icon: Frame, Name: TextLabel } } = {}
-local powerLabel: TextLabel
-local statsLabel: TextLabel
+local gui: ScreenGui
 local lastClickId: string? = nil
 local lastClickTime = 0
 local DOUBLE_CLICK = 0.4 -- 이 시간 안에 두 번 누르면 더블클릭(초)
 local detailToken = 0 -- 누를 때마다 1씩: 더블클릭이면 기다리던 상세 창 열기를 취소한다
+local BAG_WIDTH = 5 * (CELL_SIZE + 6) + 34
+local PANEL_TOP = 56 -- 가방·장비 창 위쪽 (Roblox 상단 메뉴 아래)
+local PANEL_GAP = 8 -- 장비 창과 가방 창 사이
+
+-- 아이템 상세 창을 가방 창 오른쪽에 붙여 연다 (자리가 모자라면 장비 창까지 같이 왼쪽으로 밀린다)
+local function openDetail(itemId: string)
+	ItemDetailUI.open(itemId, bagPanel, { equipPanel })
+end
 
 -- 이 아이템을 지금 끼우고 있는지 (장비 칸 또는 손에 든 도구·무기)
 local function isEquipped(itemId: string): boolean
@@ -144,11 +152,11 @@ local function drawCell(order: number, entry: InventoryState.SlotEntry?)
 				task.delay(DOUBLE_CLICK, function()
 					-- 그사이 다시 누르지 않았고 가방이 열려 있으면 상세 창
 					if token == detailToken and bagPanel.Visible then
-						ItemDetailUI.open(itemId)
+						openDetail(itemId)
 					end
 				end)
 			else
-				ItemDetailUI.open(itemId)
+				openDetail(itemId)
 			end
 		end
 	end, function(position, draggedId)
@@ -182,34 +190,35 @@ end
 
 -- 장비 창을 다시 그린다 (속성 Equip_<칸>·Stat*·CombatPower)
 local function refreshEquipment()
-	if not equipPanel then
+	if equipPanel then
+		EquipmentPanel.refresh()
+	end
+end
+
+-- 장비 창 + 가방 창을 묶어 화면 가운데에 둔다. 화면이 좁으면 장비 창을 좁히고, 높이는 화면에 맞춘다
+local function layoutPanels()
+	if not gui or not bagPanel or not equipPanel then
 		return
 	end
-	for slotId, row in equipRows do
-		for _, child in row.Icon:GetChildren() do
-			if child:IsA("GuiObject") then
-				child:Destroy()
-			end
-		end
-		local itemId = localPlayer:GetAttribute(`Equip_{slotId}`)
-		if typeof(itemId) == "string" and itemId ~= "" and ItemDefs.Items[itemId] then
-			ItemIcon.create(row.Icon, itemId)
-			row.Name.Text = ItemDefs.Items[itemId].DisplayName
-			if slotId == "Shield" then
-				-- 화살통: 남은 화살 수 (서버가 센 속성 Arrows)
-				local arrows = localPlayer:GetAttribute("Arrows")
-				row.Name.Text ..= `  🏹{if typeof(arrows) == "number" then arrows else 0}`
-			end
-		else
-			row.Name.Text = "-"
-		end
+	local screen = gui.AbsoluteSize
+	if screen.X <= 0 or screen.Y <= 0 then
+		return
 	end
-	local function stat(name: string): number
-		local value = localPlayer:GetAttribute(name)
-		return if typeof(value) == "number" then value else 0
+	if ItemDetailUI.isOpen() then
+		ItemDetailUI.close() -- 상세 창이 밀어 둔 위치와 섞이지 않게 (화면 돌리기 같은 드문 경우)
 	end
-	powerLabel.Text = `전투력 {stat("CombatPower")}`
-	statsLabel.Text = `공격 {stat("StatAtk")}  방어 {stat("StatDef")}\n체력 +{stat("StatHp")}  치명타 +{stat("StatCrit")}%`
+	local settings = Config.EquipFigure
+	local equipWidth = math.clamp(screen.X - 16 - PANEL_GAP - BAG_WIDTH, 170, settings.PanelWidth)
+	local total = equipWidth + PANEL_GAP + BAG_WIDTH
+	local left = math.max(8, (screen.X - total) / 2)
+	local bagHeight = math.clamp(screen.Y - 210, 150, 430) -- 하단 빠른 칸을 가리지 않게
+	local equipHeight = math.min(math.max(bagHeight, settings.MinHeight), screen.Y - PANEL_TOP - 8)
+	equipPanel.AnchorPoint = Vector2.zero
+	equipPanel.Position = UDim2.fromOffset(left, PANEL_TOP)
+	equipPanel.Size = UDim2.fromOffset(equipWidth, equipHeight)
+	bagPanel.AnchorPoint = Vector2.zero
+	bagPanel.Position = UDim2.fromOffset(left + equipWidth + PANEL_GAP, PANEL_TOP)
+	bagPanel.Size = UDim2.fromOffset(BAG_WIDTH, bagHeight)
 end
 
 -- 가방 내용을 다시 그린다
@@ -252,6 +261,8 @@ function InventoryUI.setOpen(open: boolean)
 	backdrop.Visible = open
 	if open then
 		infoLabel.Text = "한 번 누르면 자세히, 더블클릭하면 장착. 끌어서 아래 빠른 칸에 놓을 수도 있어요."
+		layoutPanels()
+		EquipmentPanel.rebuildFigure() -- 지금 내 캐릭터 모습으로
 		refreshEquipment()
 		InventoryUI.refresh()
 	end
@@ -264,9 +275,10 @@ end
 
 -- 클라이언트 시작 시 한 번 호출
 function InventoryUI.init()
-	local gui = Instance.new("ScreenGui")
+	gui = Instance.new("ScreenGui")
 	gui.Name = "InventoryGui"
 	gui.ResetOnSpawn = false
+	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling -- 자식은 언제나 부모 위에 (장비 칸 아이콘이 칸 배경 뒤로 숨지 않게)
 	gui.DisplayOrder = 5
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 
@@ -323,7 +335,7 @@ function InventoryUI.init()
 	bagButton.Activated:Connect(InventoryUI.toggle)
 
 	-- 가방 창 (가운데 위쪽). 화면이 작으면 높이를 줄여서 하단 빠른 칸을 가리지 않게
-	bagPanel = UiKit.panel(gui, UDim2.new(0, 5 * (CELL_SIZE + 6) + 34, 1, -210), UDim2.new(0.5, 0, 0, 56), Vector2.new(0.5, 0))
+	bagPanel = UiKit.panel(gui, UDim2.new(0, BAG_WIDTH, 1, -210), UDim2.new(0.5, 0, 0, PANEL_TOP), Vector2.new(0.5, 0)) -- 위치·크기는 layoutPanels
 	bagPanel.ZIndex = 1
 	bagPanel.Visible = false
 	local constraint = Instance.new("UISizeConstraint")
@@ -357,53 +369,10 @@ function InventoryUI.init()
 
 	infoLabel = UiKit.label(bagPanel, "", UDim2.new(1, -24, 0, 36), UDim2.new(0, 12, 1, -42), UiKit.Colors.SubText, 13)
 
-	-- 장비 창 (가방 창 왼쪽): 칸 8개(EquipmentDefs.Slots), 전투력, 능력치. 장비 칸을 더블클릭하면 뺀다
-	-- 칸 수에 맞춰 높이를 정한다 (8칸이면 한 칸 42px 간격)
-	local bagWidth = 5 * (CELL_SIZE + 6) + 34
-	local ROW_STEP = 42
-	local ROW_HEIGHT = 39
-	local slotCount = #EquipmentDefs.Slots
-	equipPanel = UiKit.panel(gui, UDim2.fromOffset(200, 58 + slotCount * ROW_STEP + 42), UDim2.new(0.5, -bagWidth / 2 - 8, 0, 56), Vector2.new(1, 0))
-	equipPanel.ZIndex = 1
-	equipPanel.Visible = false
-	UiKit.label(equipPanel, "장비", UDim2.new(1, -20, 0, 26), UDim2.fromOffset(12, 6), UiKit.Colors.Gold, 18)
-	powerLabel = UiKit.label(equipPanel, "전투력 0", UDim2.new(1, -20, 0, 22), UDim2.fromOffset(12, 32), Color3.fromRGB(255, 220, 120), 16)
-	for index, slot in EquipmentDefs.Slots do
-		local row = Instance.new("TextButton")
-		row.Text = ""
-		row.AutoButtonColor = false
-		row.Size = UDim2.new(1, -16, 0, ROW_HEIGHT)
-		row.Position = UDim2.fromOffset(8, 58 + (index - 1) * ROW_STEP)
-		row.BackgroundColor3 = UiKit.Colors.PanelLight
-		row.BorderSizePixel = 0
-		row.Parent = equipPanel
-		UiKit.corner(row, 8)
-		local icon = Instance.new("Frame")
-		icon.Size = UDim2.fromOffset(ROW_HEIGHT - 6, ROW_HEIGHT - 6)
-		icon.Position = UDim2.fromOffset(3, 3)
-		icon.BackgroundColor3 = UiKit.Colors.Panel
-		icon.BorderSizePixel = 0
-		icon.Parent = row
-		UiKit.corner(icon, 6)
-		UiKit.label(row, slot.Title, UDim2.new(1, -46, 0, 15), UDim2.fromOffset(42, 2), UiKit.Colors.SubText, 11)
-		local name = UiKit.label(row, "-", UDim2.new(1, -46, 0, 19), UDim2.fromOffset(42, 17), UiKit.Colors.Text, 13)
-		name.TextScaled = true
-		local nameSize = Instance.new("UITextSizeConstraint")
-		nameSize.MaxTextSize = 13
-		nameSize.Parent = name
-		equipRows[slot.Id] = { Icon = icon, Name = name }
-		local slotId = slot.Id
-		local lastRowClick = 0
-		row.Activated:Connect(function()
-			local now = os.clock()
-			if now - lastRowClick <= DOUBLE_CLICK and slotId ~= "Weapon" then
-				Remotes.get(Remotes.Names.UnequipSlot):FireServer(slotId)
-			end
-			lastRowClick = now
-		end)
-	end
-	statsLabel = UiKit.label(equipPanel, "", UDim2.new(1, -16, 0, 34), UDim2.new(0, 8, 1, -40), UiKit.Colors.SubText, 12)
-	statsLabel.TextWrapped = true
+	-- 장비 창 (가방 창 왼쪽): 사람 그림 + 몸 위치 장비 칸 8개, 전투력, 능력치 (EquipmentPanel)
+	equipPanel = EquipmentPanel.build(gui, openDetail)
+	layoutPanels()
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(layoutPanels)
 
 	drawTabs()
 	InventoryState.Changed:Connect(InventoryUI.refresh)
@@ -412,6 +381,12 @@ function InventoryUI.init()
 		if string.sub(name, 1, 6) == "Equip_" then
 			refreshEquipment()
 			InventoryUI.refresh()
+			-- 장비 모양(GearVisualService)이 캐릭터에 붙은 뒤 사람 그림을 다시 찍는다
+			task.delay(0.4, function()
+				if equipPanel.Visible then
+					EquipmentPanel.rebuildFigure()
+				end
+			end)
 		elseif string.sub(name, 1, 4) == "Stat" or name == "CombatPower" or name == "Arrows" then
 			refreshEquipment()
 		end

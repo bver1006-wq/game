@@ -99,6 +99,11 @@ local function bowTarget(range: number): Model?
 	return best or nearestMob(range)
 end
 
+-- 스킬이 노릴 몹 (SkillController): 활은 화면 가운데 쪽을 먼저, 나머지는 가장 가까운 몹. 남의 몹은 뺀다
+function CombatController.findTarget(kind: string, range: number): Model?
+	return if kind == "Bow" then bowTarget(range) else nearestMob(range)
+end
+
 -- 캐릭터가 대상을 바라보게 돌린다
 local function face(target: Vector3)
 	local character = localPlayer.Character
@@ -363,8 +368,10 @@ local function playImpact(mob: Model?, damage: number, isCrit: boolean, kind: st
 end
 
 -- 서버의 CombatEffect: 누군가 몹을 때렸다
-local function onCombatEffect(mob: Model?, damage: number, isCrit: boolean, kind: string, tier: number, attackerUserId: number, from: Vector3, hitPosition: Vector3, charged: boolean?, blocked: boolean?)
+-- fromSkill: 스킬(연사 등)로 쏜 화살은 쏠 때 그리지 않았으니 내 화면에서도 날아가는 화살을 그린다
+local function onCombatEffect(mob: Model?, damage: number, isCrit: boolean, kind: string, tier: number, attackerUserId: number, from: Vector3, hitPosition: Vector3, charged: boolean?, blocked: boolean?, fromSkill: boolean?)
 	local isMine = attackerUserId == localPlayer.UserId
+	local drawArrow = not isMine or fromSkill == true
 	if blocked then
 		-- 무기가 너무 약해 흠집도 안 남: 둔한 소리 + "흠집도 안 나!" (활은 화살이 도착한 뒤)
 		local function bounce()
@@ -375,7 +382,7 @@ local function onCombatEffect(mob: Model?, damage: number, isCrit: boolean, kind
 				SwingAnimation.freeze(0.1)
 			end
 		end
-		if kind == "Bow" and not isMine then
+		if kind == "Bow" and drawArrow then
 			shootArrow(from, hitPosition, tier, bounce)
 		elseif kind == "Bow" then
 			task.delay((hitPosition - from).Magnitude / Config.Combat.ArrowSpeed, bounce)
@@ -385,7 +392,7 @@ local function onCombatEffect(mob: Model?, damage: number, isCrit: boolean, kind
 		return
 	end
 	if kind == "Bow" then
-		if isMine then
+		if not drawArrow then
 			-- 내 화살은 쏠 때 이미 그렸다. 도착할 즈음 맞은 연출만
 			task.delay(math.max((hitPosition - from).Magnitude / Config.Combat.ArrowSpeed - 0.05, 0), function()
 				playImpact(mob, damage, isCrit, kind, tier, isMine, hitPosition, charged)
@@ -401,8 +408,26 @@ local function onCombatEffect(mob: Model?, damage: number, isCrit: boolean, kind
 end
 
 -- 서버의 MobAttack: 몹이 누군가를 때렸다. 나라면 화면이 빨갛게 번쩍
-local function onMobAttack(_mob: Model?, targetUserId: number, damage: number)
+-- guarded: 구르기 무적·방패 막기로 피했거나(damage 0) 줄였다 → 빨간 번쩍임 대신 "피함!"·"막음!"
+local function onMobAttack(_mob: Model?, targetUserId: number, damage: number, guarded: boolean?)
 	if targetUserId ~= localPlayer.UserId then
+		return
+	end
+	if guarded then
+		local character = localPlayer.Character
+		local head = character and character:FindFirstChild("Head")
+		local position = if head and head:IsA("BasePart") then head.Position + Vector3.new(0, 1, 0) else nil
+		HitFeelController.playSound(Config.Skills.ShieldSound, position, 1.6, 0.5) -- "챙"
+		if position then
+			if damage <= 0 then
+				HitFeelController.popText(position, "피함!", Color3.fromRGB(150, 230, 255))
+			else
+				HitFeelController.popText(position, `막음! -{damage}`, Color3.fromRGB(150, 200, 255))
+			end
+		end
+		if damage > 0 then
+			HitFeelController.cameraShake(Config.HitFeel.CameraShake.Magnitude * 0.7, Config.HitFeel.CameraShake.Duration)
+		end
 		return
 	end
 	hurtFrame.BackgroundTransparency = 0.55

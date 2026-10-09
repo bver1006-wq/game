@@ -46,7 +46,6 @@ local ItemDefs: { [string]: ItemDef } = {
 	ManaBerry = { Id = "ManaBerry", DisplayName = "마나 베리", Category = "Tool", Stackable = true, Usable = true, Icon = "ManaBerry", Color = Color3.fromRGB(90, 130, 255) },
 	LunchBox = { Id = "LunchBox", DisplayName = "모험가 도시락", Category = "Tool", Stackable = true, Usable = true, Icon = "LunchBox", Color = Color3.fromRGB(220, 70, 70) },
 	-- 도구: 소모품
-	ReturnScroll = { Id = "ReturnScroll", DisplayName = "귀환 주문서", Category = "Tool", Stackable = true, Usable = true, Icon = "ReturnScroll", Color = Color3.fromRGB(235, 215, 160) },
 	-- 도구: 곡괭이 (실제 Tool은 PickaxeService가 가방에 넣는다)
 	StonePickaxe = { Id = "StonePickaxe", DisplayName = "돌 곡괭이", Category = "Tool", Stackable = false, Icon = "StonePickaxe", Color = Color3.fromRGB(150, 145, 140) },
 	CopperPickaxe = { Id = "CopperPickaxe", DisplayName = "구리 곡괭이", Category = "Tool", Stackable = false, Icon = "CopperPickaxe", Color = Color3.fromRGB(205, 115, 60) },
@@ -78,7 +77,7 @@ local ORDER = {
 	"WoodenBow", "CopperBow", "IronBow", "DiamondBow",
 	"BaseballBat", "GoblinClub", "MorningStar", "DiamondMace",
 	"StonePickaxe", "CopperPickaxe", "IronPickaxe", "SteelPickaxe",
-	"StoneAxe", "CopperAxe", "IronAxe", "DiamondAxe", "ReturnScroll", "Bread", "ManaBerry", "LunchBox",
+	"StoneAxe", "CopperAxe", "IronAxe", "DiamondAxe", "Bread", "ManaBerry", "LunchBox",
 	"Stone", "Coal", "CopperOre", "IronOre", "CopperIngot", "IronIngot", "SteelIngot",
 	"Pine", "Oak", "Birch", "Maple", "Ebony",
 	"SlimeJelly", "Bone", "OldCloth", "CerberusFang", "CyclopsEye",
