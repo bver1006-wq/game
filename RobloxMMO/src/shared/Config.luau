@@ -277,6 +277,9 @@ Config.Foods = {
 	Bread = { Hp = 30 },
 	ManaBerry = { Mana = 30 },
 	LunchBox = { Hp = 60, Mana = 60 },
+	-- 바다에서 잡는 음식 (2026-10-09): 마을 밖은 체력이 안 차니 사냥하다 먹는다
+	FishMeat = { Hp = 20 }, -- 생선 (물고기)
+	OctopusLeg = { Hp = 35, Mana = 10 }, -- 낙지 다리 (낙지)
 }
 Config.FoodCooldown = 10 -- 같은 음식을 다시 먹으려면 기다리는 시간(초). 칸 위에 시계 방향 덮개로 보인다 (2026-10-09)
 
@@ -349,6 +352,75 @@ Config.Mobs = {
 		Hp = 160, Damage = 18, AttackInterval = 1.8, AttackRange = 6.5, Speed = 9, Aggro = 26, Gold = { 25, 40 }, Loot = { 1, 3 }, Respawn = 45, Scale = 1.4,
 		ExtraLoot = { { Id = "CyclopsHide", Chance = 0.85, Count = { 1, 3 } } },
 	},
+	-- 바다 생물 (2026-10-09): Swim = true면 지형 물 속을 헤엄친다 (헤엄 수치 Config.SeaAI, 사는 곳 Config.SeaZones)
+	--   Retaliate = true: 먼저 덤비지 않지만 맞으면 쫓아와 때린다 (낙지)
+	--   Drift = true: 쫓지도 도망치지도 않고 둥둥 떠다니다 몸에 닿은(AttackRange) 사람을 쏜다 (해파리)
+	--   Prick: 맞으면 PuffTime초 동안 PuffScale배로 부풀고, Range 안(칼·방망이 거리)에서 때린 사람을 Damage만큼 찌른다 (Cooldown초마다, 복어)
+	--   Ink: 맞으면 Chance 확률로 먹물을 뿜는다 (Cooldown초마다, 때린 사람 화면이 Blind초 동안 어두워짐, 낙지)
+	--   ChargeSpeed·ChargeRange: 대상이 ChargeRange 안이면 속도 ChargeSpeed배로 돌진 (상어)
+	Fish = { Hp = 15, Damage = 0, AttackInterval = 1.5, AttackRange = 3, Speed = 8, Aggro = 15, Gold = { 1, 4 }, Loot = { 1, 2 }, Respawn = 12, Scale = 1, Passive = true, FleeTime = 3, FleeSpeed = 1.8, Swim = true },
+	Pufferfish = {
+		Hp = 35, Damage = 0, AttackInterval = 1.5, AttackRange = 3, Speed = 5, Aggro = 15, Gold = { 4, 8 }, Loot = { 1, 2 }, Respawn = 20, Scale = 1, Passive = true, FleeTime = 3, FleeSpeed = 1.3, Swim = true,
+		Prick = { Damage = 4, Range = 9, PuffScale = 1.6, PuffTime = 1.5, Cooldown = 0.8 },
+		ExtraLoot = { { Id = "FishMeat", Chance = 0.5, Count = { 1, 1 } } },
+	},
+	-- 황금 물고기: 드물고(얕은 바다에 한 마리, 다시 나오기 느림) 빠르게 도망치지만 골드를 잔뜩 준다
+	GoldenFish = {
+		Hp = 25, Damage = 0, AttackInterval = 1.5, AttackRange = 3, Speed = 12, Aggro = 18, Gold = { 40, 70 }, Loot = { 1, 2 }, Respawn = 120, Scale = 1, Passive = true, FleeTime = 6, FleeSpeed = 2.2, Swim = true,
+	},
+	Octopus = {
+		Hp = 70, Damage = 9, AttackInterval = 1.3, AttackRange = 5, Speed = 7, Aggro = 22, Gold = { 10, 18 }, Loot = { 1, 3 }, Respawn = 25, Scale = 1, Swim = true, Retaliate = true,
+		Ink = { Chance = 0.35, Cooldown = 6, Blind = 1.5 },
+		ExtraLoot = { { Id = "InkSac", Chance = 0.7, Count = { 1, 1 } } },
+	},
+	Jellyfish = { Hp = 30, Damage = 5, AttackInterval = 1.2, AttackRange = 3.5, Speed = 2.5, Aggro = 0, Gold = { 4, 9 }, Loot = { 1, 2 }, Respawn = 20, Scale = 1, Swim = true, Drift = true },
+	-- 상어: 멀고 깊은 바다를 돌아다니다 물에 들어온 사람에게 돌진해 문다
+	Shark = {
+		Hp = 140, Damage = 15, AttackInterval = 1.5, AttackRange = 5.5, Speed = 11, Aggro = 26, Gold = { 25, 40 }, Loot = { 1, 2 }, Respawn = 45, Scale = 1.3, Swim = true,
+		ChargeSpeed = 1.8, ChargeRange = 14,
+		ExtraLoot = { { Id = "SharkSkin", Chance = 0.85, Count = { 1, 2 } }, { Id = "FishMeat", Chance = 0.4, Count = { 1, 2 } } },
+	},
+}
+
+-- 바다 생물 사는 곳 (2026-10-09). 제작 스크립트(studio/BuildWeaponsAndMobs)가 게임 시작 때 지형 물을 찾아 구역마다 생성 자리를 둔다
+-- Distance 마을(TownArrival)에서 잰 구역 가운데 거리 범위(스터드, 벗어날수록 점수가 깎임), Depth 물 깊이 범위(수면 ~ 바닥, 스터드)
+-- Radius 구역 반경, Count 주인 몹 자리 수. Schools·SchoolSize가 있으면 Count 대신 떼(자리 하나에 SchoolSize마리, 같이 헤엄침)
+-- Extras 같은 구역에 따로 두는 몹 { 몹 = 마리 }, BossSpots 보스가 잘 나오는 자리 수 (Config.MobBoss.SpotChance)
+Config.SeaZones = {
+	{ Name = "얕은 바다", MobType = "Fish", Schools = 4, SchoolSize = { 3, 5 }, Extras = { Pufferfish = 3, GoldenFish = 1 }, Distance = { 55, 220 }, Depth = { 4, 14 }, Radius = 40, BossSpots = 0 },
+	{ Name = "낙지 바위", MobType = "Octopus", Count = 4, Extras = { Jellyfish = 3 }, Distance = { 80, 280 }, Depth = { 6, 40 }, Radius = 35, BossSpots = 1 },
+	{ Name = "깊은 바다", MobType = "Shark", Count = 3, Extras = { Octopus = 1 }, Distance = { 140, 450 }, Depth = { 10, 999 }, Radius = 45, BossSpots = 1 },
+}
+-- 물 찾기 (제작 스크립트): 마을 둘레 ScanRadius를 ScanStep 격자로 아래로 광선 → 지형 물에 맞으면 수면, 물을 무시한 두 번째 광선으로 바닥
+Config.SeaSpawn = {
+	ScanRadius = 600, -- 마을에서 이 거리까지 물을 찾는다 (스터드)
+	ScanStep = 8, -- 광선 간격 (스터드)
+	ScanTop = 400, -- 광선 시작 높이 (마을 높이 + 이만큼)
+	MaxDepth = 300, -- 바닥을 찾는 최대 깊이
+	MinDepth = 4, -- 이보다 얕은 물에는 안 둔다 (헤엄칠 틈)
+	MinCells = 6, -- 구역 가운데 둘레(Radius)에 물 칸이 이만큼은 있어야 구역으로 고른다
+	ZoneGap = 45, -- 바다 구역 가운데끼리 최소 거리
+	SpotGap = 8, -- 생성 자리끼리 최소 거리 (떼 안의 물고기는 SchoolSpread 안에 모인다)
+	SchoolSpread = 3, -- 떼 물고기끼리 흩어진 정도 (스터드)
+}
+-- 헤엄 (서버 MobService): 몸이 수면 아래·바닥 위에 있게 한다. 물 기둥(수면·바닥 높이)은 ColumnCell 칸마다 한 번 재고 기억한다
+Config.SeaAI = {
+	ColumnCell = 4, -- 물 기둥을 재는 칸 크기 (스터드)
+	ScanTop = 400, -- 물 기둥 광선 시작 높이 (월드 Y)
+	ScanLength = 900, -- 광선 길이
+	SurfaceMargin = 0.6, -- 몸 위쪽이 수면에서 이만큼 아래
+	FloorMargin = 0.5, -- 몸 아래가 바닥에서 이만큼 위
+	Leash = 40, -- 집에서 이 거리를 넘게 쫓으면 포기
+	WanderRadius = 14, -- 한가할 때 집 둘레를 헤엄치는 반경 (위아래도)
+	WanderPause = { 0.5, 2.5 }, -- 헤엄 사이 쉬는 시간 범위(초)
+	SchoolRetarget = { 3, 6 }, -- 물고기 떼가 다음 목적지를 고르는 간격(초)
+	PlayerWaterAbove = 3, -- 플레이어 뿌리가 수면에서 이만큼 위까지는 "물 속"으로 본다 (수면에서 헤엄치는 중)
+	MinChaseRange = 20, -- 쫓는 걸 포기하는 거리 = max(Aggro, 이 값) × 2
+	MaxPitch = 30, -- 위아래로 기우는 최대 각도(도)
+	WiggleAngle = 12, -- 물고기 꼬리 흔들기 각도(도)
+	WiggleSpeed = 9, -- 흔들기 빠르기 (움직일 때)
+	PulseBob = 0.45, -- 낙지·해파리 둥실 높이
+	PulseSpeed = 2.4, -- 둥실 빠르기
 }
 
 -- 몹 구역 (2026-10-09, 같은 날 넓게 펼침): 마을에서 가까우면 슬라임, 조금 멀면 스켈레톤·좀비, 꽤 멀면 케르베로스·사이클롭스
@@ -496,6 +568,14 @@ Config.SellPrices = {
 	CerberusHide = 14, -- 두 번째 전리품 (2026-10-09)
 	CyclopsHide = 22,
 	BossToken = 50, -- 보스만 준다
+	FishMeat = 3, -- 바다 생물 전리품 (2026-10-09)
+	PufferSpine = 6,
+	GoldenScale = 60, -- 황금 물고기: 드물어서 비싸다
+	OctopusLeg = 8,
+	InkSac = 10,
+	JellyfishJelly = 6,
+	SharkTooth = 18,
+	SharkSkin = 20,
 }
 
 -- 대장장이 제련: 재료 + 수수료(골드) → 결과 1개
@@ -543,7 +623,7 @@ local RECIPES: { [string]: Recipe } = {
 	CopperSword = { From = { Id = "WoodenSword", Count = 3 }, Gold = 40, Items = { CopperIngot = 3, Oak = 3 } },
 	IronSword = { From = { Id = "CopperSword", Count = 3 }, Gold = 180, Items = { IronIngot = 5, CopperIngot = 2, Birch = 4 } },
 	DiamondSword = { From = { Id = "IronSword", Count = 2 }, Gold = 700, Items = { SteelIngot = 6, IronIngot = 6, CerberusFang = 4, CyclopsEye = 2 } },
-	MithrilSword = { From = { Id = "DiamondSword", Count = 2 }, Gold = 2000, Items = { MithrilIngot = 6, SteelIngot = 4, Ebony = 2, CerberusFang = 4 } },
+	MithrilSword = { From = { Id = "DiamondSword", Count = 2 }, Gold = 2000, Items = { MithrilIngot = 6, SteelIngot = 4, Ebony = 2, CerberusFang = 2, SharkTooth = 4 } }, -- 상어 이빨 (2026-10-09)
 	OrichalcumSword = { From = { Id = "MithrilSword", Count = 2 }, Gold = 5000, Items = { OrichalcumIngot = 4, MithrilIngot = 6, CyclopsEye = 4, BossToken = 1 } },
 	-- 활
 	WoodenBow = { Gold = 5, Items = { Pine = 5 } },
@@ -570,7 +650,7 @@ local RECIPES: { [string]: Recipe } = {
 	LeatherArmor = { Gold = 12, Items = { SlimeJelly = 5 } },
 	CopperArmor = { From = { Id = "LeatherArmor", Count = 3 }, Gold = 50, Items = { SlimeJelly = 10, OldCloth = 2, CopperIngot = 1 } },
 	IronArmor = { From = { Id = "CopperArmor", Count = 3 }, Gold = 220, Items = { OldCloth = 10, Bone = 6, IronIngot = 2 } },
-	DiamondArmor = { From = { Id = "IronArmor", Count = 2 }, Gold = 850, Items = { CerberusHide = 10, CyclopsHide = 4, OldCloth = 10, SteelIngot = 2 } },
+	DiamondArmor = { From = { Id = "IronArmor", Count = 2 }, Gold = 850, Items = { CerberusHide = 8, SharkSkin = 3, CyclopsHide = 4, OldCloth = 10, SteelIngot = 2 } }, -- 상어 가죽 (2026-10-09)
 	MithrilArmor = { From = { Id = "DiamondArmor", Count = 2 }, Gold = 2200, Items = { CyclopsHide = 14, CerberusHide = 12, CerberusFang = 4, MithrilIngot = 2 } },
 	OrichalcumArmor = { From = { Id = "MithrilArmor", Count = 2 }, Gold = 5500, Items = { CyclopsHide = 24, CerberusHide = 18, BossToken = 3, OrichalcumIngot = 1 } },
 	-- 신발
@@ -1080,6 +1160,23 @@ Config.MobDeathSounds = {
 	Zombie = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 0.55, Volume = 0.9 }, -- 우어어...
 	Cerberus = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 1.9, Volume = 0.8, Repeat = 0.16 }, -- 깨갱!
 	Cyclops = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 0.42, Volume = 1 }, -- 쿠어어엉!
+	-- 바다 생물 (2026-10-09): 물고기·복어·해파리는 뽀글(splat 높게), 낙지는 뿌직, 상어는 낮게 크앙
+	Fish = { Id = "rbxasset://sounds/splat.wav", Pitch = 2.1, Volume = 0.7 },
+	Pufferfish = { Id = "rbxasset://sounds/splat.wav", Pitch = 1.4, Volume = 0.9, Repeat = 0.12 },
+	GoldenFish = { Id = "rbxasset://sounds/splat.wav", Pitch = 2.4, Volume = 0.8, Repeat = 0.1 },
+	Octopus = { Id = "rbxasset://sounds/splat.wav", Pitch = 0.9, Volume = 1 },
+	Jellyfish = { Id = "rbxasset://sounds/splat.wav", Pitch = 1.9, Volume = 0.6 },
+	Shark = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 0.5, Volume = 1 },
+}
+
+-- 바다 생물 연출 (클라이언트, 2026-10-09)
+Config.SeaEffects = {
+	InkColor = Color3.fromRGB(25, 20, 35), -- 낙지 먹물 구름 색
+	InkCloudTime = 2.5, -- 먹물 구름이 남는 시간(초)
+	InkCloudSize = 5, -- 먹물 입자 크기
+	InkScreen = 0.35, -- 먹물을 맞은 사람 화면 어두움 (0 = 깜깜, 1 = 그대로)
+	PuffSound = "rbxasset://sounds/splat.wav", -- 복어가 부풀 때 "뿅"
+	PuffPitch = 0.8,
 }
 
 -- 사운드 에셋 ID (Creator Store 무료 사운드). 빈 값이면 재생하지 않는다

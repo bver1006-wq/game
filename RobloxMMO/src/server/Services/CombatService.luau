@@ -177,6 +177,13 @@ local function onAttack(player: Player, mobArg: unknown)
 	if flat.Magnitude > range + state.Radius + Config.Combat.RangeTolerance then
 		return
 	end
+	-- 물 속 몹(바다 생물)은 위아래 거리도 본다: 물가에 서서 깊은 바닥의 물고기를 칼로 칠 수는 없다 (2026-10-09)
+	if state.Swim then
+		local dy = math.abs(state.Position.Y + state.Height / 2 - root.Position.Y)
+		if dy > range + state.Height / 2 + Config.Combat.RangeTolerance then
+			return
+		end
+	end
 	-- 활: 화살이 있어야 쏜다 (한 발에 1개)
 	if weapon.Kind == "Bow" and not EquipmentService.useArrow(player) then
 		return
