@@ -376,7 +376,7 @@ Config.Mobs = {
 	Jellyfish = { Hp = 30, Damage = 5, AttackInterval = 1.2, AttackRange = 3.5, Speed = 2.5, Aggro = 0, Gold = { 4, 9 }, Loot = { 1, 2 }, Respawn = 20, Scale = 1, Swim = true, Drift = true },
 	-- 상어: 멀고 깊은 바다를 돌아다니다 물에 들어온 사람에게 돌진해 문다
 	Shark = {
-		Hp = 140, Damage = 15, AttackInterval = 1.5, AttackRange = 5.5, Speed = 11, Aggro = 26, Gold = { 25, 40 }, Loot = { 1, 2 }, Respawn = 45, Scale = 1.3, Swim = true,
+		Hp = 140, Damage = 15, AttackInterval = 1.5, AttackRange = 8, Speed = 11, Aggro = 26, Gold = { 25, 40 }, Loot = { 1, 2 }, Respawn = 45, Scale = 2.6, Swim = true, -- 2026-10-09 크기 1.3 → 2.6 (2배), 무는 거리 5.5 → 8
 		ChargeSpeed = 1.8, ChargeRange = 14,
 		ExtraLoot = { { Id = "SharkSkin", Chance = 0.85, Count = { 1, 2 } }, { Id = "FishMeat", Chance = 0.4, Count = { 1, 2 } } },
 	},
