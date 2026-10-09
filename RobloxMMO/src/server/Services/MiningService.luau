@@ -161,7 +161,10 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 	local direction = if toPlayer.Magnitude > 0.01 then toPlayer.Unit else Vector3.zAxis
 	local hitPosition: Vector3
 	if oreDef.Kind == "Tree" then
-		hitPosition = state.Position + direction * (oreDef.HitRadius or 1) + Vector3.new(0, oreDef.HitHeight or 2.5, 0)
+		-- 줄기 반지름은 템플릿 속성 HitRadius(맵 나무에서 잰 값)가 우선
+		local radiusAttribute = rock:GetAttribute("HitRadius")
+		local radius = if typeof(radiusAttribute) == "number" then radiusAttribute else oreDef.HitRadius or 1
+		hitPosition = state.Position + direction * radius + Vector3.new(0, oreDef.HitHeight or 2.5, 0)
 	else
 		local size = rock:GetExtentsSize()
 		hitPosition = state.Position + direction * (math.max(size.X, size.Z) * 0.45) + Vector3.new(0, size.Y * 0.1, 0)

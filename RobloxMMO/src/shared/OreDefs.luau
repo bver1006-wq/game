@@ -11,7 +11,7 @@ export type OreDef = {
 	TemplateName: string, -- ServerStorage/Templates/Ores 안의 폴더 이름 (모양 변형 모델들이 들어 있다)
 	Color: Color3, -- 파편·조각 색
 	HitHeight: number?, -- 나무: 타격 위치 높이 (밑동 기준, 스터드)
-	HitRadius: number?, -- 나무: 줄기 중심에서 타격 위치까지 거리 (스터드). 잔상 고리 크기에도 쓴다
+	HitRadius: number?, -- 나무: 줄기 반지름 기본값 (스터드). 템플릿에 속성 HitRadius가 있으면 그게 우선
 	LeafColor: Color3?, -- 나무: 칠 때 떨어지는 잎 색
 }
 

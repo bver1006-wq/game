@@ -78,7 +78,7 @@ local function createGhost(rock: Model, hitTime: number, duration: number): Ghos
 	local timing = Config.Timing
 	local def = TargetController.getDef(rock)
 	local isTree = def ~= nil and def.Kind == "Tree"
-	local model = if isTree then createTreeGhostModel(rock, (def :: any).HitRadius or 1) else rock:Clone()
+	local model = if isTree then createTreeGhostModel(rock, TargetController.hitRadius(rock)) else rock:Clone()
 	-- 자동 조준(OreNode 태그·Hp 속성)에 걸리지 않게 지운다
 	-- (RBX_로 시작하는 엔진 속성은 스크립트가 못 지우므로 우리 속성만 지운다)
 	CollectionService:RemoveTag(model, "OreNode")
