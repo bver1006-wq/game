@@ -1,10 +1,11 @@
 --!strict
 -- 장비 칸과 장비 아이템 정의 (이름·칸·단계·색). 능력치·가격 수치는 Config.Equipment에 있다.
--- 칸: 무기(손에 든 도구·무기) / 헬멧 / 갑옷 / 신발 / 장갑 / 목걸이 / 팔찌
+-- 칸: 무기(손에 든 도구·무기) / 방패 / 헬멧 / 갑옷 / 신발 / 장갑 / 목걸이 / 팔찌
 -- 무기 칸은 따로 끼우지 않고 지금 손에 든 도구·무기가 들어간다.
--- 장비 아이템은 ItemDefs에도 등록된다 (분류 "방어구").
+-- 방패 칸에는 지금은 화살통만 들어간다 (활을 쏘려면 화살이 든 화살통이 필요. 화살 수는 Config.Quiver).
+-- 장비 아이템은 ItemDefs에도 등록된다 (분류 "방어구", 화살통은 "무기").
 
-export type Slot = "Weapon" | "Helmet" | "Armor" | "Boots" | "Gloves" | "Necklace" | "Bracelet"
+export type Slot = "Weapon" | "Shield" | "Helmet" | "Armor" | "Boots" | "Gloves" | "Necklace" | "Bracelet"
 
 export type EquipmentDef = {
 	Id: string,
@@ -17,6 +18,7 @@ export type EquipmentDef = {
 -- 칸 순서와 이름
 local SLOTS: { { Id: Slot, Title: string } } = {
 	{ Id = "Weapon", Title = "무기" },
+	{ Id = "Shield", Title = "방패" },
 	{ Id = "Helmet", Title = "헬멧" },
 	{ Id = "Armor", Title = "갑옷" },
 	{ Id = "Boots", Title = "신발" },
@@ -55,8 +57,21 @@ for _, slot in SLOTS do
 	end
 end
 
+-- 화살통 (방패 칸, 등에 멘다). 단계는 겉모습용 (1 나무·가죽 / 3 철 테두리). 화살 수·가격은 Config.Quiver
+-- 장비 아이콘을 만드는 Studio 스크립트가 칸마다 모양을 정해 두어서 Order에는 넣지 않고 QuiverOrder로 따로 둔다
+local QUIVERS: { { any } } = {
+	{ "WoodQuiver", "나무 화살통", 1, Color3.fromRGB(150, 98, 58) },
+	{ "IronQuiver", "철 화살통", 3, Color3.fromRGB(105, 62, 38) },
+}
+local quiverOrder: { string } = {}
+for _, entry in QUIVERS do
+	items[entry[1]] = { Id = entry[1], DisplayName = entry[2], Slot = "Shield", Tier = entry[3], Color = entry[4] }
+	table.insert(quiverOrder, entry[1])
+end
+
 return table.freeze({
 	Slots = table.freeze(SLOTS),
 	Items = table.freeze(items),
-	Order = table.freeze(order), -- 헬멧 T1~T4, 갑옷 T1~T4 ... 순서
+	Order = table.freeze(order), -- 헬멧 T1~T4, 갑옷 T1~T4 ... 순서 (화살통은 빠짐)
+	QuiverOrder = table.freeze(quiverOrder), -- 화살통 (작은 것부터)
 })

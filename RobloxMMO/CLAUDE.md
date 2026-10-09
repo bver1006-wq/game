@@ -284,16 +284,16 @@ src/
   - 연출: "퍽" 소리(Sounds.WoodChop), 나뭇조각·떨어지는 잎(OreDefs.LeafColor), 덜 흔들림. 잔상은 줄기 둘레 고리가 줄어든다. 다 베면 Sounds.TreeBreak와 함께 친 사람 반대쪽으로 쓰러진다(클라 복제본). 체력바·말풍선은 타격 높이 위 (Config.HitFeel.Tree)
   - Studio 제작: Rojo가 `studio/`를 ServerStorage/StudioTools로 넣는다. 템플릿이 없으면 게임 시작 때 서버가 자동 실행한다(저장 안 됨). 편집 상태 명령 모음에서 `require(game.ServerStorage.StudioTools.BuildTreesAndAxes:Clone())` 실행하면 도끼 Tool(같은 티어 곡괭이 손잡이 재사용)·나무 템플릿 5종x3모양·아이콘·스폰 자리를 만든다. 다시 실행하면 새로 만든다
 - [x] 사냥과 전투 (2026-10-09 사용자 결정으로 7장 제외 항목에서 앞당김)
-  - 몹 5종: 귀여운 슬라임·스켈레톤·좀비·케르베로스·버그베어 (MobDefs, 수치 Config.Mobs). 마을에서 멀수록 센 몹
+  - 몹 5종: 귀여운 슬라임·스켈레톤·좀비·케르베로스·사이클롭스 (MobDefs, 수치 Config.Mobs). 마을에서 멀수록 센 몹
     - 모델은 제작 스크립트 `studio/BuildWeaponsAndMobs.luau`가 부품으로 짓는다 (Templates/Mobs, 고정 Root + 용접, 앞 = -Z, 기준점 = 발밑). 생성 자리는 Workspace/MobSpawns (속성 MobType)
     - 서버 MobService가 TickRate번/초로 생각·이동(PivotTo): 어슬렁 → 가까운 플레이어 쫓기 → 공격(Humanoid:TakeDamage), 집에서 Leash 넘게 멀어지면 포기. 슬라임은 통통 튐. 피버 중 플레이어는 무적
-    - 처치하면 처치한 사람에게 골드 + 전리품(슬라임 젤리·뼈다귀·낡은 천·케르베로스 송곳니·버그베어 털, 상인에게 판매). Respawn초 뒤 같은 자리에 다시
+    - 처치하면 처치한 사람에게 골드 + 전리품(슬라임 젤리·뼈다귀·낡은 천·케르베로스 송곳니·사이클롭스 눈알, 상인에게 판매). Respawn초 뒤 같은 자리에 다시
   - 무기 12종 = 칼(나무 검·구리 검·철 장검·다이아몬드 대검) / 활(나무·구리·철 장궁·다이아몬드) / 방망이(야구방망이·도깨비방망이·모닝스타·다이아몬드 철퇴)
     - PickaxeDefs에 Kind Sword/Bow/Club으로 넣어 곡괭이와 같은 Tool·가방·빠른 칸·단계 구매를 쓴다. 가방 분류는 "무기". 플레이어 속성 SwordTier·BowTier·ClubTier
     - 수치는 Config.Weapons (칼 빠름 / 방망이 느리지만 세고 밀쳐 냄 / 활 약하지만 멀리). 치명타·흔들림은 Config.Combat
     - 나무 검은 시작 지급, 나머지는 사냥꾼 카엘 상점 칼·활·방망이 탭에서 구매 (골드 + 괴·통나무·전리품)
     - 모양은 제작 스크립트가 돌 곡괭이 Tool의 쥐는 각도를 그대로 쓰고 부품으로 짓는다. 연출: 맞으면 하얗게 번쩍, 데미지 숫자(치명타 노랑), 티어별 불꽃·빛줄기(Config.Combat.TierEffects), 활은 화살이 날아간다
-  - 활은 화살 없이 언제든 쏜다 (몹이 없으면 앞으로). 화면 가운데 BowAimAngle 안의 몹을 먼저 노린다. 치명타면 몹이 짧게 불탄다(CritBurnTime)
+  - 활은 화살통에 화살이 있어야 쏜다 (아래 "활 화살·화살통"). 몹이 없으면 앞으로 쏜다. 화면 가운데 BowAimAngle 안의 몹을 먼저 노린다. 치명타면 몹이 짧게 불탄다(CritBurnTime)
   - 무기를 들고 있으면 바위·나무 체력바는 띄우지 않는다
 - [x] 체력·마나 (2026-10-09): 오른쪽 위(리더보드 아래)에 체력바, 그 아래 마나바, 그 아래 골드 (항상 보임, Roblox 기본 체력바는 끔. StatusHUD)
   - 마나: 플레이어 속성 Mana·MaxMana, 서버 ManaService. 스킬·차징 스매시(예정)·달리기에 쓴다. 안 쓰면 RegenDelay 뒤 Regen/초로 참
@@ -333,6 +333,24 @@ src/
   - 빠른 칸: 클라가 SaveHotbar로 보냄 → 들어올 때 플레이어 속성 SavedHotbar(쉼표로 이은 Id)
   - Studio는 StudioStoreName 저장소를 쓰고, 테스트 지급(Config.Debug의 주문서·음식·장비)은 처음 들어올 때만. Studio 저장은 게임 게시 + Game Settings → Security → Enable Studio Access to API Services 필요
 - [x] 줍는 조각 크기 키움 (Config.HitFeel.PickupSizeMin·Max, 2026-10-09)
+- [x] 몹 구역·안전지대·사이클롭스·보스 몹 (2026-10-09)
+  - 몹 구역(Config.MobZones): 구역마다 한 종류만 모여 산다 (슬라임 들판·슬라임 언덕·스켈레톤 무덤·좀비 숲·케르베로스 굴·사이클롭스 골짜기). 마을에서 멀수록 센 몹. 제작 스크립트가 시작 때 구역 가운데(서로 ZoneGap 이상)와 생성 자리(속성 MobType·Zone·BossSpot)를 고른다
+  - 마을 안전지대: TownArrival·ShopNPC 둘레 Config.MobAI.SafeZoneRadius 안에는 몹이 안 생기고(생성 자리는 SafeZoneSpawnMargin 더 바깥), 몹이 들어가려 하면 쫓기를 포기하고 집으로 돌아간다. 안전지대 안 플레이어는 노리지 않는다
+  - 슬라임(Config.Mobs.Slime.Passive): 먼저 공격 안 함, 피해 0. 맞으면 FleeTime초 동안 때린 사람 반대쪽으로 FleeSpeed배 빠르게 도망친 뒤 진정. 구역 두 곳에 30마리
+  - 버그베어 → 사이클롭스(큰 눈 하나·짧은 뿔·나무 몽둥이, 플레이어 키의 약 1.9배). 전리품 "사이클롭스 눈알"(CyclopsEye)로 바뀌어 다이아몬드 장비·철퇴 재료도 이것. 예전 저장의 버그베어 털은 Unknown에 보관됨
+  - 보스 몹(Config.MobBoss): 생길 때 Chance(보스 자리는 SpotChance)로 1.5~3배 크기(Model:ScaleTo). 체력·공격·골드·전리품이 크기에 비례, 공격 거리도 몸만큼 늘어남, 다시 나오기는 RespawnMultiplier배 늦게. 모델 속성 Boss·BossScale → 체력바 "👑 보스 ~" 금색 이름 + 큰 체력바. 슬라임 보스도 도망만 친다
+- [x] 보스 바위·나무 (2026-10-09): 생길 때 Config.BossNodes.Chance로 1.5~3배 크기(Model:ScaleTo), 체력 크기^2배, 산출량 크기^1.5배. 속성 Boss·ExtraReach(커진 만큼 더 멀리서 침, 서버 AntiCheat 거리에도 더함). 체력바 이름 "👑 보스 ~" 금색. 나무는 HitRadius도 같이 커짐
+- [x] 광산 광석: MineScale(1.4)배로 키우고, 옆으로 광선을 쏴 벽 속에 묻힌 만큼 밀어낸 뒤 다시 땅에 맞춘다 (OreService.pushOutOfWalls)
+- [x] 배경음악 (MusicController, Config.Music): 밖에서 잔잔한 곡을 차례로, 광산에선 줄임. 곡 Id는 팬 사이트에서 찾은 값이라 안 나오면 Creator Store 곡으로 교체
+- [x] 활 화살·화살통 (2026-10-09)
+  - 장비 칸 8개: 무기 다음에 "방패" 칸(Slot Shield). 지금은 화살통만 들어간다 (EquipmentDefs.QuiverOrder, Order와 따로 둬서 장비 아이콘 제작 스크립트에 안 섞임). 가방 분류 "무기"
+  - 나무 화살통(화살 30) / 철 화살통(화살 60). 사냥꾼 "활" 탭 아래에서 통나무 잔뜩 + 골드 조금 (Config.Quiver.Items, ShopAction "BuyQuiver"). 여러 개 살 수 있고, 안 끼고 있으면 사자마자 낀다
+  - 서버 EquipmentService가 끼운 화살통의 남은 화살을 센다 (속성 Arrows). 활 한 발에 1개 (CombatService → useArrow). 몹 없이 쏜 화살도 AttackRequest(nil)로 1개. 화살이 없으면 클라가 쏘지 않고 "화살통이 필요해요"/"화살이 없어요"
+  - 0개가 되면 화살통이 가방에서 사라지고 "화살을 다 썼어요", 가방에 다른 화살통이 있으면 저절로 바꿔 낀다. 덜 쓴 화살통을 빼면 종류마다 남은 수를 기억(stash)해서 다시 끼우면 그 수로
+  - 저장: DataService 칸 "Quivers" = { Arrows(끼운 것), Stash }
+  - 모양: GearVisualService가 등에 비스듬히(Config.Quiver.Tilt) 가죽 화살통 + 금속 입구 테·띠·바느질 + 가슴을 가로지르는 어깨끈·버클. 화살(나무대 + 빨강/파랑·흰 깃)이 min(남은 수, 7)개 꽂혀 보이고 줄면 같이 줄어든다
+  - 아이콘: Studio 아이콘 모델이 없으면 ItemIcon이 부품으로 화살통 아이콘을 짓는다. 장비 창 방패 칸에 "🏹남은 수"
+  - Studio 테스트: Config.Debug.GiveQuivers(처음 들어올 때 종류마다 지급)
 - [ ] 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)

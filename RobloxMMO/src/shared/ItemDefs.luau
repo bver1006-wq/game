@@ -40,7 +40,7 @@ local ItemDefs: { [string]: ItemDef } = {
 	Bone = { Id = "Bone", DisplayName = "뼈다귀", Category = "Etc", Stackable = true, Icon = "Bone", Color = Color3.fromRGB(240, 235, 220) },
 	OldCloth = { Id = "OldCloth", DisplayName = "낡은 천", Category = "Etc", Stackable = true, Icon = "OldCloth", Color = Color3.fromRGB(90, 110, 150) },
 	CerberusFang = { Id = "CerberusFang", DisplayName = "케르베로스 송곳니", Category = "Etc", Stackable = true, Icon = "CerberusFang", Color = Color3.fromRGB(250, 245, 230) },
-	BugbearFur = { Id = "BugbearFur", DisplayName = "버그베어 털", Category = "Etc", Stackable = true, Icon = "BugbearFur", Color = Color3.fromRGB(140, 95, 60) },
+	CyclopsEye = { Id = "CyclopsEye", DisplayName = "사이클롭스 눈알", Category = "Etc", Stackable = true, Icon = "CyclopsEye", Color = Color3.fromRGB(255, 200, 60) },
 	-- 도구: 음식 (먹으면 체력·마나를 채운다, 수치는 Config.Foods)
 	Bread = { Id = "Bread", DisplayName = "빵", Category = "Tool", Stackable = true, Usable = true, Icon = "Bread", Color = Color3.fromRGB(210, 160, 90) },
 	ManaBerry = { Id = "ManaBerry", DisplayName = "마나 베리", Category = "Tool", Stackable = true, Usable = true, Icon = "ManaBerry", Color = Color3.fromRGB(90, 130, 255) },
@@ -81,7 +81,7 @@ local ORDER = {
 	"StoneAxe", "CopperAxe", "IronAxe", "DiamondAxe", "ReturnScroll", "Bread", "ManaBerry", "LunchBox",
 	"Stone", "Coal", "CopperOre", "IronOre", "CopperIngot", "IronIngot", "SteelIngot",
 	"Pine", "Oak", "Birch", "Maple", "Ebony",
-	"SlimeJelly", "Bone", "OldCloth", "CerberusFang", "BugbearFur",
+	"SlimeJelly", "Bone", "OldCloth", "CerberusFang", "CyclopsEye",
 }
 
 -- 장비 아이템을 더한다 (무기 다음 순서)
@@ -89,6 +89,14 @@ for index, id in EquipmentDefs.Order do
 	local def = EquipmentDefs.Items[id]
 	ItemDefs[id] = { Id = id, DisplayName = def.DisplayName, Category = "Armor", Stackable = false, Icon = id, Color = def.Color }
 	table.insert(ORDER, 12 + index, id)
+end
+
+-- 화살통(방패 칸 장비)을 더한다: 분류 "무기", 활 바로 다음 순서. 아이콘 모델이 없으면 ItemIcon이 부품으로 그린다
+local quiverAt = (table.find(ORDER, "DiamondBow") or 0) + 1
+for index, id in EquipmentDefs.QuiverOrder do
+	local def = EquipmentDefs.Items[id]
+	ItemDefs[id] = { Id = id, DisplayName = def.DisplayName, Category = "Weapon", Stackable = false, Icon = id, Color = def.Color }
+	table.insert(ORDER, quiverAt + index - 1, id)
 end
 
 -- 가방 분류 탭 (순서대로 표시). Category가 nil이면 전체

@@ -55,7 +55,7 @@ local function computeRewards(state: RockState, feverPlayer: Player?, feverMulti
 	local rewards: { [number]: number } = {}
 	for userId, damage in state.Contributions do
 		local share = if totalDamage > 0 then damage / totalDamage else 0
-		rewards[userId] = math.max(math.round(base * share), reward.MinPerContributor)
+		rewards[userId] = math.max(math.round(base * state.RewardMultiplier * share), reward.MinPerContributor)
 	end
 	if feverPlayer and feverMultiplier > 1 then
 		local own = rewards[feverPlayer.UserId] or reward.MinPerContributor
@@ -156,7 +156,7 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 		return
 	end
 	-- 거리, 쿨다운 (쿨다운은 다른 검사를 통과한 뒤에 소모한다)
-	if not AntiCheatService.isInRange(player, state.Position) then
+	if not AntiCheatService.isInRange(player, state.Position, state.ExtraReach) then
 		return
 	end
 	-- 다른 사람이 캐는 중이면 못 친다

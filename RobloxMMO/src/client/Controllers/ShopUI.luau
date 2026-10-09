@@ -211,6 +211,36 @@ local function drawEquipment(slots: { string })
 	end
 end
 
+-- 활 탭 아래: 화살통 (방패 칸, 등에 멘다). 화살을 다 쓰면 사라져서 여러 개 살 수 있다
+local function drawQuivers(startOrder: number)
+	local gold = InventoryState.get().Gold
+	local header = UiKit.row(content, 30, startOrder)
+	header.BackgroundTransparency = 1
+	UiKit.label(header, "화살통 — 활은 화살이 있어야 쏴요 (한 발에 1개)", UDim2.new(1, -10, 1, 0), UDim2.fromOffset(6, 0), UiKit.Colors.Gold, 14)
+	for index, itemId in EquipmentDefs.QuiverOrder do
+		local def = EquipmentDefs.Items[itemId]
+		local quiver = (Config.Quiver.Items :: any)[itemId]
+		if quiver then
+			local price = quiver.Price
+			local canAfford = gold >= price.Gold
+			for id, amount in price.Items do
+				if InventoryState.count(id) < amount then
+					canAfford = false
+				end
+			end
+			local owned = InventoryState.count(itemId)
+			local row = UiKit.row(content, 68, startOrder + index)
+			iconBox(row, itemId, 54)
+			UiKit.label(row, def.DisplayName, UDim2.new(1, -200, 0, 22), UDim2.fromOffset(70, 6), UiKit.Colors.Text, 16)
+			UiKit.label(row, `화살 {quiver.Arrows}개 · 방패 칸 · 가진 개수 {owned}`, UDim2.new(1, -200, 0, 18), UDim2.fromOffset(70, 28), Color3.fromRGB(150, 220, 150), 12)
+			UiKit.label(row, `{price.Gold}G + {describeItems(price.Items)}`, UDim2.new(1, -200, 0, 18), UDim2.fromOffset(70, 46), UiKit.Colors.SubText, 12)
+			UiKit.button(row, if canAfford then "구매" else "부족", UDim2.fromOffset(110, 40), UDim2.new(1, -120, 0, 12), function()
+				send("BuyQuiver", itemId)
+			end, canAfford)
+		end
+	end
+end
+
 -- 팔기 탭: 가진 광석·괴와 가격, "1개 / 모두" 버튼
 local function drawSell()
 	local order = 1
@@ -300,6 +330,9 @@ local function redraw()
 		drawTools("Pickaxe")
 	elseif tabId == "Axe" or tabId == "Sword" or tabId == "Bow" or tabId == "Club" then
 		drawTools(tabId)
+		if tabId == "Bow" then
+			drawQuivers(100)
+		end
 	elseif tabId == "ArmorGear" then
 		drawEquipment({ "Helmet", "Armor", "Boots", "Gloves" })
 	elseif tabId == "Accessory" then

@@ -1,5 +1,5 @@
 --!nocheck
--- Studio 제작 스크립트 2: 무기 12종·몹 5종 모델, 아이콘, 몹 생성 자리.
+-- Studio 제작 스크립트 2: 무기 12종·몹 5종 모델(슬라임·스켈레톤·좀비·케르베로스·사이클롭스), 아이콘, 몹 구역·생성 자리.
 -- Rojo가 ServerStorage/StudioTools/BuildWeaponsAndMobs(ModuleScript)로 넣고, 서버(Main.server)가 게임을 시작할 때마다 실행한다.
 -- 편집 상태에서 직접 실행하려면 명령 모음에: require(game.ServerStorage.StudioTools.BuildWeaponsAndMobs:Clone())
 --
@@ -9,7 +9,8 @@
 --      좌표: x = 앞(곡괭이 머리 방향), y = 자루를 따라 위, 원점 = 손이 쥐는 점
 --   2. 몹 모델 5종 → ServerStorage/Templates/Mobs/<몹> (고정된 Root 부품 + 용접된 몸, 앞 = -Z, 기준점 = 발밑)
 --   3. 아이콘 → ReplicatedStorage/ItemIcons (무기 12종 + 전리품 5종 + 음식 3종)
---   4. 몹 생성 자리 → Workspace/MobSpawns (속성 MobType). 마을(TownArrival)에서 Config.Mobs의 거리 띠 안 땅에 고른다
+--   4. 몹 생성 자리 → Workspace/MobSpawns (속성 MobType·Zone·BossSpot). Config.MobZones의 구역마다 한 종류씩 모아 두고,
+--      마을 안전지대(TownArrival·ShopNPC 둘레 Config.MobAI.SafeZoneRadius) 바깥에만 둔다
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -644,27 +645,72 @@ MOBS.Cerberus = function(k)
 	k.ball("TailFlame", 0.5, Vector3.new(0, 2.75, 2.2), C(255, 140, 50), NEON)
 end
 
-MOBS.Bugbear = function(k)
-	local fur = C(150, 100, 65)
-	local belly = C(225, 190, 140)
-	k.blob("Body", Vector3.new(2.6, 2.6, 2.2), Vector3.new(0, 1.7, 0), fur, Enum.Material.Fabric)
-	k.blob("Belly", Vector3.new(1.8, 1.8, 0.4), Vector3.new(0, 1.6, -1.0), belly, Enum.Material.Fabric)
-	k.blob("Head", Vector3.new(1.9, 1.7, 1.7), Vector3.new(0, 3.5, -0.2), fur, Enum.Material.Fabric)
-	k.blob("Muzzle", Vector3.new(0.9, 0.6, 0.5), Vector3.new(0, 3.25, -1.0), belly)
-	k.ball("Nose", 0.3, Vector3.new(0, 3.4, -1.25), C(30, 25, 25))
-	k.eyes(0.42, 3.75, -0.95, 0.3)
-	k.blush(0.7, 3.35, -0.95, 0.35)
+-- 사이클롭스: 커다란 눈 하나, 짧은 뿔, 나무 몽둥이. 플레이어보다 훨씬 커서 조금 무섭게 (높이 약 7, Config.Mobs.Cyclops.Scale배)
+MOBS.Cyclops = function(k)
+	local skin = C(150, 160, 120)
+	local light = C(185, 190, 150)
+	local dark = C(95, 100, 75)
+	local cloth = C(120, 85, 55)
+	local bone = C(240, 232, 210)
+	-- 다리·발
 	for _, side in { 1, -1 } do
-		k.ball("Ear", 0.6, Vector3.new(0.75 * side, 4.25, -0.1), fur)
-		k.ball("EarInner", 0.3, Vector3.new(0.75 * side, 4.25, -0.32), C(255, 170, 170))
-		k.box("Tusk", Vector3.new(0.12, 0.25, 0.12), CFrame.new(0.22 * side, 3.0, -1.18), C(255, 250, 235))
-		k.limb("Arm", Vector3.new(1.2 * side, 2.3, 0), Vector3.new(1.45 * side, 1.3, -0.4), 0.6, fur, Enum.Material.Fabric)
-		k.ball("Paw", 0.65, Vector3.new(1.47 * side, 1.2, -0.45), belly)
-		k.limb("Leg", Vector3.new(0.6 * side, 0.7, 0), Vector3.new(0.65 * side, 0.2, -0.1), 0.7, fur, Enum.Material.Fabric)
+		k.limb("Leg", Vector3.new(0.75 * side, 2.5, 0), Vector3.new(0.8 * side, 0.45, 0), 1.05, skin)
+		k.box("Foot", Vector3.new(1.05, 0.5, 1.45), CFrame.new(0.8 * side, 0.25, -0.2), dark)
 	end
-	-- 손에 든 작은 나무 몽둥이
-	k.limb("Club", Vector3.new(1.5, 1.1, -0.5), Vector3.new(1.75, 2.6, -1.2), 0.3, C(120, 80, 45), WOOD)
-	k.ball("ClubHead", 0.6, Vector3.new(1.8, 2.8, -1.3), C(120, 80, 45), WOOD)
+	-- 허리 가리개·벨트
+	k.box("Loincloth", Vector3.new(2.5, 0.9, 1.9), CFrame.new(0, 2.6, 0), cloth, Enum.Material.Fabric)
+	k.box("Belt", Vector3.new(2.6, 0.28, 2.0), CFrame.new(0, 3.0, 0), C(70, 45, 30), LEATHER)
+	k.box("Buckle", Vector3.new(0.45, 0.35, 0.1), CFrame.new(0, 3.0, -1.02), C(160, 150, 140), METAL)
+	-- 몸통·배
+	k.blob("Torso", Vector3.new(3.0, 2.8, 2.2), Vector3.new(0, 4.1, 0), skin)
+	k.blob("Belly", Vector3.new(2.0, 1.6, 0.5), Vector3.new(0, 3.75, -0.95), light)
+	-- 뼈 목걸이
+	for i = -2, 2 do
+		k.box("Fang", Vector3.new(0.18, 0.35, 0.12), CFrame.new(i * 0.32, 4.85 - math.abs(i) * 0.06, -1.0 + math.abs(i) * 0.08) * CFrame.Angles(0, 0, math.rad(i * 8)), bone)
+	end
+	-- 머리
+	k.ball("Head", 2.15, Vector3.new(0, 5.65, -0.05), skin)
+	for _, side in { 1, -1 } do
+		k.ball("Ear", 0.55, Vector3.new(1.05 * side, 5.65, 0), skin)
+	end
+	-- 커다란 눈 하나 (흰자 + 주황 눈동자 + 검은 동공 + 반짝임)
+	k.ball("EyeWhite", 1.15, Vector3.new(0, 5.8, -0.72), C(250, 250, 245))
+	k.ball("Iris", 0.62, Vector3.new(0, 5.8, -1.15), C(230, 120, 30))
+	k.ball("Pupil", 0.3, Vector3.new(0, 5.8, -1.38), C(20, 15, 20))
+	k.ball("Shine", 0.14, Vector3.new(0.12, 5.92, -1.48), C(255, 255, 255), NEON)
+	-- 찡그린 눈썹 (가운데가 내려간 V자)
+	for _, side in { 1, -1 } do
+		k.box("Brow", Vector3.new(0.75, 0.22, 0.3), CFrame.new(0.33 * side, 6.45, -0.82) * CFrame.Angles(0, 0, math.rad(18 * side)), dark)
+	end
+	-- 입과 아래 송곳니
+	k.blob("Mouth", Vector3.new(1.0, 0.28, 0.12), Vector3.new(0, 5.0, -0.98), C(60, 30, 35))
+	for _, side in { 1, -1 } do
+		k.box("Tusk", Vector3.new(0.16, 0.34, 0.16), CFrame.new(0.32 * side, 5.18, -1.0), bone)
+	end
+	-- 이마 위 짧은 뿔
+	k.limb("Horn", Vector3.new(0, 6.55, -0.15), Vector3.new(0, 7.05, -0.35), 0.38, bone)
+	k.ball("HornTip", 0.22, Vector3.new(0, 7.12, -0.38), bone)
+	-- 팔 (어깨 → 팔꿈치 → 손)
+	for _, side in { 1, -1 } do
+		k.ball("Shoulder", 1.0, Vector3.new(1.55 * side, 4.85, 0), skin)
+		k.limb("UpperArm", Vector3.new(1.6 * side, 4.8, 0), Vector3.new(1.9 * side, 3.5, -0.3), 0.85, skin)
+		k.limb("Forearm", Vector3.new(1.9 * side, 3.5, -0.3), Vector3.new(1.95 * side, 2.6, -0.7), 0.8, skin)
+		k.ball("Hand", 0.95, Vector3.new(1.95 * side, 2.5, -0.75), light)
+	end
+	-- 오른손의 커다란 나무 몽둥이 (끝에 돌 박힘)
+	local wood = C(115, 75, 40)
+	k.limb("Club", Vector3.new(1.95, 2.3, -0.75), Vector3.new(2.3, 4.4, -1.9), 0.42, wood, WOOD)
+	k.blob("ClubHead", Vector3.new(1.1, 1.7, 1.1), Vector3.new(2.38, 4.85, -2.15), wood, WOOD, nil, CFrame.Angles(math.rad(-30), 0, math.rad(-8)))
+	for i, offset in { Vector3.new(0.5, 0.2, 0), Vector3.new(-0.5, 0.4, 0), Vector3.new(0, 0.6, -0.5), Vector3.new(0, -0.1, 0.5) } do
+		k.box("Stud", Vector3.new(0.25, 0.25, 0.25), CFrame.new(Vector3.new(2.38, 4.85, -2.15) + offset) * CFrame.Angles(math.rad(i * 30), math.rad(i * 45), 0), C(130, 130, 135), Enum.Material.Slate)
+	end
+end
+
+-- 예전 버그베어 템플릿·아이콘은 사이클롭스로 바뀌어서 지운다
+for _, stale in { mobFolder:FindFirstChild("Bugbear"), iconFolder:FindFirstChild("BugbearFur") } do
+	if stale then
+		stale:Destroy()
+	end
 end
 
 local mobCount = 0
@@ -727,10 +773,13 @@ local LOOT_ICONS = {
 		part({ Name = "Lid", Size = Vector3.new(1.55, 0.2, 1.05), CFrame = CFrame.new(0, 0.42, 0), Color = C(245, 240, 230) }, m)
 		part({ Name = "Band", Size = Vector3.new(0.2, 0.75, 1.07), CFrame = CFrame.new(0, 0.05, 0), Color = C(250, 200, 60) }, m)
 	end,
-	BugbearFur = function(m)
-		for i = 0, 4 do
-			local p = part({ Name = "Tuft", Size = Vector3.new(0.5, 1.1, 0.5), CFrame = CFrame.new((i - 2) * 0.28, 0, 0) * CFrame.Angles(0, 0, math.rad((i - 2) * 12)), Color = C(150, 100, 65):Lerp(C(225, 190, 140), i % 2 * 0.3), Material = Enum.Material.Fabric }, m)
-			Instance.new("SpecialMesh", p).MeshType = Enum.MeshType.Sphere
+	CyclopsEye = function(m)
+		part({ Name = "White", Shape = Enum.PartType.Ball, Size = Vector3.new(1.3, 1.3, 1.3), Color = C(250, 250, 245) }, m)
+		part({ Name = "Iris", Shape = Enum.PartType.Ball, Size = Vector3.new(0.75, 0.75, 0.75), CFrame = CFrame.new(0, 0, -0.42), Color = C(230, 120, 30) }, m)
+		part({ Name = "Pupil", Shape = Enum.PartType.Ball, Size = Vector3.new(0.38, 0.38, 0.38), CFrame = CFrame.new(0, 0, -0.7), Color = C(20, 15, 20) }, m)
+		part({ Name = "Shine", Shape = Enum.PartType.Ball, Size = Vector3.new(0.16, 0.16, 0.16), CFrame = CFrame.new(0.15, 0.15, -0.82), Color = C(255, 255, 255), Material = NEON }, m)
+		for i = 0, 2 do -- 빨간 핏줄
+			part({ Name = "Vein", Size = Vector3.new(0.04, 0.35, 0.04), CFrame = CFrame.new(0.5 * math.cos(i * 2.1), 0.5 * math.sin(i * 2.1), -0.45) * CFrame.Angles(0, 0, i * 2.1), Color = C(220, 60, 60) }, m)
 		end
 	end,
 }
@@ -803,7 +852,9 @@ for _, id in EquipmentDefs.Order do
 	m.Parent = iconFolder
 end
 
----------------------------------------------------------------- 4. 몹 생성 자리
+---------------------------------------------------------------- 4. 몹 구역과 생성 자리
+-- 구역(Config.MobZones)마다 한 종류의 몹이 모여 산다. 마을에서 멀수록 센 몹.
+-- 마을 안전지대(TownArrival·ShopNPC 둘레 Config.MobAI.SafeZoneRadius + SafeZoneSpawnMargin) 안에는 자리를 두지 않는다.
 local spawns = folder(workspace, "MobSpawns")
 for _, child in spawns:GetChildren() do
 	if child:GetAttribute("GeneratedBy") == GENERATED then
@@ -814,21 +865,51 @@ end
 local town = CollectionService:GetTagged("TownArrival")[1]
 local center = if town and town:IsA("BasePart") then town.Position elseif town and town:IsA("Model") then town:GetPivot().Position else Vector3.zero
 
-local avoid = {}
-for _, tag in { "ShopNPC", "MinePortal", "TownArrival" } do
+-- 인스턴스 위치 (모델이면 기준점)
+local function positionOf(instance: Instance): Vector3?
+	if instance:IsA("Model") then
+		return instance:GetPivot().Position
+	elseif instance:IsA("BasePart") then
+		return instance.Position
+	end
+	return nil
+end
+
+local safePoints = {} -- 마을 안전지대 가운데들
+for _, tag in { "TownArrival", "ShopNPC" } do
 	for _, instance in CollectionService:GetTagged(tag) do
-		local position = if instance:IsA("Model") then instance:GetPivot().Position elseif instance:IsA("BasePart") then instance.Position else nil
+		local position = positionOf(instance)
 		if position then
-			table.insert(avoid, position)
+			table.insert(safePoints, position)
 		end
 	end
 end
+local obstacles = {} -- 광산 입구 같은 시설
+for _, instance in CollectionService:GetTagged("MinePortal") do
+	local position = positionOf(instance)
+	if position then
+		table.insert(obstacles, position)
+	end
+end
+local safeRadius = Config.MobAI.SafeZoneRadius + Config.MobAI.SafeZoneSpawnMargin
+local layout = Config.MobZoneLayout
+
+-- 안전지대(여유 extra 포함) 안인지. 높이는 무시한다
+local function nearTown(position: Vector3, extra: number): boolean
+	for _, point in safePoints do
+		if Vector3.new(position.X - point.X, 0, position.Z - point.Z).Magnitude < safeRadius + extra then
+			return true
+		end
+	end
+	return false
+end
+
 local zones = CollectionService:GetTagged("MineZone")
 local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
 params.FilterDescendantsInstances = { spawns, workspace:FindFirstChild("Ores"), workspace:FindFirstChild("OreSpawns"), workspace:FindFirstChild("Mobs") }
 
--- 몹이 설 수 있는 땅 (평평하고, 물·광산·마을 시설에서 떨어진 곳)
+-- 몹이 설 수 있는 땅 (평평하고, 물·광산·마을·시설에서 떨어진 곳)
 local function groundAt(x: number, z: number): Vector3?
 	local result = workspace:Raycast(Vector3.new(x, center.Y + 400, z), Vector3.new(0, -800, 0), params)
 	if not result or result.Normal.Y < 0.8 or result.Material == Enum.Material.Water then
@@ -846,44 +927,84 @@ local function groundAt(x: number, z: number): Vector3?
 			end
 		end
 	end
-	for _, position in avoid do
-		if (position - result.Position).Magnitude < 25 then
+	if nearTown(result.Position, 0) then
+		return nil
+	end
+	for _, position in obstacles do
+		if (position - result.Position).Magnitude < layout.ObstacleGap then
 			return nil
 		end
 	end
 	return result.Position
 end
 
+-- 구역 가운데를 고른다: 마을에서 Distance 범위, 다른 구역과 ZoneGap 이상 떨어진 땅. 못 찾으면 간격을 줄여 다시
+local zoneCenters = {}
+local function pickZoneCenter(zone): Vector3?
+	for _, gap in { layout.ZoneGap, layout.ZoneGap * 0.6, 0 } do
+		for _ = 1, 300 do
+			local angle = random:NextNumber(0, math.pi * 2)
+			local distance = random:NextNumber(zone.Distance[1], zone.Distance[2])
+			local ground = groundAt(center.X + math.cos(angle) * distance, center.Z + math.sin(angle) * distance)
+			local free = ground ~= nil and not nearTown(ground, zone.Radius * 0.3)
+			if free and ground then
+				for _, other in zoneCenters do
+					if (other - ground).Magnitude < gap then
+						free = false
+						break
+					end
+				end
+			end
+			if free and ground then
+				return ground
+			end
+		end
+	end
+	return nil
+end
+
 local placed = {}
 local summary = {}
-for mobType, config in Config.Mobs do
+for index, zone in Config.MobZones do
+	local zoneCenter = pickZoneCenter(zone)
+	if not zoneCenter then
+		table.insert(summary, `{zone.Name} 자리 없음`)
+		continue
+	end
+	table.insert(zoneCenters, zoneCenter)
 	local made = 0
-	for _ = 1, 400 do
-		if made >= config.Count then
+	for _ = 1, zone.Count * 40 do
+		if made >= zone.Count then
 			break
 		end
+		-- 구역 원 안에 고르게 (가운데에 몰리지 않게 sqrt)
 		local angle = random:NextNumber(0, math.pi * 2)
-		local distance = math.sqrt(random:NextNumber(config.MinDistance ^ 2, config.MaxDistance ^ 2))
-		local ground = groundAt(center.X + math.cos(angle) * distance, center.Z + math.sin(angle) * distance)
+		local r = zone.Radius * math.sqrt(random:NextNumber())
+		local ground = groundAt(zoneCenter.X + math.cos(angle) * r, zoneCenter.Z + math.sin(angle) * r)
 		local free = ground ~= nil
 		if ground then
 			for _, other in placed do
-				if (other - ground).Magnitude < 10 then
+				if (other - ground).Magnitude < layout.SpawnGap then
 					free = false
 					break
 				end
 			end
 		end
 		if free and ground then
-			local p = part({ Name = `{mobType}Spawn`, Size = Vector3.new(2, 1, 2), CFrame = CFrame.new(ground + Vector3.new(0, 1, 0)), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false }, spawns)
-			p:SetAttribute("MobType", mobType)
+			local p = part({ Name = `{zone.MobType}Spawn`, Size = Vector3.new(2, 1, 2), CFrame = CFrame.new(ground + Vector3.new(0, 1, 0)), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false }, spawns)
+			p:SetAttribute("MobType", zone.MobType)
+			p:SetAttribute("Zone", zone.Name)
+			p:SetAttribute("ZoneIndex", index)
+			if made < (zone.BossSpots or 0) then
+				p:SetAttribute("BossSpot", true) -- 보스가 잘 나오는 자리 (Config.MobBoss.SpotChance)
+			end
 			p:SetAttribute("GeneratedBy", GENERATED)
 			table.insert(placed, ground)
 			made += 1
 		end
 	end
-	table.insert(summary, `{mobType} {made}`)
+	table.insert(summary, `{zone.Name}({zone.MobType}) {made}마리 @ {math.floor((zoneCenter - center).Magnitude)}`)
 end
-print(`[BuildWeaponsAndMobs] 몹 생성 자리: {table.concat(summary, ", ")}`)
+print(`[BuildWeaponsAndMobs] 몹 구역: {table.concat(summary, ", ")}`)
 
 return true

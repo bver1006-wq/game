@@ -152,8 +152,21 @@ Config.Equipment = {
 		{ Gold = 40, Items = { OldCloth = 3 } },
 		{ Gold = 150, Items = { CopperIngot = 3, Bone = 2 } },
 		{ Gold = 500, Items = { IronIngot = 4, CerberusFang = 2 } },
-		{ Gold = 1800, Items = { SteelIngot = 5, BugbearFur = 3 } },
+		{ Gold = 1800, Items = { SteelIngot = 5, CyclopsEye = 3 } },
 	},
+}
+
+-- 화살통 (2026-10-09 사용자 요청): 방패 칸에 끼우고 등에 멘다. 활은 끼운 화살통에 화살이 있어야 쏘고, 한 발에 1개씩 준다
+-- 화살이 0이 되면 화살통이 가방에서 사라지고, 가방에 다른 화살통이 있으면 저절로 바꿔 낀다. 능력치는 없음
+-- 사냥꾼 "활" 탭에서 통나무를 잔뜩 + 골드 조금 (만들기는 조금 귀찮게, 사냥은 조금 편하게). TODO(미정): 임시값
+Config.Quiver = {
+	Items = {
+		WoodQuiver = { Arrows = 30, Price = { Gold = 10, Items = { Pine = 20 } } },
+		IronQuiver = { Arrows = 60, Price = { Gold = 40, Items = { Oak = 30, IronIngot = 2 } } },
+	},
+	VisibleArrows = 7, -- 등의 화살통에 꽂혀 보이는 화살 수 (남은 화살이 이보다 적으면 그만큼만)
+	NoticeInterval = 1.5, -- "화살이 없어요" 알림을 다시 띄우기까지(초)
+	Tilt = 25, -- 등에 비스듬히 메는 각도(도). 화살 끝이 오른쪽 어깨 위로 나온다
 }
 
 -- 장비 겉모습 (GearVisualService): 끼운 장비가 캐릭터 몸에 보인다. 크기는 전부 몸 부위 크기에 대한 배율
@@ -222,7 +235,7 @@ Config.Weapons = {
 	BaseballBat = { Damage = 12, Cooldown = 0.9, Range = 6.5, Knockback = 4, Price = { Gold = 30, Items = { Oak = 5 } } },
 	GoblinClub = { Damage = 20, Cooldown = 0.9, Range = 6.5, Knockback = 5, Price = { Gold = 120, Items = { CopperIngot = 3, Oak = 4 } } },
 	MorningStar = { Damage = 31, Cooldown = 0.9, Range = 7, Knockback = 6, Price = { Gold = 400, Items = { IronIngot = 6, Bone = 5 } } },
-	DiamondMace = { Damage = 48, Cooldown = 0.9, Range = 7.5, Knockback = 8, Price = { Gold = 1500, Items = { SteelIngot = 7, BugbearFur = 3 } } },
+	DiamondMace = { Damage = 48, Cooldown = 0.9, Range = 7.5, Knockback = 8, Price = { Gold = 1500, Items = { SteelIngot = 7, CyclopsEye = 3 } } },
 }
 
 -- 전투 공통 수치
@@ -249,13 +262,51 @@ Config.Combat = {
 -- 몹 수치 (정의는 MobDefs). TODO(미정): 임시값
 -- Hp 체력, Damage 한 번에 플레이어에게 주는 피해(플레이어 체력 100), AttackInterval 공격 간격(초), AttackRange 공격 거리
 -- Speed 이동 속도(스터드/초), Aggro 플레이어를 알아채는 거리, Gold 골드 범위, Loot 전리품 개수 범위, Respawn 다시 나오는 시간(초)
--- Count 맵에 사는 수, MinDistance~MaxDistance 마을 중심에서의 거리(제작 스크립트가 이 띠 안에 생성 자리를 고른다)
+-- Scale 모델 크기 배율. 생성 자리·마리 수는 Config.MobZones (몹 구역)
+-- Passive = true면 먼저 공격하지 않고, 맞으면 FleeTime초 동안 때린 사람 반대쪽으로 Speed × FleeSpeed로 도망친다 (피해 0)
 Config.Mobs = {
-	Slime = { Hp = 20, Damage = 5, AttackInterval = 1.5, AttackRange = 3.5, Speed = 7, Aggro = 18, Gold = { 2, 5 }, Loot = { 1, 2 }, Respawn = 12, Count = 8, MinDistance = 45, MaxDistance = 110, Scale = 0.9 },
-	Skeleton = { Hp = 40, Damage = 8, AttackInterval = 1.4, AttackRange = 4, Speed = 9, Aggro = 22, Gold = { 5, 9 }, Loot = { 1, 2 }, Respawn = 18, Count = 5, MinDistance = 95, MaxDistance = 170, Scale = 1 },
-	Zombie = { Hp = 55, Damage = 10, AttackInterval = 1.6, AttackRange = 4, Speed = 6, Aggro = 20, Gold = { 7, 12 }, Loot = { 1, 2 }, Respawn = 18, Count = 5, MinDistance = 95, MaxDistance = 170, Scale = 1 },
-	Cerberus = { Hp = 90, Damage = 14, AttackInterval = 1.2, AttackRange = 4.5, Speed = 13, Aggro = 26, Gold = { 14, 24 }, Loot = { 1, 2 }, Respawn = 30, Count = 3, MinDistance = 160, MaxDistance = 240, Scale = 1.1 },
-	Bugbear = { Hp = 140, Damage = 18, AttackInterval = 1.8, AttackRange = 5.5, Speed = 10, Aggro = 24, Gold = { 25, 40 }, Loot = { 1, 3 }, Respawn = 45, Count = 2, MinDistance = 190, MaxDistance = 260, Scale = 1.4 },
+	Slime = { Hp = 20, Damage = 0, AttackInterval = 1.5, AttackRange = 3.5, Speed = 7, Aggro = 18, Gold = { 2, 5 }, Loot = { 1, 2 }, Respawn = 10, Scale = 0.9, Passive = true, FleeTime = 4, FleeSpeed = 1.5 },
+	Skeleton = { Hp = 40, Damage = 8, AttackInterval = 1.4, AttackRange = 4, Speed = 9, Aggro = 22, Gold = { 5, 9 }, Loot = { 1, 2 }, Respawn = 18, Scale = 1 },
+	Zombie = { Hp = 55, Damage = 10, AttackInterval = 1.6, AttackRange = 4, Speed = 6, Aggro = 20, Gold = { 7, 12 }, Loot = { 1, 2 }, Respawn = 18, Scale = 1 },
+	Cerberus = { Hp = 90, Damage = 14, AttackInterval = 1.2, AttackRange = 4.5, Speed = 13, Aggro = 26, Gold = { 14, 24 }, Loot = { 1, 2 }, Respawn = 30, Scale = 1.1 },
+	-- 사이클롭스: 플레이어 키의 약 1.9배 (모델 높이 약 7.2 × Scale 1.4 ≈ 10스터드)
+	Cyclops = { Hp = 160, Damage = 18, AttackInterval = 1.8, AttackRange = 6.5, Speed = 9, Aggro = 26, Gold = { 25, 40 }, Loot = { 1, 3 }, Respawn = 45, Scale = 1.4 },
+}
+
+-- 몹 구역 (2026-10-09): 구역마다 한 종류의 몹이 모여 산다. 마을에서 멀수록 센 몹
+-- Distance 마을 중심(TownArrival)에서 구역 가운데까지 거리 범위, Radius 구역 반경, Count 생성 자리 수
+-- BossSpots 구역마다 보스가 잘 나오는 자리 수 (Config.MobBoss.SpotChance)
+-- 제작 스크립트(studio/BuildWeaponsAndMobs)가 게임 시작 때 구역 가운데와 생성 자리를 고른다
+Config.MobZones = {
+	{ Name = "슬라임 들판", MobType = "Slime", Count = 16, Distance = { 75, 115 }, Radius = 30, BossSpots = 1 },
+	{ Name = "슬라임 언덕", MobType = "Slime", Count = 14, Distance = { 80, 125 }, Radius = 26, BossSpots = 1 },
+	{ Name = "스켈레톤 무덤", MobType = "Skeleton", Count = 7, Distance = { 125, 175 }, Radius = 24, BossSpots = 1 },
+	{ Name = "좀비 숲", MobType = "Zombie", Count = 7, Distance = { 125, 175 }, Radius = 24, BossSpots = 1 },
+	{ Name = "케르베로스 굴", MobType = "Cerberus", Count = 4, Distance = { 180, 230 }, Radius = 22, BossSpots = 1 },
+	{ Name = "사이클롭스 골짜기", MobType = "Cyclops", Count = 3, Distance = { 215, 270 }, Radius = 24, BossSpots = 1 },
+}
+Config.MobZoneLayout = {
+	ZoneGap = 70, -- 구역 가운데끼리 최소 거리 (서로 섞이지 않게)
+	SpawnGap = 7, -- 생성 자리끼리 최소 거리
+	ObstacleGap = 25, -- 광산 입구 같은 시설에서 떨어질 거리
+}
+
+-- 보스 몹 (2026-10-09): 생성(다시 생성 포함)될 때마다 Chance 확률로 보스가 된다. 보스 자리는 SpotChance
+-- 크기 = Scale 범위에서 랜덤. 체력 × HpPerScale × 크기, 공격 × DamagePerScale × 크기, 골드 × GoldPerScale × 크기, 전리품 × LootPerScale × 크기
+Config.MobBoss = {
+	Chance = 0.04,
+	SpotChance = 0.5,
+	Scale = { 1.5, 3 },
+	HpPerScale = 2.5, -- 크기 2배면 체력 5배
+	DamagePerScale = 0.8, -- 크기 2배면 공격 1.6배
+	GoldPerScale = 2.5,
+	LootPerScale = 1.5,
+	SpeedMultiplier = 0.85, -- 덩치가 커서 조금 느리다
+	RespawnMultiplier = 2, -- 보스를 잡은 자리는 더 늦게 다시 나온다
+	NamePrefix = "👑 보스 ",
+	NameColor = Color3.fromRGB(255, 205, 60),
+	HpBarScale = 1.6, -- 체력바 크기 배율
+	HpBarRangeMultiplier = 2, -- 체력바가 보이는 거리 배율
 }
 Config.MobAI = {
 	TickRate = 15, -- 1초에 몇 번 생각하고 움직이는지
@@ -266,6 +317,9 @@ Config.MobAI = {
 	WalkBob = 0.15, -- 걸을 때 위아래 흔들림
 	LungeDistance = 0.8, -- 공격할 때 앞으로 들이받는 거리
 	KnockbackTime = 0.2, -- 방망이에 맞아 밀려나는 시간(초)
+	-- 마을 안전지대: 마을 도착점(TownArrival)과 NPC(ShopNPC) 둘레 이 반경(스터드) 안에는 몹이 생기지 않고 들어오지도 않는다
+	SafeZoneRadius = 55,
+	SafeZoneSpawnMargin = 20, -- 생성 자리는 안전지대 바깥으로 이만큼 더 떨어뜨린다
 }
 
 -- 가방: 칸 단위. 쌓이는 아이템(광석·괴)은 한 칸에 MaxStack개까지, 도구는 1개가 1칸
@@ -300,6 +354,7 @@ Config.Debug = {
 	StartSlots = 60, -- Studio 테스트 때 가방 칸 수 (도구·무기·장비를 전부 받으면 45칸이 넘는다)
 	GiveAllEquipment = true, -- Studio에서 들어오면 장비 24종을 전부 지급 (테스트용)
 	GiveFoods = 5, -- Studio에서 들어오면 음식을 종류마다 이만큼 지급. 테스트 끝나면 0
+	GiveQuivers = 1, -- Studio에서 처음 들어오면 화살통을 종류마다 이만큼 지급. 테스트 끝나면 0
 }
 
 -- 귀환 주문서: 쓰면 CastTime초 뒤 마을(태그 TownArrival)로 돌아간다. 그사이 움직이면 취소
@@ -334,7 +389,7 @@ Config.SellPrices = {
 	Bone = 4,
 	OldCloth = 5,
 	CerberusFang = 12,
-	BugbearFur = 20,
+	CyclopsEye = 20,
 }
 
 -- 대장장이 제련: 재료 + 수수료(골드) → 결과 1개
@@ -408,6 +463,18 @@ Config.OreSpawn = {
 	FallbackDrop = 2, -- 땅을 못 찾으면 스폰 파트에서 이만큼 아래를 땅으로 본다 (스터드)
 	SinkDepth = 0.15, -- 바위를 땅에 살짝 묻어 떠 보이지 않게 (스터드)
 	TreeSinkDepth = 0.6, -- 나무는 비탈에서도 밑동이 뜨지 않게 더 묻는다 (스터드)
+	-- 광산(Floor 1 이상) 광석: 벽 속에 묻혀 작아 보이던 문제 (2026-10-09)
+	MineScale = 1.4, -- 광산 광석 크기 배수
+	WallGap = 0.4, -- 벽에서 밀어낼 때 띄우는 틈 (스터드)
+}
+
+-- 보스 바위·나무 (2026-10-09 사용자 요청): 가끔 크고 단단하고 많이 주는 노드가 나온다
+Config.BossNodes = {
+	Chance = 0.07, -- 생길 때 보스일 확률
+	ScaleMin = 1.5, -- 크기 배수 범위
+	ScaleMax = 3,
+	HpExponent = 2, -- 체력 = 원래 × 크기^HpExponent (1.5배 → 2.25배, 3배 → 9배)
+	RewardExponent = 1.5, -- 산출량 = 원래 × 크기^RewardExponent (1.5배 → 1.8배, 3배 → 5.2배)
 }
 
 -- 바위 하나당 산출량: 랜덤 BaseMin~BaseMax개 (판정과 상관없음)
@@ -511,6 +578,20 @@ Config.HitFeel = {
 		[3] = { Color = Color3.fromRGB(225, 230, 240), Chunks = 6, Ring = 5, Shake = 1.45, Sparkle = false },
 		[4] = { Color = Color3.fromRGB(110, 235, 255), Chunks = 9, Ring = 7, Shake = 1.75, Sparkle = true },
 	},
+}
+
+-- 배경음악 (2026-10-09, MusicController). 밖에서 차례로 틀고 광산에서는 줄인다
+-- TODO: 곡 Id는 팬 사이트 목록에서 고른 잔잔한 곡(Spirit LoFi "Calm Waves"·"Easy Flow", APM "Ruins of Tomorrow"). 안 나오면 Creator Store에서 찾아 바꾸기
+Config.Music = {
+	Tracks = {
+		"rbxassetid://76350635489391", -- Calm Waves
+		"rbxassetid://140319470451829", -- Easy Flow
+		"rbxassetid://111916174750874", -- Ruins of Tomorrow (APM)
+	},
+	Volume = 0.25, -- 밖에서 볼륨
+	MineVolume = 0, -- 광산 안 볼륨 (광산 배경음이 따로 있다)
+	FadeTime = 2, -- 볼륨이 바뀌는 시간(초)
+	GapBetweenTracks = 3, -- 곡 사이 쉬는 시간(초)
 }
 
 -- 사운드 에셋 ID (Creator Store 무료 사운드). 빈 값이면 재생하지 않는다

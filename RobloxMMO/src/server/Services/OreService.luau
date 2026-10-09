@@ -35,6 +35,9 @@ export type RockState = {
 	LastHit: number, -- 마지막으로 맞은 시각 (자연 회복용)
 	Owner: number?, -- 주인 UserId (OwnershipService)
 	OwnerAt: number,
+	Boss: boolean, -- 보스 바위·나무 (크고 단단하고 많이 준다)
+	RewardMultiplier: number, -- 산출량 배수 (보스면 1보다 크다)
+	ExtraReach: number, -- 커진 만큼 더 멀리서 칠 수 있게 (스터드)
 	Weakpoint: Vector3?, -- 7단계(약점)부터 사용. 바위 기준 약점 방향
 }
 
@@ -94,6 +97,39 @@ local function findGroundY(spawnPart: BasePart): number
 	return spawnPart.Position.Y - spawnConfig.FallbackDrop
 end
 
+-- 바위를 벽에서 밀어낸다: 옆으로 광선을 쏴서 반지름보다 가까운 벽만큼 반대로 옮기고, 다시 땅에 맞춘다
+local function pushOutOfWalls(rock: Model, cframe: CFrame): CFrame
+	local boxCFrame, size = rock:GetBoundingBox()
+	local radius = math.max(size.X, size.Z) / 2 + Config.OreSpawn.WallGap
+	local push = Vector3.zero
+	for _, heightRatio in { -0.25, 0.15 } do
+		local center = boxCFrame.Position + Vector3.new(0, size.Y * heightRatio, 0)
+		for step = 0, 11 do
+			local angle = step * math.pi / 6
+			local direction = Vector3.new(math.cos(angle), 0, math.sin(angle))
+			local result = Workspace:Raycast(center, direction * radius, groundParams)
+			if result then
+				push -= direction * (radius - result.Distance) / 2
+			end
+		end
+	end
+	if push.Magnitude < 0.05 then
+		return cframe
+	end
+	if push.Magnitude > radius then
+		push = push.Unit * radius
+	end
+	local moved = cframe + push
+	-- 옮긴 자리에서 다시 땅을 찾는다
+	local origin = moved.Position + Vector3.new(0, size.Y / 2, 0)
+	local result = Workspace:Raycast(origin, Vector3.new(0, -size.Y - Config.OreSpawn.GroundSearchDown, 0), groundParams)
+	if result then
+		local bottomY = boxCFrame.Position.Y - size.Y / 2
+		moved += Vector3.new(0, result.Position.Y - Config.OreSpawn.SinkDepth - bottomY, 0)
+	end
+	return moved
+end
+
 -- 스폰 파트 위치에 바위를 하나 만들고 상태를 등록한다
 local function spawnRock(spawnPart: BasePart): Model?
 	local oreType = spawnPart:GetAttribute("OreType")
@@ -109,6 +145,28 @@ local function spawnRock(spawnPart: BasePart): Model?
 	local rock = template:Clone()
 	rock.Name = oreType
 	rock.ModelStreamingMode = Enum.ModelStreamingMode.Atomic -- 스트리밍 중에 바위 일부만 보이지 않게
+	local def = OreDefs[oreType]
+
+	-- 크기: 광산 안 광석은 MineScale배, 가끔 보스(BossNodes.ScaleMin~Max배)
+	local floor = spawnPart:GetAttribute("Floor")
+	local inMine = typeof(floor) == "number" and floor >= 1
+	local scale = if inMine and def and def.Kind ~= "Tree" then Config.OreSpawn.MineScale else 1
+	local bossConfig = Config.BossNodes
+	local isBoss = random:NextNumber() < bossConfig.Chance
+	local bossScale = if isBoss then random:NextNumber(bossConfig.ScaleMin, bossConfig.ScaleMax) else 1
+	scale *= bossScale
+	local _, baseSize = rock:GetBoundingBox()
+	if scale ~= 1 then
+		rock:ScaleTo(rock:GetScale() * scale)
+		-- 나무 줄기 반지름도 같이 커진다
+		if def and def.Kind == "Tree" then
+			local radius = rock:GetAttribute("HitRadius")
+			rock:SetAttribute("HitRadius", (if typeof(radius) == "number" then radius else def.HitRadius or 1) * scale)
+		end
+	end
+	local extraReach = (scale - 1) * math.max(baseSize.X, baseSize.Z) / 2
+	local maxHp = math.round(oreConfig.MaxHp * bossScale ^ bossConfig.HpExponent)
+	local rewardMultiplier = bossScale ^ bossConfig.RewardExponent
 
 	-- 스폰 파트 위치에 놓고, 필요하면 Y축으로 랜덤 회전
 	local cframe = CFrame.new(spawnPart.Position)
@@ -120,15 +178,23 @@ local function spawnRock(spawnPart: BasePart): Model?
 	-- 모양마다 높이가 달라서, 바위 바닥이 땅에 닿도록 위아래만 맞춘다
 	local boxCFrame, boxSize = rock:GetBoundingBox()
 	local bottomY = boxCFrame.Position.Y - boxSize.Y / 2
-	local def = OreDefs[oreType]
 	local sink = if def and def.Kind == "Tree" then Config.OreSpawn.TreeSinkDepth else Config.OreSpawn.SinkDepth
 	local targetBottomY = findGroundY(spawnPart) - sink
 	cframe += Vector3.new(0, targetBottomY - bottomY, 0)
 	rock:PivotTo(cframe)
+	-- 광산은 벽에 붙은 자리가 많아 바위가 벽 속에 묻혀 작아 보인다: 벽에서 밀어낸다
+	if inMine then
+		cframe = pushOutOfWalls(rock, cframe)
+		rock:PivotTo(cframe)
+	end
 
 	rock:SetAttribute("OreType", oreType)
-	rock:SetAttribute("MaxHp", oreConfig.MaxHp)
-	rock:SetAttribute("Hp", oreConfig.MaxHp)
+	rock:SetAttribute("MaxHp", maxHp)
+	rock:SetAttribute("Hp", maxHp)
+	rock:SetAttribute("ExtraReach", extraReach)
+	if isBoss then
+		rock:SetAttribute("Boss", true)
+	end
 	CollectionService:AddTag(rock, ORE_TAG)
 
 	states[rock] = {
@@ -136,8 +202,8 @@ local function spawnRock(spawnPart: BasePart): Model?
 		OreType = oreType,
 		SpawnPart = spawnPart,
 		Position = cframe.Position,
-		Hp = oreConfig.MaxHp,
-		MaxHp = oreConfig.MaxHp,
+		Hp = maxHp,
+		MaxHp = maxHp,
 		Depleted = false,
 		Contributions = {},
 		Judgments = {},
@@ -145,6 +211,9 @@ local function spawnRock(spawnPart: BasePart): Model?
 		LastHit = 0,
 		Owner = nil,
 		OwnerAt = 0,
+		Boss = isBoss,
+		RewardMultiplier = rewardMultiplier,
+		ExtraReach = extraReach,
 		Weakpoint = nil,
 	}
 
