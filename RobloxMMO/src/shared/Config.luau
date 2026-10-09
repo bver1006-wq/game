@@ -427,7 +427,7 @@ Config.Inventory = {
 -- 저장 (DataService, 2026-10-09)
 Config.Save = {
 	StoreName = "PlayerData_v1", -- 실제 게임 저장소 이름
-	StudioStoreName = "PlayerData_Studio_v1", -- Studio 테스트 저장소 (테스트 지급이 실제 저장에 섞이지 않게)
+	StudioStoreName = "PlayerData_Studio_v2", -- Studio 테스트 저장소 (테스트 지급이 실제 저장에 섞이지 않게). 2026-10-09 v1 → v2: 새로 시작
 	AutoSaveInterval = 60, -- 자동 저장 간격(초)
 	Retries = 3, -- 실패하면 다시 시도하는 횟수
 	LockTimeout = 90, -- 다른 서버의 잠금이 이 초보다 오래됐으면 버려진 것으로 본다
@@ -436,12 +436,16 @@ Config.Save = {
 	CleanupDelay = 5, -- 나간 뒤 가방·장비 정보를 지우기 전 기다리는 시간(초). 저장이 먼저 모아 가도록
 }
 
+-- 처음 들어오면 받는 도구 (2026-10-09: 돌 곡괭이 하나만. 나머지는 돌을 캐서 팔고 직접 산다)
+Config.StarterTools = { "StonePickaxe" }
+
 Config.Debug = {
-	GiveAllPickaxes = true, -- true면 들어올 때 곡괭이·도끼를 전부 지급 (테스트용, 2026-10-09 사용자 요청으로 켬)
+	-- 2026-10-09 사용자 요청: 테스트도 처음부터 직접 구해서 하도록 테스트 지급을 전부 끔 (다시 켜려면 true / 숫자)
+	GiveAllPickaxes = false, -- true면 들어올 때 도구·무기를 전부 지급 (테스트용)
 	StartSlots = 100, -- Studio 테스트 때 가방 칸 수 (도구·무기 30 + 장비 36 + 화살통·음식을 전부 받으면 70칸이 넘는다, 2026-10-09 60 → 100)
-	GiveAllEquipment = true, -- Studio에서 들어오면 장비(칸 6개 × 6단계 = 36종)를 전부 지급 (테스트용)
-	GiveFoods = 5, -- Studio에서 들어오면 음식을 종류마다 이만큼 지급. 테스트 끝나면 0
-	GiveQuivers = 1, -- Studio에서 처음 들어오면 화살통을 종류마다 이만큼 지급. 테스트 끝나면 0
+	GiveAllEquipment = false, -- Studio에서 들어오면 장비(칸 6개 × 6단계 = 36종)를 전부 지급 (테스트용)
+	GiveFoods = 0, -- Studio에서 들어오면 음식을 종류마다 이만큼 지급. 테스트 끝나면 0
+	GiveQuivers = 0, -- Studio에서 처음 들어오면 화살통을 종류마다 이만큼 지급. 테스트 끝나면 0
 }
 
 -- 화면 가장자리 작은 버튼 위치 (QuickButtonsHUD)
@@ -528,7 +532,7 @@ local RECIPES: { [string]: Recipe } = {
 	MithrilPickaxe = { From = { Id = "SteelPickaxe", Count = 2 }, Gold = 1800, Items = { MithrilIngot = 6, SteelIngot = 6, Coal = 20, Ebony = 3 } },
 	OrichalcumPickaxe = { From = { Id = "MithrilPickaxe", Count = 2 }, Gold = 4500, Items = { OrichalcumIngot = 4, MithrilIngot = 8, SteelIngot = 6, Ebony = 6 } },
 	-- 도끼
-	StoneAxe = { Gold = 5, Items = { Pine = 3, Stone = 2 } },
+	StoneAxe = { Gold = 5, Items = { Stone = 5 } }, -- 처음엔 곡괭이만 있으니 통나무 없이 (돌 캐서 팔고 → 도끼)
 	CopperAxe = { From = { Id = "StoneAxe", Count = 3 }, Gold = 30, Items = { CopperIngot = 2, Oak = 6 } },
 	IronAxe = { From = { Id = "CopperAxe", Count = 3 }, Gold = 150, Items = { IronIngot = 4, Birch = 8, Coal = 5 } },
 	DiamondAxe = { From = { Id = "IronAxe", Count = 2 }, Gold = 600, Items = { SteelIngot = 5, IronIngot = 6, Maple = 10, Birch = 10 } },
