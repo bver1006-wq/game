@@ -14,6 +14,7 @@ local Workspace = game:GetService("Workspace")
 local Config = require(ReplicatedStorage.Shared.Config)
 local OreDefs = require(ReplicatedStorage.Shared.OreDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local PickupFeed = require(script.Parent.PickupFeed)
 local RockHUD = require(script.Parent.RockHUD)
 local SwingAnimation = require(script.Parent.SwingAnimation)
 local TargetController = require(script.Parent.TargetController)
@@ -189,25 +190,32 @@ local function applyCameraShake()
 	) * CFrame.Angles(0, 0, math.rad(random:NextNumber(-1, 1) * strength * 4))
 end
 
--- 깨진 바위에서 광석 조각이 튀어나왔다가 캐릭터에게 빨려온다
-local function spawnOreChunks(position: Vector3, color: Color3, amount: number, material: Enum.Material, isLog: boolean?)
-	local count = math.min(amount, Config.HitFeel.OreChunkMax)
+-- 줍기 연출: 조각이 사방으로 튀어 땅에 떨어져 있다가, 가까이 가거나 PickupAutoTime이 지나면 캐릭터에게 빨려 온다
+-- 빨려 들어올 때마다 "뽁"(점점 높게), 다 들어오면 onCollected(실제 개수)
+-- shape: "Cube"(광석) / "Log"(통나무) / "Coin"(골드)
+function HitFeelController.spawnPickups(position: Vector3, color: Color3, count: number, material: Enum.Material, shape: string, onCollected: (() -> ())?)
 	local character = localPlayer.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not root or not root:IsA("BasePart") then
+	count = math.min(count, Config.HitFeel.OreChunkMax)
+	if not root or not root:IsA("BasePart") or count <= 0 then
+		if onCollected then
+			onCollected()
+		end
 		return
 	end
-
+	local feel = Config.HitFeel
+	local chunks = {}
 	for _ = 1, count do
 		local chunk = Instance.new("Part")
-		local size = random:NextNumber(0.3, 0.5)
+		local size = random:NextNumber(0.35, 0.55)
 		chunk.Size = Vector3.new(size, size, size)
-		if isLog then
-			-- 나무는 작은 통나무 모양
+		if shape == "Log" then
 			chunk.Shape = Enum.PartType.Cylinder
 			chunk.Size = Vector3.new(size * 2, size, size)
+		elseif shape == "Coin" then
+			chunk.Shape = Enum.PartType.Cylinder
+			chunk.Size = Vector3.new(0.12, size * 1.2, size * 1.2)
 		end
-		local originalSize = chunk.Size
 		chunk.Color = color
 		chunk.Material = material
 		chunk.CanCollide = true
@@ -215,39 +223,70 @@ local function spawnOreChunks(position: Vector3, color: Color3, amount: number, 
 		chunk.CanTouch = false
 		chunk.CastShadow = false
 		chunk.Massless = true
-		chunk.CFrame = CFrame.new(position + Vector3.new(0, 0.8, 0))
-			* CFrame.Angles(random:NextNumber(0, 6.28), random:NextNumber(0, 6.28), 0)
-		chunk.AssemblyLinearVelocity = Vector3.new(random:NextNumber(-12, 12), random:NextNumber(14, 24), random:NextNumber(-12, 12))
+		chunk.CFrame = CFrame.new(position + Vector3.new(0, 0.8, 0)) * CFrame.Angles(random:NextNumber(0, 6.28), random:NextNumber(0, 6.28), 0)
+		chunk.AssemblyLinearVelocity = Vector3.new(random:NextNumber(-14, 14), random:NextNumber(14, 24), random:NextNumber(-14, 14))
 		chunk.AssemblyAngularVelocity = Vector3.new(random:NextNumber(-10, 10), random:NextNumber(-10, 10), 0)
 		chunk.Parent = effectsFolder
-
-		-- 잠깐 튀어 오른 뒤 캐릭터 쪽으로 빨려 들어간다
-		task.delay(Config.HitFeel.OreSuckDelay + random:NextNumber(0, 0.25), function()
-			if not chunk.Parent then
-				return
-			end
-			chunk.Anchored = true
-			chunk.CanCollide = false
-			local from = chunk.Position
-			local started = os.clock()
-			local duration = Config.HitFeel.OreSuckDuration
-			local connection: RBXScriptConnection
-			connection = RunService.RenderStepped:Connect(function()
-				local t = math.min((os.clock() - started) / duration, 1)
-				local target = if root.Parent then root.Position else from
-				local eased = t * t -- 갈수록 빨라지게
-				chunk.Position = from:Lerp(target, eased)
-				chunk.Size = originalSize * (1 - t * 0.6)
-				if t >= 1 then
-					connection:Disconnect()
-					chunk:Destroy()
-				end
-			end)
-		end)
-		task.delay(4, function()
-			chunk:Destroy()
-		end)
+		table.insert(chunks, { Part = chunk, Size = chunk.Size, State = "Ground", From = Vector3.zero, Start = 0 })
 	end
+
+	local started = os.clock()
+	local collected = 0
+	local finished = false
+	local connection: RBXScriptConnection
+	connection = RunService.RenderStepped:Connect(function()
+		local now = os.clock()
+		local target = if root.Parent then root.Position else position
+		local remaining = 0
+		for _, entry in chunks do
+			if entry.State == "Ground" then
+				remaining += 1
+				local landed = now - started >= feel.PickupLandTime
+				local near = (entry.Part.Position - target).Magnitude <= feel.PickupMagnetRange
+				if landed and (near or now - started >= feel.PickupAutoTime) then
+					-- 빨려 오기 시작 (조금씩 어긋나게)
+					entry.State = "Suck"
+					entry.From = entry.Part.Position
+					entry.Start = now + random:NextNumber(0, 0.15)
+					entry.Part.Anchored = true
+					entry.Part.CanCollide = false
+				end
+			elseif entry.State == "Suck" then
+				remaining += 1
+				local t = math.clamp((now - entry.Start) / feel.OreSuckDuration, 0, 1)
+				entry.Part.Position = entry.From:Lerp(target, t * t)
+				entry.Part.Size = entry.Size * (1 - t * 0.6)
+				if t >= 1 then
+					entry.State = "Done"
+					entry.Part:Destroy()
+					collected += 1
+					HitFeelController.playSound(Config.Sounds.JudgmentPop, nil, 1 + math.min(collected, 15) * 0.05, 0.35)
+				end
+			end
+		end
+		if remaining == 0 and not finished then
+			finished = true
+			connection:Disconnect()
+			if onCollected then
+				onCollected()
+			end
+		end
+	end)
+	-- 안전장치: 오래 지나도 안 끝나면 정리
+	task.delay(feel.PickupAutoTime + 4, function()
+		if not finished then
+			finished = true
+			connection:Disconnect()
+			for _, entry in chunks do
+				if entry.Part.Parent then
+					entry.Part:Destroy()
+				end
+			end
+			if onCollected then
+				onCollected()
+			end
+		end
+	end)
 end
 
 -- 좋은 곡괭이 타격 연출: 충격파 고리 + 사방으로 튀는 광석 조각 (+ 다이아몬드는 반짝이)
@@ -764,7 +803,10 @@ local function onRockBroken(position: Vector3, oreType: string, rewards: { [stri
 	local amount = rewards[tostring(localPlayer.UserId)]
 	if amount and amount > 0 then
 		HitFeelController.cameraShake(Config.HitFeel.CameraShake.Magnitude * 2, Config.HitFeel.CameraShake.Duration * 2)
-		spawnOreChunks(burstPosition, color, amount, if treeDef then Enum.Material.Wood else Enum.Material.Slate, treeDef ~= nil)
+		-- 조각이 땅에 떨어졌다가 빨려 들어오면 "+7 구리" 획득 알림
+		HitFeelController.spawnPickups(burstPosition, color, amount, if treeDef then Enum.Material.Wood else Enum.Material.Slate, if treeDef then "Log" else "Cube", function()
+			PickupFeed.show(oreType, amount)
+		end)
 		local def = OreDefs[oreType]
 		RockHUD.showReward(burstPosition, amount, if def then def.DisplayName else oreType, feverBonus)
 	end

@@ -15,6 +15,7 @@ local MobDefs = require(ReplicatedStorage.Shared.MobDefs)
 local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 local HitFeelController = require(script.Parent.HitFeelController)
+local PickupFeed = require(script.Parent.PickupFeed)
 local RockHUD = require(script.Parent.RockHUD)
 local SwingAnimation = require(script.Parent.SwingAnimation)
 
@@ -406,11 +407,15 @@ local function onMobDied(position: Vector3, mobType: string, killerUserId: numbe
 	HitFeelController.emitDebris(center, Color3.new(1, 1, 1), 15, 0.8)
 	HitFeelController.playSound(Config.Sounds.MobDie, center, 0.7, 0.8)
 	if killerUserId == localPlayer.UserId then
+		-- 골드 동전과 전리품이 땅에 떨어졌다가 빨려 들어오면 획득 알림
 		RockHUD.showReward(center, gold, "G", 0)
+		HitFeelController.spawnPickups(center, Color3.fromRGB(255, 205, 60), math.min(gold, 8), Enum.Material.Metal, "Coin", function()
+			PickupFeed.show("Gold", gold)
+		end)
 		local loot = ItemDefs.Items[lootId]
 		if loot and lootCount > 0 then
-			task.delay(0.25, function()
-				RockHUD.showReward(center + Vector3.new(0, 1.2, 0), lootCount, loot.DisplayName, 0)
+			HitFeelController.spawnPickups(center, loot.Color, lootCount, Enum.Material.SmoothPlastic, "Cube", function()
+				PickupFeed.show(lootId, lootCount)
 			end)
 		end
 	end
