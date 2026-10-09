@@ -1,11 +1,9 @@
 @echo off
-chcp 65001 >nul
-rem 개발 시작: Rojo를 켜고, 30초마다 GitHub에서 새 코드를 받는다 (Pull origin 자동)
-rem 이 창을 닫으면 자동 받기가 멈춘다. Rojo 창은 따로 닫는다
+rem StartDev: start Rojo, then pull new code from GitHub every 30 seconds.
+rem Closing this window stops auto-update. Close the Rojo window separately.
 cd /d "%~dp0"
-title 자동 업데이트 (닫으면 멈춤)
+title Auto update - close to stop
 
-rem git 찾기: 설치된 git이 없으면 GitHub Desktop 안에 들어 있는 git을 쓴다
 set "GIT=git"
 where git >nul 2>nul
 if errorlevel 1 (
@@ -15,15 +13,21 @@ if errorlevel 1 (
 )
 set GIT_TERMINAL_PROMPT=0
 
-rem Rojo는 새 창에서
+"%GIT%" --version >nul 2>nul
+if errorlevel 1 (
+  echo [ERROR] git not found. Install GitHub Desktop or Git for Windows.
+  pause
+  exit /b 1
+)
+
 start "Rojo" cmd /k rojo serve
 
-echo 자동 업데이트를 시작해요. 30초마다 새 코드를 확인해요.
+echo Auto update started. Checking GitHub every 30 seconds...
 :loop
 for /f %%H in ('call "%GIT%" rev-parse HEAD') do set "BEFORE=%%H"
-"%GIT%" pull --ff-only -q >nul 2>nul
-if errorlevel 1 echo [%time%] 새 코드를 못 받았어요. GitHub Desktop에서 Pull origin을 한 번 눌러 확인해 주세요.
+"%GIT%" pull --ff-only -q
+if errorlevel 1 echo [%time%] [ERROR] Could not pull. Take a screenshot of this window.
 for /f %%H in ('call "%GIT%" rev-parse HEAD') do set "AFTER=%%H"
-if not "%BEFORE%"=="%AFTER%" echo [%time%] 새 코드를 받았어요! Studio에서 정지 후 다시 플레이하세요.
+if not "%BEFORE%"=="%AFTER%" echo [%time%] NEW CODE DOWNLOADED. In Studio: Stop, then Play again.
 timeout /t 30 /nobreak >nul
 goto loop
