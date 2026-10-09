@@ -30,6 +30,7 @@ local Config = require(ReplicatedStorage.Shared.Config)
 
 ---------------------------------------------------------------- 설정
 local FLIP_BLADE = false -- 도끼날이 반대쪽에 달렸으면 true
+local BLADE_TURNS = 2 -- 도끼날을 손잡이 축으로 90도씩 돌리는 횟수 (0~3). 플레이 테스트로 맞춘다
 local GENERATED = "BuildTreesAndAxes" -- 이 스크립트가 만든 것 표시 (속성 GeneratedBy)
 local SCATTER_MIN = 45 -- 마을 중심에서 이 거리 밖부터 나무를 심는다 (스터드)
 local SCATTER_MAX = 230 -- 이 거리 안까지
@@ -178,8 +179,11 @@ local function buildAxe(spec): Tool
 	else
 		a = principal(u:Cross(Vector3.zAxis).Magnitude > 0.5 and u:Cross(Vector3.zAxis) or u:Cross(Vector3.xAxis))
 	end
-	-- 곡괭이 머리 방향 그대로면 날이 오른쪽을 본다 (플레이 테스트 2회, 2026-10-09). 손잡이 축으로 90도 돌려 정면으로
-	a = principal(u:Cross(a))
+	-- 곡괭이 머리 방향 그대로면 날이 오른쪽, 손잡이 축으로 90도 돌리면 왼쪽을 봤다 (플레이 테스트, 2026-10-09)
+	-- 같은 방향으로 90도 더 돌린다 (BLADE_TURNS = 손잡이 축 기준 90도 회전 횟수)
+	for _ = 1, BLADE_TURNS do
+		a = principal(u:Cross(a))
+	end
 	if FLIP_BLADE then
 		a = -a
 	end
@@ -282,7 +286,7 @@ for _, spec in AXES do
 	end
 	iconFromTool(tool, spec.Id).Parent = iconFolder
 end
-print("[BuildTreesAndAxes] (버전 4) 도끼 4종 완료")
+print("[BuildTreesAndAxes] (버전 5) 도끼 4종 완료")
 
 ---------------------------------------------------------------- 2. 나무
 local LEAF_MATERIAL = Enum.Material.LeafyGrass
