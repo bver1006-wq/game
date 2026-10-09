@@ -51,6 +51,8 @@ local model: Model? = nil
 local modelCenter = Vector3.zero -- 모델 기준점에서 본 상자 가운데
 local modelRadius = 1
 local angle = 0
+local openedAt = 0
+local OPEN_GUARD = 0.35 -- 연 뒤 이 시간(초) 동안은 바깥 클릭으로 닫지 않는다
 
 -- 숫자를 보기 좋게 (소수 첫째 자리까지)
 local function num(value: number): string
@@ -481,7 +483,10 @@ local function build(): ScreenGui
 	backdrop.Size = UDim2.fromScale(1, 1)
 	backdrop.Parent = screen
 	backdrop.Activated:Connect(function()
-		ItemDetailUI.close()
+		-- 막 연 순간의 두 번째 클릭(더블클릭)으로 바로 닫히지 않게
+		if os.clock() - openedAt >= OPEN_GUARD then
+			ItemDetailUI.close()
+		end
 	end)
 
 	panel = UiKit.panel(screen, UDim2.fromScale(0.92, 0.86), UDim2.fromScale(0.5, 0.5), Vector2.new(0.5, 0.5))
@@ -557,6 +562,9 @@ function ItemDetailUI.open(itemId: string)
 		return
 	end
 	local screen = gui or build()
+	if not ItemDetailUI.isOpen() then
+		openedAt = os.clock()
+	end
 	currentItem = itemId
 	local kindText, tier = describeKind(itemId)
 	nameLabel.Text = def.DisplayName

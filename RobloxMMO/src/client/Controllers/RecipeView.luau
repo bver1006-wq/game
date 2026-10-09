@@ -157,7 +157,7 @@ function RecipeView.usedIn(itemId: string): { string }
 		end
 	end
 	for resultId, recipe in Config.Smelting.Recipes do
-		if (recipe.Inputs :: { [string]: number })[itemId] then
+		if (recipe.Inputs :: any)[itemId] then
 			addResult(resultId)
 		end
 	end

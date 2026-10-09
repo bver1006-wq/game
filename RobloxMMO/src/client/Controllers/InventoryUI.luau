@@ -2,7 +2,7 @@
 -- 가방 UI: 오른쪽 위 골드, 왼쪽 위 가방 그림 버튼(모바일에서 누르기 쉽게), 누르면 아이콘 칸 가방 창.
 -- 칸마다 아이콘 아래에 아이템 이름을 쓴다.
 -- 위쪽 탭(전체/무기/방어구/도구/기타)으로 분류해서 보고, 칸을 끌어서 하단 빠른 호출 칸에 놓는다.
--- 도구 칸을 누르면 바로 든다. 창 바깥을 누르거나 B 키로 닫는다.
+-- 칸을 한 번 누르면 아이템 상세 창(ItemDetailUI), 도구·무기·장비는 더블클릭하면 장착. 창 바깥을 누르거나 B 키로 닫는다.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -16,6 +16,7 @@ local InventoryState = require(script.Parent.InventoryState)
 local CooldownController = require(script.Parent.CooldownController)
 local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
+local ItemDetailUI = require(script.Parent.ItemDetailUI)
 local ItemIcon = require(script.Parent.ItemIcon)
 local UiKit = require(script.Parent.UiKit)
 
@@ -44,6 +45,7 @@ local statsLabel: TextLabel
 local lastClickId: string? = nil
 local lastClickTime = 0
 local DOUBLE_CLICK = 0.4 -- 이 시간 안에 두 번 누르면 더블클릭(초)
+local detailToken = 0 -- 누를 때마다 1씩: 더블클릭이면 기다리던 상세 창 열기를 취소한다
 
 -- 이 아이템을 지금 끼우고 있는지 (장비 칸 또는 손에 든 도구·무기)
 local function isEquipped(itemId: string): boolean
@@ -125,15 +127,28 @@ local function drawCell(order: number, entry: InventoryState.SlotEntry?)
 		local price = Config.SellPrices[itemId]
 		infoLabel.Text = `{def.DisplayName}  x{InventoryState.count(itemId)}` .. (if price then `  ·  개당 {price}G` else "")
 		-- 장착 아이템은 더블클릭해야 장착된다 (소모품은 실수로 쓰지 않게 빠른 칸에서만 쓴다)
+		-- 한 번 누르면 상세 창(ItemDetailUI). 장착 아이템은 더블클릭인지 기다렸다가(DOUBLE_CLICK초) 연다 → 깜빡이지 않는다
 		local now = os.clock()
+		detailToken += 1
+		local equippable = EquipmentDefs.Items[itemId] ~= nil or ((def.Category == "Tool" or def.Category == "Weapon") and not def.Usable)
 		if lastClickId == itemId and now - lastClickTime <= DOUBLE_CLICK then
 			lastClickId = nil
+			ItemDetailUI.close()
 			activate(itemId)
 		else
 			lastClickId = itemId
 			lastClickTime = now
-			if EquipmentDefs.Items[itemId] or def.Category == "Tool" or def.Category == "Weapon" then
+			if equippable then
 				infoLabel.Text ..= "  ·  더블클릭: 장착"
+				local token = detailToken
+				task.delay(DOUBLE_CLICK, function()
+					-- 그사이 다시 누르지 않았고 가방이 열려 있으면 상세 창
+					if token == detailToken and bagPanel.Visible then
+						ItemDetailUI.open(itemId)
+					end
+				end)
+			else
+				ItemDetailUI.open(itemId)
 			end
 		end
 	end, function(position, draggedId)
@@ -229,11 +244,14 @@ end
 
 -- 가방 창 열고 닫기
 function InventoryUI.setOpen(open: boolean)
+	if not open and bagPanel.Visible then
+		ItemDetailUI.close() -- 가방에서 연 상세 창도 같이 닫는다
+	end
 	bagPanel.Visible = open
 	equipPanel.Visible = open
 	backdrop.Visible = open
 	if open then
-		infoLabel.Text = "칸을 끌어서 아래 빠른 칸에 놓으세요. 도구·무기·장비는 더블클릭하면 장착해요."
+		infoLabel.Text = "한 번 누르면 자세히, 더블클릭하면 장착. 끌어서 아래 빠른 칸에 놓을 수도 있어요."
 		refreshEquipment()
 		InventoryUI.refresh()
 	end
