@@ -14,9 +14,11 @@
 --      기준점(Pivot)은 줄기 밑동 가운데, 잰 줄기 반지름은 속성 HitRadius (잔상 고리가 줄기에 딱 맞게).
 --   3. 아이콘           → ReplicatedStorage/ItemIcons/{통나무 5종, 도끼 4종}
 --   4. 스폰 자리        → Workspace/OreSpawns (속성 OreType)
---      맵 나무가 서 있던 자리를 그대로 쓴다 (원본 나무는 지운다). 맵 나무가 적으면 빈 땅에 더 심는다.
---      소나무·참나무·자작나무는 곳곳, 단풍나무는 근처에서 가장 높은 곳에 모아서,
---      흑단나무는 마을에서 가장 먼 후보 자리들(속성 RandomPool = "Ebony", 그중 Config.RandomPools.Ebony.Active개만 선다)
+--      맵 나무가 서 있던 자리를 그대로 쓰고(원본 나무는 지운다, 속성 MapTreeSpot), 빈 풀밭에 더 심어 Config.WorldTiers.TreeDensity만큼 늘린다.
+--      나무 종류는 마을 거리로 정한다 (Config.WorldTiers.Trees: 가까이 소나무·참나무, 조금 멀면 자작나무, 멀면 단풍나무. 띠끼리 겹쳐 서서히 바뀜)
+--      흑단나무는 먼 곳 중 마을에서 가장 먼 후보 자리들(속성 RandomPool = "Ebony", 그중 Config.RandomPools.Ebony.Active개만 선다)
+--      지상 돌이 마을 근처에 모자라면 Config.WorldTiers.Stone만큼 채운다
+--      편집 상태에서 다시 실행하면 맵 나무는 이미 지워졌으므로, 전에 만든 MapTreeSpot 자리와 맵 나무 모양 템플릿(속성 FromMapTree)을 그대로 쓴다
 --
 -- 스폰 자리는 Workspace/OreSpawns에서 GeneratedBy = "BuildTreesAndAxes" 파트를 옮기거나 지워서 다듬는다.
 
@@ -30,18 +32,12 @@ local Config = require(ReplicatedStorage.Shared.Config)
 
 ---------------------------------------------------------------- 설정
 local GENERATED = "BuildTreesAndAxes" -- 이 스크립트가 만든 것 표시 (속성 GeneratedBy)
-local SCATTER_MIN = 45 -- 마을 중심에서 이 거리 밖부터 나무를 심는다 (스터드)
-local SCATTER_MAX = 230 -- 이 거리 안까지
-local KEEP_AWAY = 22 -- NPC·광산 입구·마을 도착점에서 이만큼 떨어뜨린다
-local MIN_SPACING = 12 -- 나무끼리 최소 간격
-local COUNTS = { Pine = 14, Oak = 12, Birch = 10 } -- 흔한 나무 개수
-local MAPLE_COUNT = 7 -- 단풍나무 무리 크기
-local MAPLE_CLUSTER_RADIUS = 22
-local EBONY_CANDIDATES = 6 -- 흑단나무 후보 자리 수
+local KEEP_AWAY = 22 -- NPC·광산 입구·마을 도착점에서 이만큼 떨어뜨린다 (스터드)
 local GROUND_MATERIALS = { -- 나무를 심어도 되는 땅
 	[Enum.Material.Grass] = true, [Enum.Material.LeafyGrass] = true, [Enum.Material.Ground] = true,
 	[Enum.Material.Mud] = true, [Enum.Material.Sand] = false,
 }
+local GRASS_ONLY = { [Enum.Material.Grass] = true, [Enum.Material.LeafyGrass] = true } -- 새로 심는 자리는 먼저 풀밭만 (흙길 피하기)
 
 local random = Random.new()
 
@@ -474,7 +470,7 @@ for _, spec in AXES do
 	end
 	iconFromTool(tool, spec.Id).Parent = iconFolder
 end
-print("[BuildTreesAndAxes] (버전 11) 도끼 4종 완료")
+print("[BuildTreesAndAxes] (버전 12) 도끼 4종 완료")
 
 -- 곡괭이 크기 조정 (Studio에서 만든 곡괭이 Tool을 손잡이 기준으로 키운다). 도끼를 다 만든 뒤에 해야 도끼 크기에 영향이 없다
 -- 이미 키운 Tool은 속성 ScaledBy로 표시해서 두 번 키우지 않는다
@@ -804,6 +800,7 @@ local function templateFromMapTree(entry, id: string): Model
 	model.WorldPivot = CFrame.new(entry.Base)
 	model:ScaleTo(TYPE_SCALE[id])
 	model:SetAttribute("HitRadius", entry.Radius * TYPE_SCALE[id]) -- 잔상 고리·타격 위치용 줄기 반지름
+	model:SetAttribute("FromMapTree", true) -- 다시 실행할 때 맵 나무가 없으면 이 템플릿을 그대로 둔다
 	model:PivotTo(CFrame.new())
 	if id == "Ebony" then
 		local glow = Instance.new("Attachment")
@@ -848,9 +845,27 @@ for _, entry in mapTrees do
 	end
 end
 
+-- 맵 나무 모양 템플릿이 이미 있는지 (편집 상태에서 두 번째 실행하면 맵 나무는 이미 지워져 있다)
+local function hasMapTreeTemplate(treeFolder: Instance?): boolean
+	if not treeFolder then
+		return false
+	end
+	for _, child in treeFolder:GetChildren() do
+		if child:IsA("Model") and child:GetAttribute("FromMapTree") == true then
+			return true
+		end
+	end
+	return false
+end
+
+local keptTemplates = 0
 for _, id in TREE_IDS do
 	local def = OreDefs[id]
 	local old = oreFolder:FindFirstChild(def.TemplateName)
+	if #sourceTrees == 0 and hasMapTreeTemplate(old) then
+		keptTemplates += 1
+		continue -- 전에 맵 나무로 만든 모양을 그대로 쓴다
+	end
 	if old then
 		old:Destroy()
 	end
@@ -875,7 +890,7 @@ for _, id in TREE_IDS do
 		end
 	end
 end
-print(`[BuildTreesAndAxes] 맵 나무 {#mapTrees}그루 발견. 나무 5종 템플릿 완료 ({if #sourceTrees > 0 then "맵 나무 모양" else "부품으로 만든 모양"})`)
+print(`[BuildTreesAndAxes] 맵 나무 {#mapTrees}그루 발견. 나무 5종 템플릿 완료 ({if #sourceTrees > 0 then "맵 나무 모양" elseif keptTemplates > 0 then "전에 만든 맵 나무 모양 유지" else "부품으로 만든 모양"})`)
 
 ---------------------------------------------------------------- 3. 통나무 아이콘
 for _, id in TREE_IDS do
@@ -904,7 +919,18 @@ end
 print("[BuildTreesAndAxes] 아이콘 완료")
 
 ---------------------------------------------------------------- 4. 스폰 자리
+-- 맵 나무 자리 + 빈 풀밭에 더 심은 자리. 종류는 마을 거리로 정한다 (Config.WorldTiers, 2026-10-09)
+local tiers = Config.WorldTiers
+local density = tiers.TreeDensity
 local spawns = folder(workspace, "OreSpawns")
+
+-- 전에 만든 맵 나무 자리를 기억해 둔다 (편집 상태에서 다시 실행하면 맵 나무는 이미 지워져 없다)
+local rememberedMapSpots = {}
+for _, child in spawns:GetChildren() do
+	if child:IsA("BasePart") and child:GetAttribute("GeneratedBy") == GENERATED and child:GetAttribute("MapTreeSpot") == true then
+		table.insert(rememberedMapSpots, child.Position - Vector3.new(0, 1, 0))
+	end
+end
 clearGenerated(spawns)
 
 local town = CollectionService:GetTagged("TownArrival")[1]
@@ -913,13 +939,37 @@ if not town then
 	warn("[BuildTreesAndAxes] TownArrival 태그가 없어 (0, 0, 0) 둘레에 심었어요.")
 end
 
+local function positionOf(instance: Instance): Vector3?
+	if instance:IsA("Model") then
+		return instance:GetPivot().Position
+	elseif instance:IsA("BasePart") then
+		return instance.Position
+	end
+	return nil
+end
+
+-- 수평 거리 (높이는 무시)
+local function flatDistance(a: Vector3, b: Vector3): number
+	return Vector3.new(a.X - b.X, 0, a.Z - b.Z).Magnitude
+end
+
 -- 피해야 할 곳: NPC, 광산 입구, 마을 도착점
 local avoid = {}
 for _, tag in { "ShopNPC", "MinePortal", "TownArrival" } do
 	for _, instance in CollectionService:GetTagged(tag) do
-		local position = if instance:IsA("Model") then instance:GetPivot().Position elseif instance:IsA("BasePart") then instance.Position else nil
+		local position = positionOf(instance)
 		if position then
 			table.insert(avoid, position)
+		end
+	end
+end
+-- 마을 안전지대 가운데 (새로 심는 나무·돌은 이 안에 안 둔다)
+local safePoints = {}
+for _, tag in { "TownArrival", "ShopNPC" } do
+	for _, instance in CollectionService:GetTagged(tag) do
+		local position = positionOf(instance)
+		if position then
+			table.insert(safePoints, position)
 		end
 	end
 end
@@ -929,25 +979,39 @@ local params = RaycastParams.new()
 params.FilterType = Enum.RaycastFilterType.Exclude
 params.FilterDescendantsInstances = { spawns, workspace:FindFirstChild("Ores") }
 
--- 이 수평 위치에 나무를 심을 수 있으면 땅 위치를 돌려준다
-local function groundAt(x: number, z: number): Vector3?
+-- 위에서 아래로 쏴서 materials 표에 있는 땅(지형) 또는 넓은 잔디 부품이면 맞은 결과를 돌려준다
+local function landAt(x: number, z: number, materials): RaycastResult?
 	local result = workspace:Raycast(Vector3.new(x, center.Y + 400, z), Vector3.new(0, -800, 0), params)
 	if not result or result.Normal.Y < 0.8 then
 		return nil -- 땅이 없거나 너무 가파름
 	end
-	local isGround = result.Instance:IsA("Terrain") and GROUND_MATERIALS[result.Material]
-		or (result.Instance:IsA("BasePart") and result.Instance.Material == Enum.Material.Grass and result.Instance.Size.X > 30)
+	local hit = result.Instance
+	local isGround = (hit:IsA("Terrain") and materials[result.Material] == true)
+		or (hit:IsA("BasePart") and hit.Material == Enum.Material.Grass and hit.Size.X > 30)
 	if not isGround then
 		return nil -- 건물·길·물 위
 	end
+	return result
+end
+
+local function insideMineZone(position: Vector3): boolean
 	for _, zone in zones do
 		if zone:IsA("BasePart") then
-			local localPos = zone.CFrame:PointToObjectSpace(result.Position)
+			local localPos = zone.CFrame:PointToObjectSpace(position)
 			local half = zone.Size / 2 + Vector3.new(4, 4, 4)
 			if math.abs(localPos.X) < half.X and math.abs(localPos.Y) < half.Y and math.abs(localPos.Z) < half.Z then
-				return nil -- 광산 구역 안
+				return true
 			end
 		end
+	end
+	return false
+end
+
+-- 이 수평 위치에 나무를 심을 수 있으면 땅 위치를 돌려준다
+local function groundAt(x: number, z: number, materials): Vector3?
+	local result = landAt(x, z, materials or GROUND_MATERIALS)
+	if not result or insideMineZone(result.Position) then
+		return nil
 	end
 	for _, position in avoid do
 		if (position - result.Position).Magnitude < KEEP_AWAY then
@@ -957,34 +1021,197 @@ local function groundAt(x: number, z: number): Vector3?
 	return result.Position
 end
 
--- 후보 땅 자리를 고루 모은다. 맵 나무가 서 있던 자리가 먼저다 (원본 나무는 지우고 그 자리에 캘 수 있는 나무가 선다)
-local candidates = {}
-for _, entry in mapTrees do
-	table.insert(candidates, entry.Base)
-	entry.Instance:Destroy()
+-- 새로 심을 자리: groundAt + 마을 안전지대 밖 + 둘레(ClearRadius)도 모두 같은 땅이고 평평함 (길·건물·물 가장자리 피하기)
+local function newSpotAt(x: number, z: number, materials): Vector3?
+	local ground = groundAt(x, z, materials)
+	if not ground then
+		return nil
+	end
+	for _, point in safePoints do
+		if flatDistance(point, ground) < Config.MobAI.SafeZoneRadius then
+			return nil
+		end
+	end
+	local r = density.ClearRadius
+	for _, offset in { Vector3.new(r, 0, 0), Vector3.new(-r, 0, 0), Vector3.new(0, 0, r), Vector3.new(0, 0, -r) } do
+		local around = landAt(x + offset.X, z + offset.Z, materials)
+		if not around or math.abs(around.Position.Y - ground.Y) > 2.5 then
+			return nil
+		end
+	end
+	return ground
 end
-local MAP_TREES_ENOUGH = 20 -- 맵 나무가 이만큼 있으면 빈 땅에 더 심지 않는다
-for _ = 1, if #mapTrees >= MAP_TREES_ENOUGH then 0 else 1500 do
-	local angle = random:NextNumber(0, math.pi * 2)
-	local distance = math.sqrt(random:NextNumber(SCATTER_MIN ^ 2, SCATTER_MAX ^ 2)) -- 넓이 기준 고르게
-	local ground = groundAt(center.X + math.cos(angle) * distance, center.Z + math.sin(angle) * distance)
-	if ground then
-		table.insert(candidates, ground)
+
+-- 맵의 땅 반경 재기: 36방향으로 걸어 나가며 마지막으로 땅(물이 아닌 지형·넓은 부품)이 있던 거리, 그중 60% 지점 값
+local function measureLandRadius(): number
+	local farthest = {}
+	for i = 0, 35 do
+		local angle = i / 36 * math.pi * 2
+		local last = 0
+		for distance = 20, 600, 10 do
+			local x, z = center.X + math.cos(angle) * distance, center.Z + math.sin(angle) * distance
+			local result = workspace:Raycast(Vector3.new(x, center.Y + 400, z), Vector3.new(0, -800, 0), params)
+			if result then
+				local hit = result.Instance
+				local land = (hit:IsA("Terrain") and result.Material ~= Enum.Material.Water)
+					or (hit:IsA("BasePart") and hit.Size.X > 30 and hit.Size.Z > 30)
+				if land and not insideMineZone(result.Position) then
+					last = distance
+				end
+			end
+		end
+		table.insert(farthest, last)
+	end
+	table.sort(farthest)
+	return farthest[math.ceil(#farthest * 0.6)]
+end
+local landRadius = measureLandRadius()
+local scale = math.clamp(landRadius / tiers.MapRadius, tiers.MinScale, 1) -- 맵이 좁으면 모든 거리를 줄인다
+-- Config 기준 거리 (실제 거리 / 배율)
+local function refDistance(position: Vector3): number
+	return flatDistance(position, center) / scale
+end
+
+-- 거리 d에서 띠마다 얼마나 그 띠인지(0~1). 이웃 띠와 겹친 구간에서는 한쪽이 줄고 다른 쪽이 늘어 합이 1이 된다
+local function bandMemberships(bands, d: number): { number }
+	local list, total = {}, 0
+	for i, band in bands do
+		local lo, hi = band.Distance[1], band.Distance[2]
+		local m = 0
+		if d >= lo and d <= hi then
+			m = 1
+			local prev, nextBand = bands[i - 1], bands[i + 1]
+			local leftWidth = if prev then prev.Distance[2] - lo else 0
+			local rightWidth = if nextBand then hi - nextBand.Distance[1] else 0
+			if leftWidth > 0 then
+				m = math.min(m, (d - lo) / leftWidth)
+			end
+			if rightWidth > 0 then
+				m = math.min(m, (hi - d) / rightWidth)
+			end
+		end
+		list[i] = m
+		total += m
+	end
+	if total <= 0 then
+		-- 띠 사이 빈 곳이면 가장 가까운 띠
+		local best, bestGap = 1, math.huge
+		for i, band in bands do
+			local gap = math.max(band.Distance[1] - d, d - band.Distance[2], 0)
+			if gap < bestGap then
+				best, bestGap = i, gap
+			end
+		end
+		list[best] = 1
+	end
+	return list
+end
+
+-- 거리 d에 맞는 나무 종류를 가중치로 뽑는다. 둘째 값 = 가장 비중이 큰 띠 번호 (요약용)
+local function pickTreeType(d: number): (string, number)
+	local bands = tiers.Trees
+	local memberships = bandMemberships(bands, d)
+	local weights, total = {}, 0
+	local mainBand, mainM = 1, -1
+	for i, band in bands do
+		local m = memberships[i]
+		if m > mainM then
+			mainBand, mainM = i, m
+		end
+		if m > 0 then
+			local bandTotal = 0
+			for _, w in band.Weights do
+				bandTotal += w
+			end
+			for id, w in band.Weights do
+				local add = m * w / math.max(bandTotal, 1e-6) -- 띠마다 비율로 바꿔 섞는다
+				weights[id] = (weights[id] or 0) + add
+				total += add
+			end
+		end
+	end
+	local roll = random:NextNumber(0, total)
+	local ids = {}
+	for id in weights do
+		table.insert(ids, id)
+	end
+	table.sort(ids)
+	for _, id in ids do
+		roll -= weights[id]
+		if roll <= 0 then
+			return id, mainBand
+		end
+	end
+	return ids[#ids] or "Pine", mainBand
+end
+
+-- 직접 놓은 자리(지상)는 간격 계산에 넣고, 지상 돌은 센다
+local occupied = {} -- 간격을 지켜야 할 자리들
+local handStones = {} -- Studio에서 직접 놓은 지상 돌 자리
+for _, child in spawns:GetChildren() do
+	local floor = child:GetAttribute("Floor")
+	if child:IsA("BasePart") and (floor == nil or floor == 0) then
+		table.insert(occupied, child.Position)
+		if child:GetAttribute("OreType") == "Stone" then
+			table.insert(handStones, child.Position)
+		end
 	end
 end
 
-local placed = {}
-local minSpacing = if #mapTrees >= MAP_TREES_ENOUGH then 4 else MIN_SPACING -- 맵 나무는 원래 간격 그대로 둔다
-local function farFromOthers(position: Vector3): boolean
-	for _, other in placed do
-		if (other - position).Magnitude < minSpacing then
+local function farFrom(position: Vector3, gap: number): boolean
+	for _, other in occupied do
+		if (other - position).Magnitude < gap then
 			return false
 		end
 	end
 	return true
 end
 
-local function addSpawn(position: Vector3, oreType: string, pool: string?)
+-- 맵 나무 자리 (원본 나무는 지우고 그 자리에 캘 수 있는 나무가 선다)
+local spots = {} -- { Position, MapTree }
+local mapSpotSource = {}
+for _, entry in mapTrees do
+	table.insert(mapSpotSource, entry.Base)
+	entry.Instance:Destroy()
+end
+if #mapSpotSource == 0 then
+	mapSpotSource = rememberedMapSpots
+end
+for _, position in mapSpotSource do
+	if farFrom(position, density.MapTreeSpacing) then
+		table.insert(spots, { Position = position, MapTree = true })
+		table.insert(occupied, position)
+	end
+end
+local mapSpotCount = #spots
+
+-- 빈 풀밭에 더 심는다. 거리는 넓이가 아니라 반지름 기준으로 고르게 뽑아서 마을 가까이가 조금 더 빽빽하다
+local target = math.clamp(math.round(mapSpotCount * density.Multiplier), density.MinCount, density.MaxCount)
+target = math.max(target, mapSpotCount)
+local scatterMin = density.ScatterMin * scale
+local scatterMax = math.max(scatterMin + 20, math.min(landRadius, tiers.MapRadius))
+local extra = 0
+for pass, materials in { GRASS_ONLY, GROUND_MATERIALS } do
+	-- 풀밭만으로 절반도 못 채우면 흙땅도 쓴다
+	if pass == 2 and extra >= (target - mapSpotCount) * 0.5 then
+		break
+	end
+	for _ = 1, math.max(target - mapSpotCount, 0) * 30 do
+		if #spots >= target then
+			break
+		end
+		local angle = random:NextNumber(0, math.pi * 2)
+		local distance = random:NextNumber(scatterMin, scatterMax)
+		local ground = newSpotAt(center.X + math.cos(angle) * distance, center.Z + math.sin(angle) * distance, materials)
+		if ground and farFrom(ground, density.Spacing) then
+			table.insert(spots, { Position = ground, MapTree = false })
+			table.insert(occupied, ground)
+			extra += 1
+		end
+	end
+end
+
+local function addSpawn(position: Vector3, oreType: string, pool: string?, mapTree: boolean?, band: string?)
 	local p = part({
 		Name = `{oreType}Spawn`,
 		Size = Vector3.new(2, 1, 2),
@@ -1000,107 +1227,110 @@ local function addSpawn(position: Vector3, oreType: string, pool: string?)
 	if pool then
 		p:SetAttribute("RandomPool", pool)
 	end
-	table.insert(placed, position)
+	if mapTree then
+		p:SetAttribute("MapTreeSpot", true) -- 맵 나무가 서 있던 자리 (다시 실행할 때 기억용)
+	end
+	if band then
+		p:SetAttribute("Band", band)
+	end
 end
 
--- 흑단나무: 마을에서 가장 먼 후보 자리들 (서로 멀리)
-table.sort(candidates, function(a, b)
-	return (a - center).Magnitude > (b - center).Magnitude
+-- 흑단나무: 먼 곳(Ebony.MinDistance 밖) 중 마을에서 가장 먼 자리들, 서로 멀리
+table.sort(spots, function(a, b)
+	return flatDistance(a.Position, center) > flatDistance(b.Position, center)
 end)
-local ebonySpacing = if #candidates > 0 then (candidates[1] - center).Magnitude * 0.4 else 0
-local ebony = 0
-for _, position in candidates do
-	if ebony >= EBONY_CANDIDATES then
+local farSpots = {}
+for _, spot in spots do
+	if refDistance(spot.Position) >= tiers.Ebony.MinDistance then
+		table.insert(farSpots, spot)
+	end
+end
+if #farSpots < tiers.Ebony.Candidates then
+	farSpots = spots -- 먼 곳이 모자라면 가장 먼 자리부터
+end
+local ebonyChosen = {}
+local ebonySpacing = if #farSpots > 0 then flatDistance(farSpots[1].Position, center) * 0.4 else 0
+for _, spacing in { ebonySpacing, ebonySpacing * 0.5, 0 } do
+	for _, spot in farSpots do
+		if #ebonyChosen >= tiers.Ebony.Candidates then
+			break
+		end
+		local spread = not spot.Ebony
+		for _, other in ebonyChosen do
+			if spread and (other.Position - spot.Position).Magnitude < spacing then
+				spread = false
+			end
+		end
+		if spread then
+			spot.Ebony = true
+			table.insert(ebonyChosen, spot)
+		end
+	end
+end
+
+-- 나머지 자리: 마을 거리로 종류를 뽑는다
+local bandCounts = {} -- 띠 번호 → { 종류 → 개수 }
+for i = 1, #tiers.Trees do
+	bandCounts[i] = {}
+end
+for _, spot in spots do
+	if spot.Ebony then
+		addSpawn(spot.Position, "Ebony", "Ebony", spot.MapTree, "Ebony")
+	else
+		local oreType, bandIndex = pickTreeType(refDistance(spot.Position))
+		addSpawn(spot.Position, oreType, nil, spot.MapTree, tiers.Trees[bandIndex].Name)
+		bandCounts[bandIndex][oreType] = (bandCounts[bandIndex][oreType] or 0) + 1
+	end
+end
+
+-- 지상 돌: 마을 근처(Stone.Distance)에 MinCount개가 되도록 채운다
+local stoneConfig = tiers.Stone
+local nearStones = 0
+for _, position in handStones do
+	local d = refDistance(position)
+	if d >= stoneConfig.Distance[1] and d <= stoneConfig.Distance[2] then
+		nearStones += 1
+	end
+end
+local newStones = 0
+for _ = 1, math.max(stoneConfig.MinCount - nearStones, 0) * 60 do
+	if nearStones + newStones >= stoneConfig.MinCount then
 		break
 	end
-	local spread = true
-	for _, other in placed do
-		if (other - position).Magnitude < ebonySpacing then
-			spread = false
-			break
-		end
-	end
-	if spread then
-		addSpawn(position, "Ebony", "Ebony")
-		ebony += 1
+	local angle = random:NextNumber(0, math.pi * 2)
+	local distance = random:NextNumber(stoneConfig.Distance[1], stoneConfig.Distance[2]) * scale
+	local ground = newSpotAt(center.X + math.cos(angle) * distance, center.Z + math.sin(angle) * distance, GROUND_MATERIALS)
+	if ground and farFrom(ground, density.Spacing) then
+		addSpawn(ground, "Stone", nil, false, "마을 근처")
+		table.insert(occupied, ground)
+		newStones += 1
 	end
 end
 
--- 단풍나무: 가장 높은 곳 둘레에 모아서
-local peak = nil
-for _, position in candidates do
-	if farFromOthers(position) and (not peak or position.Y > peak.Y) then
-		peak = position
-	end
-end
-local maple = 0
-if peak and #mapTrees >= MAP_TREES_ENOUGH then
-	-- 맵 나무 자리 중 가장 높은 곳에서 가까운 순서로
-	local near = {}
-	for _, position in candidates do
-		if farFromOthers(position) then
-			table.insert(near, position)
-		end
-	end
-	table.sort(near, function(a, b)
-		return (a - peak).Magnitude < (b - peak).Magnitude
-	end)
-	for i = 1, math.min(MAPLE_COUNT, #near) do
-		addSpawn(near[i], "Maple")
-		maple += 1
-	end
-elseif peak then
-	for _ = 1, 300 do
-		if maple >= MAPLE_COUNT then
-			break
-		end
-		local angle = random:NextNumber(0, math.pi * 2)
-		local r = random:NextNumber(0, MAPLE_CLUSTER_RADIUS)
-		local ground = groundAt(peak.X + math.cos(angle) * r, peak.Z + math.sin(angle) * r)
-		if ground and farFromOthers(ground) then
-			addSpawn(ground, "Maple")
-			maple += 1
-		end
-	end
-end
-
--- 흔한 나무: 남은 후보 자리에 무작위로
-for i = #candidates, 2, -1 do
-	local j = random:NextInteger(1, i)
-	candidates[i], candidates[j] = candidates[j], candidates[i]
-end
-local commonCounts = { Pine = 0, Oak = 0, Birch = 0 }
-local cursor = 1
-if #mapTrees >= MAP_TREES_ENOUGH then
-	-- 맵 나무 자리는 남김없이 흔한 나무로 채운다 (비율은 COUNTS)
-	local total = COUNTS.Pine + COUNTS.Oak + COUNTS.Birch
-	for _, position in candidates do
-		if farFromOthers(position) then
-			local roll = random:NextNumber(0, total)
-			local oreType = if roll < COUNTS.Pine then "Pine" elseif roll < COUNTS.Pine + COUNTS.Oak then "Oak" else "Birch"
-			addSpawn(position, oreType)
-			commonCounts[oreType] += 1
-		end
-	end
-	cursor = #candidates + 1
-end
-for oreType, count in COUNTS do
-	while commonCounts[oreType] < count and cursor <= #candidates do
-		local position = candidates[cursor]
-		cursor += 1
-		if farFromOthers(position) then
-			addSpawn(position, oreType)
-			commonCounts[oreType] += 1
-		end
-	end
-end
-
+-- 요약 (띠마다)
 print(
-	`[BuildTreesAndAxes] 스폰 자리: 소나무 {commonCounts.Pine} / 참나무 {commonCounts.Oak} / 자작나무 {commonCounts.Birch}`
-		.. ` / 단풍나무 {maple} / 흑단나무 후보 {ebony} (동시에 {Config.RandomPools.Ebony.Active}그루). 후보 땅 {#candidates}곳`
+	`[BuildTreesAndAxes] 나무 자리 {#spots}곳 = 맵 나무 자리 {mapSpotCount} + 새로 심은 {extra} (목표 {target}).`
+		.. ` 땅 반경 약 {landRadius} → 거리 배율 x{string.format("%.2f", scale)}`
 )
-if #candidates == 0 then
-	warn("[BuildTreesAndAxes] 심을 땅을 못 찾았어요. GROUND_MATERIALS나 SCATTER_MIN/MAX를 맵에 맞게 바꿔 보세요.")
+for i, band in tiers.Trees do
+	local parts = {}
+	local total = 0
+	for _, id in TREE_IDS do
+		local count = bandCounts[i][id]
+		if count then
+			table.insert(parts, `{OreDefs[id].DisplayName} {count}`)
+			total += count
+		end
+	end
+	local hi = if band.Distance[2] >= 9999 then "끝" else tostring(math.floor(band.Distance[2] * scale))
+	print(`[BuildTreesAndAxes]   {band.Name}({math.floor(band.Distance[1] * scale)}~{hi}): {total}그루 - {table.concat(parts, " / ")}`)
+end
+print(
+	`[BuildTreesAndAxes]   흑단나무 후보 {#ebonyChosen}곳 (동시에 {Config.RandomPools.Ebony.Active}그루). 마을 근처 돌: 직접 놓은 {nearStones} + 새로 {newStones}`
+		.. ` (지상 돌 전체 직접 놓은 {#handStones})`
+)
+if #spots == 0 then
+	warn("[BuildTreesAndAxes] 심을 땅을 못 찾았어요. GROUND_MATERIALS나 Config.WorldTiers.TreeDensity를 맵에 맞게 바꿔 보세요.")
 end
 
 if recording then

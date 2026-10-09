@@ -19,18 +19,22 @@ local InventoryState = require(script.Parent.InventoryState)
 local ItemIcon = require(script.Parent.ItemIcon)
 local UiKit = require(script.Parent.UiKit)
 
--- 대장장이가 파는 도구 (시작 지급인 돌 곡괭이·돌 도끼는 빼고)
-local TOOL_ORDER: { [string]: { string } } = {
-	Pickaxe = { "CopperPickaxe", "IronPickaxe", "SteelPickaxe" },
-	Axe = { "CopperAxe", "IronAxe", "DiamondAxe" },
-	Sword = { "CopperSword", "IronSword", "DiamondSword" }, -- 나무 검은 시작 지급
-	Bow = { "WoodenBow", "CopperBow", "IronBow", "DiamondBow" },
-	Club = { "BaseballBat", "GoblinClub", "MorningStar", "DiamondMace" },
+-- 탭별 종류: 도구·무기 탭은 PickaxeDefs의 Kind, 장비 탭은 EquipmentDefs의 칸
+local TOOL_TABS: { [string]: boolean } = { Pickaxe = true, Axe = true, Sword = true, Bow = true, Club = true }
+local EQUIPMENT_TABS: { [string]: { string } } = {
+	Helmet = { "Helmet" },
+	Armor = { "Armor" },
+	Boots = { "Boots" },
+	Gloves = { "Gloves" },
+	Accessory = { "Necklace", "Bracelet" },
 }
--- 종류별 구매 요청 이름
-local BUY_ACTION: { [string]: string } = { Pickaxe = "BuyPickaxe", Axe = "BuyAxe", Sword = "BuyWeapon", Bow = "BuyWeapon", Club = "BuyWeapon" }
 -- 종류별 티어 속성 (서버 PickaxeService가 기록)
 local TIER_ATTRIBUTE: { [string]: string } = { Pickaxe = "PickaxeTier", Axe = "AxeTier", Sword = "SwordTier", Bow = "BowTier", Club = "ClubTier" }
+-- 탭 버튼 크기 (넓은 창 / 좁은 창)
+local TAB_SIZE = { Width = 76, Height = 86, Icon = 56 }
+local TAB_SIZE_COMPACT = { Width = 62, Height = 66, Icon = 42 }
+local COMPACT_HEIGHT = 430 -- 창 높이가 이보다 작으면 인사말을 숨기고 탭을 줄인다 (휴대폰 가로 화면)
+local FIRST_TIER_BULK = 3 -- 1단계는 "3개" 버튼으로 한 번에 (조합에 3개가 필요하니까)
 local CLOSE_DISTANCE_MARGIN = 4 -- 상호작용 거리보다 이만큼 멀어지면 창을 닫는다
 
 local localPlayer = Players.LocalPlayer

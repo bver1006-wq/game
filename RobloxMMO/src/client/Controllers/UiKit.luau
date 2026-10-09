@@ -126,6 +126,41 @@ function UiKit.row(parent: Instance, height: number, order: number): Frame
 	return row
 end
 
+-- 금화 그림 (둥근 금색 동전 + 가운데 "G"). parent 안에 꽉 차는 정사각형
+function UiKit.coinIcon(parent: Instance): Frame
+	local coin = Instance.new("Frame")
+	coin.Name = "Coin"
+	coin.AnchorPoint = Vector2.new(0.5, 0.5)
+	coin.Position = UDim2.fromScale(0.5, 0.5)
+	coin.Size = UDim2.fromScale(0.82, 0.82)
+	coin.BackgroundColor3 = UiKit.Colors.Gold
+	coin.BorderSizePixel = 0
+	coin.Parent = parent
+	local aspect = Instance.new("UIAspectRatioConstraint")
+	aspect.Parent = coin
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(1, 0)
+	corner.Parent = coin
+	local gradient = Instance.new("UIGradient")
+	gradient.Color = ColorSequence.new(Color3.fromRGB(255, 235, 140), Color3.fromRGB(215, 150, 30))
+	gradient.Rotation = 90
+	gradient.Parent = coin
+	UiKit.stroke(coin, Color3.fromRGB(150, 95, 10), 2)
+	local mark = Instance.new("TextLabel")
+	mark.BackgroundTransparency = 1
+	mark.Size = UDim2.fromScale(1, 1)
+	mark.Font = Enum.Font.GothamBlack
+	mark.Text = "G"
+	mark.TextScaled = true
+	mark.TextColor3 = Color3.fromRGB(150, 95, 10)
+	mark.Parent = coin
+	local padding = Instance.new("UIPadding")
+	padding.PaddingTop = UDim.new(0.2, 0)
+	padding.PaddingBottom = UDim.new(0.2, 0)
+	padding.Parent = mark
+	return coin
+end
+
 -- 가방 그림 (가죽 가방 몸통 + 덮개 + 손잡이 + 버클). parent를 꽉 채운다
 function UiKit.bagIcon(parent: Instance)
 	-- 둥근 모험가 배낭: 위쪽 손잡이, 그라데이션 가죽 몸통, 덮개와 금 버클, 앞주머니, 바느질, 왼쪽 윤기

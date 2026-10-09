@@ -90,14 +90,16 @@ local function applyLighting(inMine: boolean)
 		end
 		TweenService:Create(colorCorrection, info, { Saturation = cfg.Saturation, TintColor = cfg.TintColor }):Play()
 	else
+		-- 밖의 조명: 밤낮(DayNightController)이 있으면 지금 시각의 값으로, 없으면 처음 값으로
+		local outdoor = if MineAtmosphereController.outdoorTargets then MineAtmosphereController.outdoorTargets() else original
 		TweenService:Create(Lighting, info, {
-			Ambient = original.Ambient,
-			OutdoorAmbient = original.OutdoorAmbient,
-			Brightness = original.Brightness,
-			ExposureCompensation = original.ExposureCompensation,
+			Ambient = outdoor.Ambient,
+			OutdoorAmbient = outdoor.OutdoorAmbient,
+			Brightness = outdoor.Brightness,
+			ExposureCompensation = outdoor.ExposureCompensation,
 		}):Play()
-		if atmosphere and original.Density then
-			TweenService:Create(atmosphere, info, { Density = original.Density, Color = original.AtmColor, Decay = original.AtmDecay }):Play()
+		if atmosphere and outdoor.Density then
+			TweenService:Create(atmosphere, info, { Density = outdoor.Density, Color = outdoor.AtmColor, Decay = outdoor.AtmDecay }):Play()
 		end
 		TweenService:Create(colorCorrection, info, { Saturation = 0, TintColor = Color3.new(1, 1, 1) }):Play()
 	end
@@ -337,6 +339,9 @@ local function collectFlickerLights()
 		end
 	end
 end
+
+-- 광산에서 나올 때 돌아갈 밖의 조명 값을 주는 함수 (DayNightController가 넣는다)
+MineAtmosphereController.outdoorTargets = nil :: (() -> { [string]: any })?
 
 -- 지금 있는 광산 층 (광산 밖이면 nil). 미니맵이 쓴다
 function MineAtmosphereController.getFloor(): number?

@@ -1,15 +1,18 @@
 --!strict
--- 대장장이: 제련(재료 + 수수료 → 괴)과 곡괭이·도끼 판매. 무기 구매(사냥꾼)도 buyTool을 같이 쓴다.
--- 클라이언트는 "이 레시피를 몇 번 / 이 곡괭이(도끼)를 사겠다"만 보내고, 거리·재료·골드는 서버가 확인한다.
+-- 대장장이: 제련(재료 + 수수료 → 괴)과 곡괭이·도끼 조합. 사냥꾼(무기·장비)도 craft를 같이 쓴다.
+-- 조합식(Config.Recipes): 1단계는 골드 + 재료로 사고, 2~4단계는 바로 아래 단계 3개 + 재료 + 골드로 만든다 (2026-10-09)
+-- 클라이언트는 "이 레시피를 몇 번 / 이 아이템을 만들겠다"만 보내고, 거리·재료·골드·가방 칸은 서버가 확인한다.
 -- 모루 타이밍 미니게임으로 직접 만드는 제작은 나중에 추가한다 (지금은 NPC 의뢰 구매만).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
 local ItemDefs = require(ReplicatedStorage.Shared.ItemDefs)
 local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
+local EquipmentService = require(script.Parent.EquipmentService)
 local InventoryService = require(script.Parent.InventoryService)
 local NotifyService = require(script.Parent.NotifyService)
 local NpcService = require(script.Parent.NpcService)
@@ -51,52 +54,125 @@ local function smeltOnce(player: Player, recipeId: string): (boolean, string?)
 	return true, nil
 end
 
--- 한국어 조사: 앞 글자에 받침이 있으면 withFinal, 없으면 withoutFinal ("칼을" / "도끼를")
-local function josa(word: string, withFinal: string, withoutFinal: string): string
-	local last = 0
-	for _, code in utf8.codes(word) do
-		last = code
+-- 조합 1회: 아래 단계 3개(From) + 재료 + 골드 → 1개. 1단계는 골드 + 재료로 산다. 성공하면 true
+-- 실패 이유(알림 문구)를 두 번째 값으로 돌려준다
+local function craftOnce(player: Player, itemId: string): (boolean, string?)
+	local recipe = Config.Recipes[itemId]
+	if not recipe or not ItemDefs.Items[itemId] then
+		return false, nil
 	end
-	local hasFinal = last >= 0xAC00 and last <= 0xD7A3 and (last - 0xAC00) % 28 ~= 0
-	return word .. (if hasFinal then withFinal else withoutFinal)
+	local from = recipe.From
+	if from then
+		local have = InventoryService.count(player, from.Id)
+		if have < from.Count then
+			return false, `{ItemDefs.Items[from.Id].DisplayName} {from.Count}개가 필요해요. (지금 {have}개)`
+		end
+	end
+	if InventoryService.getGold(player) < recipe.Gold then
+		return false, `골드가 모자라요. ({recipe.Gold}G 필요)`
+	end
+	if not InventoryService.hasAll(player, recipe.Items) then
+		local missing: { [string]: number } = {}
+		for id, amount in recipe.Items do
+			local lack = amount - InventoryService.count(player, id)
+			if lack > 0 then
+				missing[id] = lack
+			end
+		end
+		return false, `재료가 모자라요. (더 필요: {describeItems(missing)})`
+	end
+	-- 아래 단계 3개를 쓰면 칸이 비므로 가방 검사는 1단계(살 때)만
+	if not from and InventoryService.roomFor(player, itemId) < 1 then
+		return false, "가방에 빈 칸이 없어요."
+	end
+
+	-- 쓰기 전에: 재료로 쓰는 아래 단계를 끼우고 있거나 손에 들고 있었는지 (다 쓰면 새것을 대신 끼워 준다)
+	local wornSlot: string? = nil
+	local wasHeld = false
+	if from then
+		local equipment = EquipmentDefs.Items[from.Id]
+		if equipment and player:GetAttribute(`Equip_{equipment.Slot}`) == from.Id then
+			wornSlot = equipment.Slot
+		end
+		local held = PickaxeService.getEquipped(player)
+		wasHeld = held ~= nil and held.Id == from.Id
+	end
+
+	InventoryService.removeAll(player, recipe.Items)
+	InventoryService.spendGold(player, recipe.Gold)
+	if from then
+		if PickaxeDefs[from.Id] then
+			PickaxeService.removeCount(player, from.Id, from.Count) -- 다 없어지면 손에 든 Tool도 없어진다
+		else
+			InventoryService.remove(player, from.Id, from.Count) -- 끼운 장비가 다 없어지면 EquipmentService가 벗긴다
+		end
+	end
+	local added = if PickaxeDefs[itemId] then PickaxeService.give(player, itemId) else InventoryService.add(player, itemId, 1) >= 1
+	if not added then
+		-- 들어갈 자리가 없으면(있을 수 없지만) 쓴 것을 전부 돌려준다
+		for id, amount in recipe.Items do
+			InventoryService.add(player, id, amount)
+		end
+		InventoryService.addGold(player, recipe.Gold)
+		if from then
+			for _ = 1, from.Count do
+				if PickaxeDefs[from.Id] then
+					PickaxeService.give(player, from.Id)
+				else
+					InventoryService.add(player, from.Id, 1)
+				end
+			end
+		end
+		return false, "가방에 빈 칸이 없어요."
+	end
+
+	-- 끼우던 장비·들던 도구를 다 썼으면 새로 만든 것을 바로 끼운다(든다)
+	if from and InventoryService.count(player, from.Id) <= 0 then
+		if wornSlot then
+			EquipmentService.equip(player, itemId)
+		end
+		if wasHeld then
+			PickaxeService.hold(player, itemId)
+		end
+	end
+	return true, nil
 end
 
--- 도구·무기 구매. 종류(Kind)마다 따로 단계를 밟는다 (곡괭이 티어·도끼 티어·칼 티어... 는 별개)
--- 사냥꾼(무기)도 이 함수를 쓴다 (CombatService)
-function CraftingService.buyTool(player: Player, toolId: string, kind: PickaxeDefs.ToolKind)
-	local def = PickaxeDefs[toolId]
-	local config = Config.Pickaxes[toolId] or Config.Weapons[toolId]
-	if not def or def.Kind ~= kind or not config or not config.Price then
+-- 조합(또는 1단계 구매)을 times번까지 한다. 모자라면 거기서 멈추고 알린다
+-- 어느 상점에서 무엇을 만들 수 있는지는 부르는 쪽(대장장이·사냥꾼)이 먼저 확인한다
+function CraftingService.craft(player: Player, itemId: string, times: number)
+	local recipe = Config.Recipes[itemId]
+	local def = ItemDefs.Items[itemId]
+	if not recipe or not def then
 		return
 	end
-	local kindName = PickaxeService.kindName(kind)
-	local currentTier = PickaxeService.getTier(player, kind)
-	if InventoryService.count(player, toolId) > 0 or def.Tier <= currentTier then
-		NotifyService.send(player, `이미 이 {josa(kindName, "이나", "나")} 더 좋은 {josa(kindName, "을", "를")} 가지고 있어요.`, "info")
-		return
+	local made = 0
+	local failReason: string? = nil
+	for _ = 1, math.clamp(math.floor(times), 1, Config.Crafting.MaxPerRequest) do
+		local ok, reason = craftOnce(player, itemId)
+		if not ok then
+			failReason = reason
+			break
+		end
+		made += 1
 	end
-	if def.Tier > currentTier + 1 then
-		NotifyService.send(player, `바로 아래 단계 {kindName}부터 사야 해요.`, "bad")
-		return
+	if made > 0 then
+		local verb = if recipe.From then "만들었어요" else "샀어요"
+		local countText = if made > 1 then ` {made}개` else ""
+		local hint = if EquipmentDefs.Items[itemId] and not recipe.From then " 가방에서 더블클릭하면 착용해요." else ""
+		NotifyService.send(player, `{def.DisplayName}{countText} {verb}!{hint}`, "good")
+		print(`[CraftingService] {player.Name} {def.DisplayName} x{made}`)
+	elseif failReason then
+		NotifyService.send(player, failReason, "bad")
 	end
-	local price = config.Price
-	if InventoryService.getGold(player) < price.Gold then
-		NotifyService.send(player, `골드가 모자라요. ({price.Gold}G 필요)`, "bad")
-		return
+end
+
+-- 요청 인자에서 만들 개수를 읽는다 (없거나 이상하면 1)
+function CraftingService.readTimes(timesArg: unknown): number
+	if typeof(timesArg) == "number" and timesArg == timesArg then
+		return math.clamp(math.floor(timesArg), 1, Config.Crafting.MaxPerRequest)
 	end
-	if not InventoryService.hasAll(player, price.Items) then
-		NotifyService.send(player, `재료가 모자라요. (필요: {describeItems(price.Items)})`, "bad")
-		return
-	end
-	if InventoryService.freeSlots(player) < 1 then
-		NotifyService.send(player, "가방에 빈 칸이 없어요.", "bad")
-		return
-	end
-	InventoryService.removeAll(player, price.Items)
-	InventoryService.spendGold(player, price.Gold)
-	PickaxeService.give(player, toolId)
-	NotifyService.send(player, `{def.DisplayName} 구매 완료!`, "good")
-	print(`[CraftingService] {player.Name} {def.DisplayName} 구매`)
+	return 1
 end
 
 -- ShopAction 처리 (대장장이 것만)
@@ -133,10 +209,12 @@ local function onShopAction(player: Player, shopId: unknown, action: unknown, id
 		elseif failReason then
 			NotifyService.send(player, failReason, "bad")
 		end
-	elseif action == "BuyPickaxe" then
-		CraftingService.buyTool(player, idArg, "Pickaxe")
-	elseif action == "BuyAxe" then
-		CraftingService.buyTool(player, idArg, "Axe")
+	elseif action == "Craft" then
+		-- 대장장이는 곡괭이·도끼만 만든다
+		local tool = PickaxeDefs[idArg]
+		if tool and (tool.Kind == "Pickaxe" or tool.Kind == "Axe") then
+			CraftingService.craft(player, idArg, CraftingService.readTimes(timesArg))
+		end
 	end
 end
 

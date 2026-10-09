@@ -174,39 +174,6 @@ local function onAttack(player: Player, mobArg: unknown)
 	MobService.damage(mob, player, damage, direction, if blocked then nil else config.Knockback)
 end
 
--- 사냥꾼 상점: 장비 구매 (같은 장비는 하나만)
-local function buyEquipment(player: Player, itemId: string)
-	local def = EquipmentDefs.Items[itemId]
-	if not def or def.Slot == "Shield" then
-		return -- 화살통은 BuyQuiver로
-	end
-	if InventoryService.count(player, itemId) > 0 then
-		NotifyService.send(player, "이미 가지고 있는 장비예요.", "info")
-		return
-	end
-	local price = Config.Equipment.Prices[def.Tier]
-	if InventoryService.getGold(player) < price.Gold then
-		NotifyService.send(player, `골드가 모자라요. ({price.Gold}G 필요)`, "bad")
-		return
-	end
-	if not InventoryService.hasAll(player, price.Items) then
-		local parts = {}
-		for id, amount in price.Items do
-			table.insert(parts, `{ItemDefs.Items[id].DisplayName} {amount}`)
-		end
-		NotifyService.send(player, `재료가 모자라요. (필요: {table.concat(parts, ", ")})`, "bad")
-		return
-	end
-	if InventoryService.freeSlots(player) < 1 then
-		NotifyService.send(player, "가방에 빈 칸이 없어요.", "bad")
-		return
-	end
-	InventoryService.removeAll(player, price.Items)
-	InventoryService.spendGold(player, price.Gold)
-	InventoryService.add(player, itemId, 1)
-	NotifyService.send(player, `{def.DisplayName} 구매 완료! 가방에서 더블클릭하면 착용해요.`, "good")
-end
-
 -- 사냥꾼 상점: 화살통 구매 (여러 개 가질 수 있다. 가격은 Config.Quiver.Items)
 local function buyQuiver(player: Player, itemId: string)
 	local def = EquipmentDefs.Items[itemId]
@@ -243,39 +210,29 @@ local function buyQuiver(player: Player, itemId: string)
 	end
 end
 
--- 사냥꾼 상점: 무기·장비 구매
-local function onShopAction(player: Player, shopId: unknown, action: unknown, idArg: unknown)
+-- 사냥꾼 상점: 무기·장비 조합(1단계는 구매), 화살통 구매
+-- 조합식은 Config.Recipes (아래 단계 3개 + 재료 + 골드, CraftingService.craft)
+local function onShopAction(player: Player, shopId: unknown, action: unknown, idArg: unknown, timesArg: unknown)
 	if shopId ~= SHOP_ID or typeof(idArg) ~= "string" then
 		return
 	end
-	if action == "BuyQuiver" then
-		if NpcService.isNear(player, SHOP_ID) then
-			buyQuiver(player, idArg)
-		else
-			NotifyService.send(player, "사냥꾼에게 더 가까이 가세요.", "bad")
-		end
-		return
-	end
-	if action == "BuyEquipment" then
-		if NpcService.isNear(player, SHOP_ID) then
-			buyEquipment(player, idArg)
-		else
-			NotifyService.send(player, "사냥꾼에게 더 가까이 가세요.", "bad")
-		end
-		return
-	end
-	if action ~= "BuyWeapon" then
-		return
-	end
-	local def = PickaxeDefs[idArg]
-	if not def or not WEAPON_KINDS[def.Kind] then
+	if action ~= "BuyQuiver" and action ~= "Craft" then
 		return
 	end
 	if not NpcService.isNear(player, SHOP_ID) then
 		NotifyService.send(player, "사냥꾼에게 더 가까이 가세요.", "bad")
 		return
 	end
-	CraftingService.buyTool(player, idArg, def.Kind)
+	if action == "BuyQuiver" then
+		buyQuiver(player, idArg)
+		return
+	end
+	-- 사냥꾼은 칼·활·방망이와 장비(화살통 제외)만 만든다
+	local weapon = PickaxeDefs[idArg]
+	local equipment = EquipmentDefs.Items[idArg]
+	if (weapon and WEAPON_KINDS[weapon.Kind]) or (equipment and equipment.Slot ~= "Shield") then
+		CraftingService.craft(player, idArg, CraftingService.readTimes(timesArg))
+	end
 end
 
 -- 서버 시작 시 한 번 호출 (MobService.init 이후)

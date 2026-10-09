@@ -96,6 +96,34 @@ Config.RandomPools = {
 	Ebony = { Active = 2 },
 }
 
+-- 마을 거리별 난이도 (2026-10-09 사용자 요청): 마을 NPC 가까이는 쉬운 것(아주 가끔 중간), 조금 멀면 중간, 꽤 멀면 센 것
+-- 거리 = 마을 도착점(TownArrival)에서 잰 수평 거리(스터드). 띠끼리 거리가 조금 겹치고, 겹친 곳에서는 비율이 서서히 바뀐다 (딱 끊기면 어색해서)
+-- 제작 스크립트가 맵의 실제 땅 반경을 재서 MapRadius보다 좁으면 모든 거리(몹 구역 포함)를 그 비율로 줄인다 (넓으면 그대로)
+-- 몹은 Config.MobZones, 광산 층 광석은 층별로 이미 나뉘어 있어서 그대로
+Config.WorldTiers = {
+	MapRadius = 280, -- 아래 거리들이 기준으로 삼는 맵 반경
+	MinScale = 0.5, -- 맵이 좁아도 이보다 더 줄이지는 않는다
+	-- 나무 종류: 띠마다 가중치(클수록 많이). 흑단나무는 아래 Ebony로 따로 (희귀 무리 Config.RandomPools.Ebony)
+	Trees = {
+		{ Name = "마을 근처", Distance = { 0, 130 }, Weights = { Pine = 50, Oak = 45, Birch = 5 } },
+		{ Name = "조금 먼 숲", Distance = { 105, 210 }, Weights = { Pine = 5, Oak = 20, Birch = 60, Maple = 15 } },
+		{ Name = "먼 숲", Distance = { 185, 99999 }, Weights = { Oak = 5, Birch = 25, Maple = 70 } },
+	},
+	-- 나무 개수: 맵 나무 자리에 더해 빈 풀밭에 더 심는다 (2026-10-09: 나무가 너무 적어서)
+	TreeDensity = {
+		Multiplier = 2.5, -- 맵 나무 수의 이 배수가 될 때까지
+		MinCount = 90, -- 그래도 이만큼은
+		MaxCount = 200, -- 너무 많으면 느려지니 이만큼까지
+		Spacing = 10, -- 새로 심는 나무와 다른 나무·바위 사이 최소 간격
+		MapTreeSpacing = 4, -- 맵 나무 자리끼리는 원래 간격 그대로 (이보다 가까운 것만 뺀다)
+		ClearRadius = 4, -- 새 자리 둘레 이 반경이 모두 풀밭이어야 심는다 (길·건물·물 가장자리 피하기)
+		ScatterMin = 40, -- 마을에서 이 거리 밖부터 (마을 안전지대 Config.MobAI.SafeZoneRadius 안에도 새로 안 심는다)
+	},
+	Ebony = { Candidates = 6, MinDistance = 185 }, -- 흑단나무 후보 자리: 이 거리 밖에서 마을에서 가장 먼 자리들 (서로 멀리)
+	-- 지상 돌: 마을 근처에 최소 이만큼 (Studio에서 직접 놓은 돌 자리도 센다). 모자라면 제작 스크립트가 채운다
+	Stone = { MinCount = 10, Distance = { 60, 150 } },
+}
+
 -- 곡괭이 데미지
 -- 데미지 = BaseDamage × Power × 판정 배수 (2026-10-09 결정: 1 / 1.5 / 2 / 3)
 -- 도끼도 같은 표에 둔다. 만드는 법(가격)은 Config.Recipes (2026-10-09 조합식으로 바뀜)
@@ -522,13 +550,88 @@ Config.MineAtmosphere = {
 	TorchFlicker = 0.35, -- 횃불·랜턴 밝기 흔들림 정도
 }
 
--- 미니맵 (클라이언트 전용). 동굴 안에서는 가 본 칸만 보인다
+-- 지도 (클라이언트 전용, MinimapController·MapData). 2026-10-09 손그림 지도로 바뀜
+--   밖: 양피지 위에 물·풀·모래·바위·흙길(지형 광선 격자), 언덕 ^, 나무·집 그림, 몹 구역, NPC·광산 입구
+--   광산: 층 미로 벽 전체 + 출구·아래층 길 표시. 안 가 본 칸은 조금 어둡게
 Config.Minimap = {
-	Size = 220, -- 지도 크기(픽셀)
-	OutdoorScale = 0.6, -- 밖: 1스터드당 픽셀
-	CaveScale = 1.6, -- 동굴: 1스터드당 픽셀
-	RockRange = 160, -- 이 거리 안의 바위만 점으로 표시(스터드)
-	VisitRadius = 13, -- 칸 중심에서 이 거리 안에 들어가면 그 칸을 밝힌다(스터드)
+	-- 큰 지도 창 크기: 화면 높이·너비에 대한 비율 (지도 모양에 맞춰 줄어든다)
+	HeightFraction = 0.72,
+	MaxWidthFraction = 0.92,
+	TitleHeight = 38, -- 창 위 제목 줄 높이(픽셀)
+	Padding = 14, -- 지도 그림 둘레 여백(픽셀)
+	MaxOutdoorScale = 2.5, -- 밖: 1스터드당 최대 픽셀 (큰 화면에서 너무 커지지 않게)
+	MaxCaveScale = 3.2, -- 광산: 1스터드당 최대 픽셀
+	-- 작은 지도 (큰 지도의 "작게" 버튼): 오른쪽 위, 내 위치가 가운데
+	CornerSize = 170, -- 픽셀
+	CornerTop = 110, -- 화면 위에서 거리(픽셀). 골드 칸 아래
+	CornerOutdoorScale = 1.1, -- 작은 지도 밖 확대(1스터드당 픽셀)
+	CornerCaveScale = 2.4, -- 작은 지도 광산 확대
+	-- 밖 지형 그리기 (처음 열 때 한 번 광선을 쏴서 기억)
+	SampleStep = 8, -- 광선 간격(스터드). 맵이 크면 MaxSamplesPerSide에 맞춰 넓어진다
+	MaxSamplesPerSide = 96, -- 한 변 최대 광선 수
+	SamplesPerFrame = 400, -- 한 프레임에 쏘는 광선 수 (끊김 방지)
+	SampleTop = 400, -- 광선 시작 높이(스터드)
+	SurfaceMinY = -60, -- 이보다 낮은 것은 지하(광산 층)로 보고 밖 지도에서 뺀다
+	WorldMargin = 50, -- 마을·NPC·나무·몹 자리 범위 둘레 여유(스터드)
+	HillHeight = 22, -- 땅 평균보다 이만큼 높으면 언덕 ^ (스터드)
+	MountainHeight = 45, -- 이만큼 높으면 큰 산
+	HillStride = 3, -- 언덕 그림은 광선 몇 칸마다 하나
+	WaveChance = 0.05, -- 물 칸마다 물결 ~ 그릴 확률
+	TreeCell = 22, -- 나무 그림 하나가 대표하는 칸 크기(스터드)
+	TreeSize = 12, -- 나무 그림 크기(픽셀)
+	TownHouseCount = 5, -- 마을 건물 모델을 못 찾으면 광장 둘레에 그릴 집 수
+	TownHouseRadius = 30, -- 그 집들의 광장 중심 거리(스터드)
+	MaxHouses = 30,
+	RockRange = 160, -- 밖: 내 둘레 이 거리 안의 바위만 점으로 (스터드)
+	RockRefresh = 1, -- 바위 점 다시 그리는 간격(초)
+	-- 광산 미로
+	VisitRadius = 13, -- 칸 중심에서 이 거리 안에 들어가면 그 칸을 가 본 칸으로 (스터드)
+	WallRayHeight = 3, -- 벽 확인 광선 높이: 바닥에서 이만큼 위 (스터드)
+	FloorSearch = 40, -- 경로점 아래로 바닥을 찾는 거리 (스터드)
+	WallThickness = 5, -- 벽 선 굵기(픽셀)
+	WallJitter = 1.2, -- 손그림처럼 벽 선을 이만큼 흔든다(픽셀)
+	FogTransparency = 0.45, -- 안 가 본 칸 어둡게 덮는 정도 (1이면 안 덮음)
+	PortalFloorRange = 30, -- 이 높이 차 안의 갱도만 이 층 것으로 본다 (스터드)
+	-- 글꼴·아이콘
+	Font = Enum.Font.Cartoon,
+	NpcIcons = { Blacksmith = "⚒", Merchant = "💰", Hunter = "🏹" },
+	ZoneColors = {
+		Slime = Color3.fromRGB(120, 200, 110),
+		Skeleton = Color3.fromRGB(200, 200, 190),
+		Zombie = Color3.fromRGB(120, 150, 90),
+		Cerberus = Color3.fromRGB(210, 110, 70),
+		Cyclops = Color3.fromRGB(170, 120, 200),
+	},
+	Colors = {
+		Parchment = Color3.fromRGB(238, 222, 184),
+		ParchmentEdge = Color3.fromRGB(120, 80, 40), -- 가장자리 그늘
+		Ink = Color3.fromRGB(88, 58, 32),
+		InkLight = Color3.fromRGB(250, 240, 215), -- 글자 테두리
+		Grass = Color3.fromRGB(200, 212, 152),
+		Dirt = Color3.fromRGB(212, 186, 138),
+		Path = Color3.fromRGB(196, 176, 146),
+		Sand = Color3.fromRGB(236, 218, 162),
+		Rock = Color3.fromRGB(178, 164, 142),
+		Snow = Color3.fromRGB(244, 244, 238),
+		Water = Color3.fromRGB(150, 192, 210),
+		WaterLine = Color3.fromRGB(80, 130, 165),
+		Hill = Color3.fromRGB(125, 90, 55),
+		TreeCrown = Color3.fromRGB(95, 160, 80),
+		Trunk = Color3.fromRGB(110, 75, 45),
+		House = Color3.fromRGB(250, 238, 210),
+		Roof = Color3.fromRGB(180, 80, 55),
+		Npc = Color3.fromRGB(240, 180, 80),
+		MineMound = Color3.fromRGB(150, 135, 120),
+		CaveBackground = Color3.fromRGB(40, 34, 32),
+		CaveFloor = Color3.fromRGB(214, 198, 168),
+		CaveWall = Color3.fromRGB(52, 38, 28),
+		Fog = Color3.fromRGB(30, 24, 22),
+		Exit = Color3.fromRGB(70, 165, 80),
+		Down = Color3.fromRGB(60, 120, 210),
+		Locked = Color3.fromRGB(130, 120, 115),
+		Player = Color3.fromRGB(230, 60, 50),
+		OtherPlayer = Color3.fromRGB(60, 110, 220),
+	},
 }
 
 -- 바위 생성 수치
@@ -697,6 +800,48 @@ Config.Music = {
 	MineVolume = 0, -- 광산 안 볼륨 (광산 배경음이 따로 있다)
 	FadeTime = 2, -- 볼륨이 바뀌는 시간(초)
 	GapBetweenTracks = 3, -- 곡 사이 쉬는 시간(초)
+}
+
+-- 밤낮·먼 곳 안개 (2026-10-09, 서버 DayNightService가 시각을 돌리고 클라 DayNightController가 조명·안개·부엉이)
+Config.DayNight = {
+	StartClock = 9, -- 서버가 켜질 때 시각
+	DayStart = 6, -- 해 뜨는 시각
+	NightStart = 18.5, -- 해 지는 시각
+	DaySeconds = 720, -- 낮이 실제로 흐르는 시간(초) = 12분
+	NightSeconds = 360, -- 밤 = 6분
+	TwilightHours = 1, -- 해 뜨고 질 때 밝기가 바뀌는 시간(게임 시각)
+	Day = {
+		Ambient = Color3.fromRGB(120, 120, 125),
+		OutdoorAmbient = Color3.fromRGB(140, 140, 140),
+		Brightness = 2.2,
+		Exposure = 0,
+		Density = 0.3, -- 낮에도 아주 먼 곳은 뿌옇게
+		AtmColor = Color3.fromRGB(199, 214, 230),
+		AtmDecay = Color3.fromRGB(106, 112, 125),
+		Haze = 1,
+	},
+	Night = { -- 더 깜깜하게
+		Ambient = Color3.fromRGB(18, 20, 38),
+		OutdoorAmbient = Color3.fromRGB(28, 32, 58),
+		Brightness = 0.35,
+		Exposure = -0.6,
+		Density = 0.45,
+		AtmColor = Color3.fromRGB(30, 36, 62),
+		AtmDecay = Color3.fromRGB(10, 12, 25),
+		Haze = 2,
+	},
+	-- 마을에서 멀수록 안개가 짙어진다 ("미지의 세계")
+	Fog = {
+		ClearRadius = 90, -- 마을에서 이 거리까지는 맑음(스터드)
+		FullRadius = 260, -- 이 거리부터 가장 짙음
+		FarDensity = 0.62, -- 가장 먼 곳 안개 짙기 (0~1)
+		FarHaze = 2.5, -- 더해지는 뿌연 정도
+	},
+	-- 밤에 들리는 부엉이 (내 주변 어딘가에서). TODO: Creator Store에서 "owl hoot"을 찾아 Id 넣기. 빈 값이면 안 남
+	OwlSound = "",
+	OwlVolume = 0.6,
+	OwlIntervalMin = 12, -- 울음 간격 범위(초)
+	OwlIntervalMax = 30,
 }
 
 -- 몹이 죽을 때 비명 (2026-10-09). Id는 Roblox 기본 소리를 음높이로 바꿔 쓴다. TODO: Creator Store 전용 소리 찾으면 교체
