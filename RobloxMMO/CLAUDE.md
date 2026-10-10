@@ -463,6 +463,7 @@ src/
   - 겉모습: GearVisualService가 세트마다 다른 모양을 짓는다 (색·재질·빛·입자 Config.GearVisual.Sets). R15·R6 공통 "구역"(Anchor)으로 부위를 찾고, 세트별 몸통 크기·가슴 장식 두께(SET_SHAPE)로 목걸이·화살통 자리를 맞춘다. 한 세트 전부 입어도 부품 약 80개
   - 아이콘: BuildWeaponsAndMobs 3-2 ARMOR_ICONS가 세트마다 다른 모양(같은 색표). 사냥꾼 방어구 탭 그림도 새 세트
   - 예전 저장의 구리·철·다이아·미스릴·오리하르콘 투구·갑옷·장화·장갑은 불러올 때 같은 단계 세트로 바뀐다 (EquipmentDefs.Renamed → InventoryService 가방·Unknown, EquipmentService 끼운 장비)
+- [x] 숫자 조정 (2026-10-10): 조합은 모든 단계 아래 단계 2개, 낮 6분·밤 3분, 처음 가방 20칸·가방 확장 판매 끔(Config.Inventory.BagShopEnabled, 상인 가방 탭 숨김), 구르기 마나 0·쿨타임 5초·거리 18, 스킬 쿨타임 10초, 광석 잔상 테두리 흰색 + 겹쳐서 굵게(Config.Timing.GhostLayers)
 - [ ] 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)

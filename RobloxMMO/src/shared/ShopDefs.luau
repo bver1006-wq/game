@@ -39,7 +39,7 @@ local ShopDefs: { [string]: ShopDef } = {
 		Tabs = {
 			{ Id = "Sell", Title = "팔기", Icon = "@Coin" },
 			{ Id = "Buy", Title = "잡화", Icon = "Bread" },
-			{ Id = "Bag", Title = "가방", Icon = "@Bag" },
+			-- { Id = "Bag", Title = "가방", Icon = "@Bag" }, -- 2026-10-10 가방은 우선 못 사게 (Config.Inventory.BagShopEnabled)
 			-- MVP 제외 항목(버프 음식은 MVP-2, 물약은 범위 밖). NPC만 먼저 배치
 			{ Id = "ComingSoon", Title = "준비 중", Icon = "Bread", Note = "버프 음식과 물약은 준비 중이에요." },
 		},
