@@ -81,7 +81,8 @@ local function applyHit(
 	chargeMultiplier: number,
 	charged: boolean,
 	knockback: number?,
-	fromSkill: boolean
+	fromSkill: boolean,
+	noProc: boolean? -- true면 원소 무기 효과를 안 건다 (질풍 검 추가타가 또 추가타를 부르지 않게)
 ): number
 	-- 데미지: 기본 × (1 ± 흔들림), 치명타면 배수
 	local combat = Config.Combat
@@ -105,6 +106,10 @@ local function applyHit(
 	elseif gap == 1 then
 		damage = math.max(math.round(damage * Config.TierWall.OneTierLowMultiplier), 1)
 	end
+	-- 딱딱한(대지) 보스는 덜 아프다 (MobState.DamageTaken, 2026-10-10)
+	if not blocked and state.DamageTaken ~= 1 then
+		damage = math.max(math.round(damage * state.DamageTaken), 1)
+	end
 
 	local flat = (state.Position - root.Position) * Vector3.new(1, 0, 1)
 	local direction = if flat.Magnitude > 0.01 then flat.Unit else Vector3.zAxis
@@ -113,6 +118,22 @@ local function applyHit(
 	fireNearby(state.Position, mob, damage, isCrit, weapon.Kind, weapon.Tier, player.UserId, fromPosition, hitPosition, charged, blocked, fromSkill)
 	-- 흠집도 안 나면 몹 위 "흠집도 안 나!" 문구만 (알림 창은 안 띄운다, 2026-10-09)
 	MobService.damage(mob, player, damage, direction, if blocked then nil else knockback)
+	-- 원소 무기 효과 (2026-10-10, Config.ElementWeapons): 질풍 검은 가끔 바람 추가타, 나머지는 MobService가 태우기·느리게·기절
+	local element = (Config.ElementWeapons :: any)[weapon.Id]
+	if element and not blocked and damage > 0 and not noProc then
+		if element.GustChance then
+			if random:NextNumber() < element.GustChance then
+				task.delay(element.GustDelay or 0.1, function()
+					local again = MobService.getState(mob)
+					if again then
+						applyHit(player, weapon, config, mob, again, root, chargeMultiplier * element.GustMultiplier, false, nil, true, true)
+					end
+				end)
+			end
+		else
+			MobService.applyWeaponElement(mob, player, weapon.Id, damage)
+		end
+	end
 	return damage
 end
 

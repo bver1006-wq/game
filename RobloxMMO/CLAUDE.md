@@ -299,7 +299,7 @@ src/
     - 타격마다 rerollTree: 목표를 MinTargetShift 이상 옮기고 Period도 새로, 커서는 그 자리·방향에서 끊기지 않고 이어 간다. 나무에는 3D 잔상 고리·나무 위 체력바가 없다. 내가 Perfect/Nice면 막대 테두리가 그 색으로 번쩍
   - Studio 제작: Rojo가 `studio/`를 ServerStorage/StudioTools로 넣는다. 템플릿이 없으면 게임 시작 때 서버가 자동 실행한다(저장 안 됨). 편집 상태 명령 모음에서 `require(game.ServerStorage.StudioTools.BuildTreesAndAxes:Clone())` 실행하면 도끼 Tool(같은 티어 곡괭이 손잡이 재사용)·나무 템플릿 5종x3모양·아이콘·스폰 자리를 만든다. 다시 실행하면 새로 만든다
 - [x] 사냥과 전투 (2026-10-09 사용자 결정으로 7장 제외 항목에서 앞당김)
-  - 몹 5종: 귀여운 슬라임·스켈레톤·좀비·케르베로스·사이클롭스 (MobDefs, 수치 Config.Mobs). 마을에서 멀수록 센 몹 (2026-10-10 스켈레톤 궁수·거대 몬스터 3종 더함, 아래 "스켈레톤 궁수·거대 몬스터")
+  - 몹 5종: 슬라임·스켈레톤·좀비·케르베로스·사이클롭스 (2026-10-10 "귀여운" 빼고 진짜처럼 다시 디자인, 아래 "몹 모델 진짜처럼") (MobDefs, 수치 Config.Mobs). 마을에서 멀수록 센 몹 (2026-10-10 스켈레톤 궁수·거대 몬스터 3종 더함, 아래 "스켈레톤 궁수·거대 몬스터")
     - 모델은 제작 스크립트 `studio/BuildWeaponsAndMobs.luau`가 부품으로 짓는다 (Templates/Mobs, 고정 Root + 용접, 앞 = -Z, 기준점 = 발밑). 생성 자리는 Workspace/MobSpawns (속성 MobType)
     - 서버 MobService가 TickRate번/초로 생각·이동(PivotTo): 어슬렁 → 가까운 플레이어 쫓기 → 공격(Humanoid:TakeDamage), 집에서 Leash 넘게 멀어지면 포기. 슬라임은 통통 튐. 피버 중 플레이어는 무적
     - 처치하면 처치한 사람에게 골드 + 전리품(슬라임 젤리·뼈다귀·낡은 천·케르베로스 송곳니·사이클롭스 눈알, 상인에게 판매). Respawn초 뒤 같은 자리에 다시
@@ -495,6 +495,28 @@ src/
   - 칼 방패 막기: 방패를 쓰는 중이면 ShieldReduction(95%)·ShieldDuration(2.2초) (SkillService → EquipmentService.hasActiveShield)
   - 모양: GearVisualService buildShield가 왼팔 아래팔 바깥(팔찌 바깥)에 세트마다 다른 방패 (나무 둥근 판자·쇠 혹 / 뼈 둥근 판·갈비뼈 살·해골 / 케르베로스 연 모양·늑대 얼굴·송곳니 / 사이클롭스 큰 둥근 가죽·외눈 / 골렘 네모 돌판·빛나는 금·핵 / 서리 얼음 연 모양·수정 가시·눈송이 / 베헤모스 가시 큰 판·두 뿔·용암 핵·불티). 크기 Config.Shield. 화살통 모양은 그대로. 아이콘은 BuildWeaponsAndMobs ARMOR_ICONS.Shield
   - 무기 균형 (Config.Weapons, 같은 단계 칼 기준): 방망이 = 데미지 약 1.4배·간격 약 1.25배 (11·18·28·45·67·109 / 0.63, 미스릴 0.53), 활 = 데미지 약 0.85배 (7·11·17·27·41·66, 간격·사거리 그대로). 칼은 8·13·20·32·48·78 / 0.5 (미스릴 0.42) 그대로
+- [x] 몹 모델 진짜처럼 다시 디자인 (2026-10-10 사용자 요청 "싸 보이고 귀여움 → 진짜처럼, 귀여움 빼기")
+  - BuildWeaponsAndMobs 2번(몹)을 새로 지음: 큰 눈·반짝이·볼터치 삭제, 관절·근육·이빨·발톱·갑옷 조각·재질(Slate·Basalt·Limestone·Fabric·Leather·CorrodedMetal·Ice·Glass, 눈은 작은 Neon). 몹마다 부품 약 30~120개. 크기·기준점(발밑)·앞(-Z)·Root는 그대로라 판정 거리는 비슷
+  - 슬라임 = 녹아내리는 독성 점액(속에 해골·뼈·녹슨 칼날·기포, 웅덩이·방울, 비대칭 작은 눈) / 스켈레톤 = 사람 크기 해골 전사(갈비뼈 4쌍·등뼈·골반·다리뼈, 녹슨 투구·견갑·장검·갈라진 방패) / 궁수 = 같은 해골 + 초록 두건·망토·리커브 활 / 좀비 = 굽은 썩은 사람(뻗은 팔·드러난 팔뼈·갈비뼈·꿰맨 상처·빠진 턱) / 케르베로스 = 근육질 지옥개(갈기·등 가시·관절 다리·발톱·가시 목걸이, 머리마다 송곳니·불씨 눈) / 사이클롭스 = 구부정한 근육 거인(핏줄 선 외눈·엄니·가시 견갑·대못 몽둥이) / 골렘 = 각진 바위 고릴라(마나 핵 금·등 수정·돌 주먹) / 서리 거인 = 요툰(흰 수염 땋음·얼음 왕관·얼음 견갑 수정·얼음 도끼) / 베헤모스 = 등 돌 비늘판·용암 틈·큰 뿔·가시 꼬리 / 낙지 = 진짜 문어(처진 몸통·가로 동공·다리 사이 막) / 해파리 = 눈 없는 갓·생식선·입 팔·긴 촉수 / 상어 = 백상아리(아가미 5줄·톱니 이빨 줄)
+  - MobDefs 이름에서 "귀여운" 뺌 (슬라임·스켈레톤·좀비·케르베로스)
+  - 케르베로스: 보통은 머리 2개, 보스는 셋째 머리 (사용자 요청). 템플릿에 셋째 머리를 두고 부품 속성 BossOnly = true → MobService.spawnMob이 보스가 아니면 지운다
+  - 부품 속성 Slot(Head·Weapon·Core·Armor·Eye) = 원소 보스 장식 자리 (아래). 지도 손그림 얼굴(MinimapController FACES)은 그대로 (예전 귀여운 얼굴, TODO 원하면 새 모양에 맞추기)
+  - 고침: Config.Mobs.Behemoth 줄 가운데 주석 때문에 Aggro·Gold·Loot·Respawn·Scale·BossScale이 빠져 있던 것
+- [x] 원소 보스·원소의 돌·원소 무기 (2026-10-10 사용자 요청 "보스가 낮은 확률로 불타는·서리의·딱딱한·신속한, 돌은 보통 확률·무기는 낮은 확률")
+  - 보스 중 Config.MobBoss.ElementChance(35%)가 원소를 받는다 (Elements Weight 비율, ElementOrder). 모델 속성 Element, 체력바 이름 "👑 불타는 보스 사이클롭스"(BossPrefix, 원소 색 NameColor, CombatController)
+    | 원소 | 이름 | 싸움 | 겉모습 (서버 MobService.decorateElement, Slot 자리) | 돌 / 무기 |
+    |---|---|---|---|---|
+    | Fire | 불타는 | 맞은 사람 화상: 보스 공격 × 12%를 0.75초마다 4번 | 머리·무기 불꽃, 몸 불티, 슬라임 몸은 붉게 빛남 | 불의 돌 / 불꽃 검(칼): 맞은 몹이 데미지 15%씩 4번 탐 |
+    | Frost | 서리의 | 맞은 사람 2.5초 0.55배 속도 | 어깨·몸 얼음 수정, 무기 얼음, 머리 서리, 푸른 빛 | 서리의 돌 / 서리 활(활): 맞은 몹 2.5초 0.5배 속도 |
+    | Earth | 딱딱한 | 받는 데미지 0.7배, 체력 1.3배 | 몸·머리 바위 판, 무기 돌, 발밑 흙먼지, 갈색 | 대지의 돌 / 대지의 망치(방망이): 20% 1초 기절 |
+    | Wind | 신속한 | 속도 1.35배, 공격 간격 0.7배 | 몸 둘레 바람, 머리·무기 연둣빛 꼬리(Trail) | 바람의 돌 / 질풍 검(칼, 간격 0.34초): 30% 바람 추가타 ×0.5 |
+  - 모든 원소 몸 색은 Tint 쪽으로 TintAmount만큼, 눈(Slot Eye)은 Glow 빛, Core는 원소 색 + PointLight. 상태 연출(타는 몹·느린 몹·화상 플레이어)은 서버가 몸 부품에 입자를 잠깐 붙인다 (statusEffect)
+  - 전리품 Config.MobBoss.ElementLoot: 원소의 돌 StoneChance 50%로 1~2개 / 원소 무기 WeaponChance 6%로 1개(PickaxeService.give, "✨ 원소 무기 ~을(를) 얻었어요!"). MobDied extras에도 들어감. 상세 창 "얻는 법"에 원소 보스·확률
+  - 원소의 돌 4종(FireStone·FrostStone·EarthStone·WindStone, 40G): 나중에 보석 끼우기 재료, 지금은 판매만. 아이콘 = 돌 받침 + 원소 결정 셋 (BuildWeaponsAndMobs elementStoneIcon)
+  - 원소 무기 4종 (PickaxeDefs Element 필드, 5단계, 조합식 없음 = 상점에 안 나옴, 수치 Config.Weapons, 효과 Config.ElementWeapons): CombatService.applyHit 끝에서 MobService.applyWeaponElement(불·서리·대지) / 질풍 검 추가타는 applyHit을 noProc로 한 번 더. 상세 창에 효과 줄
+    - 모양(BuildWeaponsAndMobs): 불꽃 검 = 그을린 강철 날 + 녹아 빛나는 심 + 물결 불꽃 톱니·불꽃 코등이 / 서리 활 = 얼음 리커브 + 빛 줄·수정 날개(S 1.5) / 대지의 망치 = 바위 머리·현무암 면·청동 띠·호박빛 금 / 질풍 검 = 뒤로 휜 은빛 곡도·깃털 코등이·옥빛 손잡이. kit.aura에 "Earth"(흙먼지)·"Wind"(바람) 더함
+  - 서리 느려짐: MobService가 플레이어 속성 ElementSlow·ElementSlowUntil(GetServerTimeNow) → ManaService가 걷는 속도에 곱한다. 딱딱한 보스 데미지는 CombatService가 MobState.DamageTaken을 곱해 숫자도 줄어 보인다
+  - TODO: 화상 틱 데미지 숫자 표시, 원소 전용 소리, 원소의 돌 보석 끼우기
 - [ ] 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)

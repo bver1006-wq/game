@@ -677,7 +677,7 @@ Config.Inventory = {
 -- 저장 (DataService, 2026-10-09)
 Config.Save = {
 	StoreName = "PlayerData_v1", -- 실제 게임 저장소 이름
-	StudioStoreName = "PlayerData_Studio_v3", -- Studio 테스트 저장소 (테스트 지급이 실제 저장에 섞이지 않게). 2026-10-09 v1 → v2: 새로 시작. 2026-10-10 v2 → v3: 테스트 아이템이 쌓여서 돌 곡괭이 하나로 새로 시작
+	StudioStoreName = "PlayerData_Studio_v4", -- 2026-10-10 v3 → v4: 나무 검 + 퀘스트로 새로 시작. -- Studio 테스트 저장소 (테스트 지급이 실제 저장에 섞이지 않게). 2026-10-09 v1 → v2: 새로 시작. 2026-10-10 v2 → v3: 테스트 아이템이 쌓여서 돌 곡괭이 하나로 새로 시작
 	AutoSaveInterval = 60, -- 자동 저장 간격(초)
 	Retries = 3, -- 실패하면 다시 시도하는 횟수
 	LockTimeout = 90, -- 다른 서버의 잠금이 이 초보다 오래됐으면 버려진 것으로 본다

@@ -10,6 +10,7 @@
 --      돌 곡괭이 Tool의 쥐는 각도(Grip)를 그대로 쓰고 모양은 숨긴 뒤, 부품으로 칼·활·방망이를 짓는다.
 --      좌표: x = 앞(곡괭이 머리 방향), y = 자루를 따라 위, 원점 = 손이 쥐는 점
 --   2. 몹 모델 9종 + 바다 생물 3종 →ServerStorage/Templates/Mobs/<몹> (고정된 Root 부품 + 용접된 몸, 앞 = -Z, 기준점 = 발밑)
+--   (2026-10-10: 몹 모델을 진짜처럼 다시 디자인 + 원소 장식 자리 Slot 속성, 원소 무기 4종·원소의 돌 아이콘 4종)
 --   3. 아이콘 → ReplicatedStorage/ItemIcons (무기 18종 + 전리품 8종 + 바다 전리품·음식 8종 + 미스릴·오리하르콘괴 + 음식 3종 + 장비 40종 = 방어구 세트 7 × 4칸 + 장신구 12)
 --   4. 몹 생성 자리 → Workspace/MobSpawns (속성 MobType·Zone·BossSpot). Config.MobZones의 구역(마을 둘레 부채꼴)마다
 --      주인 몹 + Mix 확률로 이웃 단계 몹 + Extras(따로 두는 몹, 스켈레톤 궁수). 마을에서 멀수록 센 몹, 띠끼리 거리가 조금 겹친다.
@@ -297,7 +298,7 @@ local function newWeapon(id: string)
 		embers.Acceleration = Vector3.new(0, 4, 0)
 		embers.Parent = a
 	end
-	-- 5·6단계 무기 둘레 기운 (2026-10-10): "Frost" = 미스릴, 천천히 떨어지는 파란 서리 반짝이 / "Flame" = 오리하르콘, 작은 금빛 불꽃
+	-- 5·6단계 무기 둘레 기운 (2026-10-10): "Frost" = 미스릴, 천천히 떨어지는 파란 서리 반짝이 / "Flame" = 오리하르콘, 작은 금빛 불꽃 / "Earth"·"Wind" = 원소 무기
 	-- spread: 날·머리를 따라 퍼지게 하는 길이(스터드, 자루 방향). 자루를 따라 긴 상자(Box) 모양으로 뿜는다
 	function kit.aura(position: Vector3, style: string, spread: number?)
 		local a = Instance.new("Attachment")
@@ -318,6 +319,26 @@ local function newWeapon(id: string)
 			e.Rate = 18
 			e.Speed = NumberRange.new(0.6, 1.4)
 			e.Acceleration = Vector3.new(0, 3, 0)
+		elseif style == "Earth" then -- 대지의 망치 (2026-10-10): 흩날리는 흙먼지
+			e.Texture = "rbxasset://textures/particles/smoke_main.dds"
+			e.LightEmission = 0
+			e.Color = ColorSequence.new(C(170, 135, 95), C(120, 95, 70))
+			e.Size = NumberSequence.new(0.25, 0.6)
+			e.Transparency = NumberSequence.new(0.55, 1)
+			e.Lifetime = NumberRange.new(0.6, 1.1)
+			e.Rate = 8
+			e.Speed = NumberRange.new(0.2, 0.6)
+			e.Acceleration = Vector3.new(0, -1.5, 0)
+		elseif style == "Wind" then -- 질풍 검 (2026-10-10): 빠르게 휘도는 연둣빛 바람 조각
+			e.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+			e.Color = ColorSequence.new(C(230, 255, 235), C(150, 255, 180))
+			e.Size = NumberSequence.new(0.2, 0)
+			e.Transparency = NumberSequence.new(0.2, 1)
+			e.Lifetime = NumberRange.new(0.3, 0.6)
+			e.Rate = 16
+			e.Speed = NumberRange.new(2, 4)
+			e.SpreadAngle = Vector2.new(180, 20)
+			e.RotSpeed = NumberRange.new(200, 400)
 		else
 			e.Texture = "rbxasset://textures/particles/sparkles_main.dds"
 			e.Color = ColorSequence.new(C(200, 235, 255), MITHRIL_GLOW)
@@ -780,6 +801,132 @@ WEAPONS.OrichalcumBow = function(k)
 	k.aura(k.at(0, 0), "Flame", 2 * half * 0.8)
 end
 
+-- 원소 무기 4종 (2026-10-10): 원소 보스만 아주 가끔 준다 (Config.MobBoss.ElementLoot). 5단계 크기, 원소 빛·입자
+-- 불꽃 검: 검게 그을린 강철 날 + 녹아 빛나는 심 + 양쪽 물결 불꽃 톱니(달아오른 날끝), 불꽃 갈래 코등이·빨간 보석. 불꽃·불티
+WEAPONS.FlameSword = function(k)
+	local STEEL = C(48, 36, 34)
+	local MOLTEN = C(255, 110, 30)
+	local HOT = C(255, 200, 90)
+	k.rod("Grip", -1.05, 0.62, 0.3, C(40, 20, 15), LEATHER)
+	for i = 0, 3 do
+		k.rod("Wrap", -0.95 + i * 0.42, -0.95 + i * 0.42 + 0.07, 0.34, C(150, 40, 25), METAL)
+	end
+	k.block("Pommel", 0, -1.25, Vector3.new(0.44, 0.44, 0.44), MOLTEN, NEON, Enum.PartType.Ball)
+	k.plate({ V(-0.12, -1.42), V(0, -1.85), V(0.12, -1.42) }, 0.18, STEEL, METAL)
+	k.block("Guard", 0, 0.72, Vector3.new(0.95, 0.3, 0.42), STEEL, METAL)
+	k.block("Gem", 0, 0.72, Vector3.new(0.4, 0.4, 0.4), C(255, 60, 30), NEON, Enum.PartType.Ball)
+	for _, side in { 1, -1 } do
+		local function f(list: { Vector2 }): { Vector2 }
+			return if side > 0 then list else mirror(list)
+		end
+		k.plate(f({ V(0.4, 0.85), V(1.15, 1.35), V(0.9, 0.75), V(0.4, 0.6) }), 0.26, STEEL, METAL)
+		k.plate(f({ V(0.9, 0.95), V(1.3, 1.75), V(1.12, 0.95) }), 0.2, MOLTEN, NEON) -- 코등이 끝 불꽃
+		k.plate(f({ V(0.4, 0.62), V(0.95, 0.35), V(0.4, 0.5) }), 0.2, STEEL, METAL)
+	end
+	k.plate({ V(-0.34, 0.85), V(0.34, 0.85), V(0.3, 4.9), V(0, 5.9), V(-0.3, 4.9) }, 0.14, STEEL, METAL)
+	k.plate({ V(-0.07, 0.95), V(0.07, 0.95), V(0.06, 4.8), V(0, 5.3), V(-0.06, 4.8) }, 0.2, MOLTEN, NEON) -- 녹아 빛나는 심
+	for _, side in { 1, -1 } do
+		for i = 0, 5 do
+			local y = 1.0 + i * 0.66
+			k.plate({ V(0.32 * side, y), V(0.62 * side, y + 0.42), V(0.3 * side, y + 0.62) }, 0.12, STEEL, METAL) -- 물결 불꽃 톱니
+			strip(k, V(0.34 * side, y + 0.06), V(0.6 * side, y + 0.42), 0.05, 0.16, HOT, NEON) -- 달아오른 날끝
+		end
+	end
+	k.trail(k.at(0, 5.9), k.at(0, 1.0), C(255, 120, 40), 0.32)
+	k.glow(k.at(0, 3.2), C(255, 110, 40), 12, 2.2, 12)
+	k.embers(k.at(0, 3.4), MOLTEN, HOT)
+	k.aura(k.at(0, 3.3), "Flame", 4.6)
+end
+-- 서리 활: 얼음 리커브 활대 + 앞면 하늘색 빛 줄, 위아래 얼음 수정 날개, 활 끝·손잡이 앞 빛나는 수정. 서리 반짝이 (S 1.5)
+WEAPONS.FrostBow = function(k)
+	local S = 1.5
+	local half = 2.2 * S
+	local ICE_C = C(170, 225, 250)
+	local GLOW_C = C(150, 230, 255)
+	local top, bottom = bowLimbs(k, half, 0.55 * S, 0.3 * S, 0.2 * S, 0.1 * S, ICE_C, Enum.Material.Ice)
+	bowLine(k, half, 0.55 * S, 0.3 * S, 0.07 * S, 0.05 * S, GLOW_C, NEON, 0.1, 0.95)
+	k.rod("Grip", -0.3 * S, 0.3 * S, 0.3 * S, C(70, 130, 190), LEATHER)
+	for _, y in { 0.32, -0.38 } do
+		k.rod("Ring", y * S, (y + 0.06) * S, 0.34 * S, C(220, 240, 255), METAL)
+	end
+	for _, y in { 1, -1 } do
+		k.plate({ V(0, 0.45 * y * S), V(0.55 * S, 0.75 * y * S), V(0.05 * S, 1.05 * y * S) }, 0.1 * S, C(200, 240, 255), GLASS)
+		k.plate({ V(-0.1 * S, 1.15 * y * S), V(0.35 * S, 1.55 * y * S), V(-0.15 * S, 1.6 * y * S) }, 0.08 * S, ICE_C, GLASS)
+		local tip = if y > 0 then top else bottom
+		diamond(k, tip + V(0, 0.15 * y * S), 0.08 * S, 0.22 * S, 0.1 * S, GLOW_C, NEON)
+	end
+	diamond(k, V(0.2 * S, 0), 0.12 * S, 0.2 * S, 0.18 * S, GLOW_C, NEON) -- 손잡이 앞 수정
+	bowString(k, top, bottom, C(210, 245, 255))
+	k.glow(k.at(0.2 * S, 0), C(150, 220, 255), 11, 2, 10)
+	k.aura(k.at(0, 0), "Frost", 2 * half * 0.8)
+end
+-- 대지의 망치: 거친 바위 머리(덧붙은 돌덩이) + 현무암 양 면 + 청동 띠, 앞뒤 호박빛 금·보석, 위 돌 가시, 청동 띠 나무 자루. 흙먼지
+WEAPONS.EarthHammer = function(k)
+	local ROCK_C = C(115, 88, 62)
+	local DARK_R = C(70, 55, 42)
+	local BRONZE = C(170, 120, 60)
+	local AMBER = C(255, 170, 60)
+	k.rod("Shaft", -1.1, 3.2, 0.32, C(80, 55, 35), WOOD)
+	k.rod("Grip", -1.0, 0.4, 0.38, C(60, 40, 28), LEATHER)
+	for _, y in { 0.9, 1.7, 2.5 } do
+		k.rod("Band", y, y + 0.1, 0.38, BRONZE, METAL)
+	end
+	k.block("Pommel", 0, -1.3, Vector3.new(0.5, 0.42, 0.5), DARK_R, Enum.Material.Slate)
+	local hy = 3.7
+	k.block("Head", 0, hy, Vector3.new(2.3, 1.15, 1.15), ROCK_C, Enum.Material.Slate)
+	k.block("Chunk", 0.55, hy + 0.45, Vector3.new(0.8, 0.5, 0.9), DARK_R, Enum.Material.Slate, nil, CFrame.Angles(0.3, 0.2, 0.4))
+	k.block("Chunk", -0.6, hy - 0.4, Vector3.new(0.7, 0.5, 0.8), DARK_R, Enum.Material.Slate, nil, CFrame.Angles(-0.2, 0.5, -0.3))
+	for _, side in { 1, -1 } do
+		k.block("Face", 1.2 * side, hy, Vector3.new(0.22, 1.25, 1.25), DARK_R, Enum.Material.Basalt)
+		k.block("Band", 0.75 * side, hy, Vector3.new(0.14, 1.25, 1.25), BRONZE, METAL)
+		k.block("Crack", 0.3 * side, hy, Vector3.new(0.7, 0.07, 0.07), AMBER, NEON, nil, CFrame.Angles(0, 0, math.rad(25 * side)), 0.59)
+		k.block("Crack", -0.2 * side, hy + 0.1, Vector3.new(0.5, 0.06, 0.06), AMBER, NEON, nil, CFrame.Angles(0, 0, math.rad(-35 * side)), -0.59)
+		k.block("Gem", 0, hy, Vector3.new(0.34, 0.34, 0.34), AMBER, NEON, Enum.PartType.Ball, nil, 0.6 * side)
+	end
+	k.plate({ V(-0.25, hy + 0.55), V(0, hy + 1.25), V(0.25, hy + 0.55) }, 0.4, DARK_R, Enum.Material.Slate) -- 위 돌 가시
+	k.trail(k.at(1.2, hy + 0.6), k.at(1.2, hy - 0.6), C(230, 170, 90), 0.3)
+	k.glow(k.at(0, hy), AMBER, 11, 1.8, 6)
+	k.aura(k.at(0, hy), "Earth", 1.4)
+end
+-- 질풍 검: 뒤로 휜 가늘고 긴 은빛 곡도(마디 8개) + 연둣빛 날끝, 깃털 날개 코등이, 옥빛 손잡이·빛 구슬·술. 휘도는 바람
+WEAPONS.WindSword = function(k)
+	local SILVER = C(215, 235, 225)
+	local JADE = C(70, 170, 120)
+	local GLOW_C = C(160, 255, 190)
+	k.rod("Grip", -1.0, 0.6, 0.26, C(40, 70, 55), LEATHER)
+	for i = 0, 4 do
+		k.rod("Wrap", -0.92 + i * 0.34, -0.92 + i * 0.34 + 0.05, 0.3, JADE, METAL)
+	end
+	k.block("Pommel", 0, -1.18, Vector3.new(0.3, 0.3, 0.3), GLOW_C, NEON, Enum.PartType.Ball)
+	k.segment("Tassel", V(0, -1.25), V(-0.25, -1.9), 0.06, GLOW_C, Enum.Material.Fabric)
+	k.block("Guard", 0, 0.68, Vector3.new(0.6, 0.22, 0.32), JADE, METAL)
+	for _, side in { 1, -1 } do
+		local function f(list: { Vector2 }): { Vector2 }
+			return if side > 0 then list else mirror(list)
+		end
+		for i = 0, 2 do
+			k.plate(f({ V(0.25, 0.7 - i * 0.05), V(0.85 + i * 0.18, 0.95 - i * 0.25), V(0.75 + i * 0.15, 0.62 - i * 0.2) }), 0.1, if i == 0 then SILVER else JADE, METAL) -- 깃털 날개
+		end
+	end
+	local function edge(t: number): (number, number) -- 날 가운데 (x 오프셋, y), t = 0 밑동 ~ 1 끝
+		return -0.55 * t * t, 0.8 + t * 4.6
+	end
+	local w0 = 0.26
+	for i = 0, 7 do
+		local t0, t1 = i / 8, (i + 1) / 8
+		local x0, y0 = edge(t0)
+		local x1, y1 = edge(t1)
+		local wa, wb = w0 * (1 - t0 * 0.35), w0 * (1 - t1 * 0.35)
+		k.plate({ V(x0 - wa * 0.5, y0), V(x0 + wa * 0.5, y0), V(x1 + wb * 0.5, y1), V(x1 - wb * 0.5, y1) }, 0.1, SILVER, METAL)
+		strip(k, V(x0 + wa * 0.5, y0), V(x1 + wb * 0.5, y1), 0.05, 0.13, GLOW_C, NEON) -- 바람 날끝
+	end
+	local xe, ye = edge(1)
+	k.plate({ V(xe - w0 * 0.33, ye), V(xe + w0 * 0.33, ye), V(xe - 0.25, ye + 0.7) }, 0.1, SILVER, METAL) -- 끝
+	k.trail(k.at(xe, ye + 0.6), k.at(0, 1.0), C(170, 255, 200), 0.3)
+	k.glow(k.at(-0.2, 3.0), GLOW_C, 10, 1.8, 8)
+	k.aura(k.at(-0.2, 3.0), "Wind", 4.4)
+end
+
 -- 도구를 아이콘용 모델로 (보이는 부품만)
 local function iconFromTool(tool: Tool, name: string): Model
 	local model = Instance.new("Model")
@@ -820,13 +967,30 @@ print(`[BuildWeaponsAndMobs] 무기 {weaponCount}종 완료`)
 
 ---------------------------------------------------------------- 2. 몹
 -- 몹 모델 도구 상자: 좌표는 발밑 원점, 앞 = -Z
+-- 2026-10-10 다시 디자인 (사용자 요청 "싸 보이고 귀여움 → 진짜처럼"): 큰 눈·볼터치를 빼고 관절·근육·이빨·발톱·갑옷 조각을 더했다.
+-- 부품 속성 Slot = 원소 보스 장식 자리 (서버 MobService.decorateElement): Head 머리 / Weapon 무기·주먹 / Core 빛나는 몸 / Armor 장식 붙일 몸통·어깨 / Eye 눈
+-- 부품 속성 BossOnly = true면 보스일 때만 남는다 (케르베로스 셋째 머리). kit.group(태그, 함수) 안에서 만든 부품에 태그가 붙는다
+local SLATE = Enum.Material.Slate
+local FABRIC = Enum.Material.Fabric
+local SMOOTH = Enum.Material.SmoothPlastic
+local LIMESTONE = Enum.Material.Limestone
+local CORRODED = Enum.Material.CorrodedMetal
+local BASALT = Enum.Material.Basalt
+local ICE = Enum.Material.Ice
 local function newMob(name: string)
 	local model = Instance.new("Model")
 	model.Name = name
 	local root = part({ Name = "Root", Size = Vector3.new(1.5, 0.2, 1.5), CFrame = CFrame.new(0, 0.1, 0), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false }, model)
 	root.PivotOffset = CFrame.new(0, -0.1, 0) -- 기준점 = 발밑
 	model.PrimaryPart = root
-	local kit = { Model = model, Root = root }
+	local kit = { Model = model, Root = root, Tags = nil }
+	local function tag(p: Instance)
+		if kit.Tags then
+			for key, value in kit.Tags do
+				p:SetAttribute(key, value)
+			end
+		end
+	end
 	local function add(p: BasePart)
 		p.Anchored = false
 		p.CanCollide = false
@@ -834,494 +998,950 @@ local function newMob(name: string)
 		p.CanTouch = false
 		p.Massless = true
 		weld(root, p)
+		tag(p)
 		return p
 	end
-	-- 말랑한 타원체 (SpecialMesh 구)
+	-- 둥근 타원체 (SpecialMesh 구): 근육·살·바위 덩어리
 	function kit.blob(partName: string, size: Vector3, position: Vector3, color: Color3, material: Enum.Material?, transparency: number?, rotation: CFrame?)
-		local p = part({ Name = partName, Size = size, CFrame = CFrame.new(position) * (rotation or CFrame.new()), Color = color, Material = material or Enum.Material.SmoothPlastic, Transparency = transparency or 0 }, model)
+		local p = part({ Name = partName, Size = size, CFrame = CFrame.new(position) * (rotation or CFrame.new()), Color = color, Material = material or SMOOTH, Transparency = transparency or 0 }, model)
 		local mesh = Instance.new("SpecialMesh")
 		mesh.MeshType = Enum.MeshType.Sphere
 		mesh.Parent = p
 		return add(p)
 	end
 	function kit.box(partName: string, size: Vector3, cframe: CFrame, color: Color3, material: Enum.Material?)
-		return add(part({ Name = partName, Size = size, CFrame = cframe, Color = color, Material = material or Enum.Material.SmoothPlastic }, model))
+		return add(part({ Name = partName, Size = size, CFrame = cframe, Color = color, Material = material or SMOOTH }, model))
 	end
 	function kit.ball(partName: string, diameter: number, position: Vector3, color: Color3, material: Enum.Material?)
-		return add(part({ Name = partName, Shape = Enum.PartType.Ball, Size = Vector3.new(diameter, diameter, diameter), CFrame = CFrame.new(position), Color = color, Material = material or Enum.Material.SmoothPlastic }, model))
+		return add(part({ Name = partName, Shape = Enum.PartType.Ball, Size = Vector3.new(diameter, diameter, diameter), CFrame = CFrame.new(position), Color = color, Material = material or SMOOTH }, model))
 	end
-	-- 두 점 사이 원통 (팔다리)
+	-- 두 점 사이 원통 (팔다리·뼈)
 	function kit.limb(partName: string, a: Vector3, b: Vector3, diameter: number, color: Color3, material: Enum.Material?)
 		local length = (b - a).Magnitude
 		return add(part({
 			Name = partName, Shape = Enum.PartType.Cylinder, Size = Vector3.new(length + diameter * 0.4, diameter, diameter),
-			CFrame = CFrame.lookAt((a + b) / 2, b) * CFrame.Angles(0, math.rad(90), 0), Color = color, Material = material or Enum.Material.SmoothPlastic,
+			CFrame = CFrame.lookAt((a + b) / 2, b) * CFrame.Angles(0, math.rad(90), 0), Color = color, Material = material or SMOOTH,
 		}, model))
 	end
-	-- 귀여운 눈 한 쌍 (검은 눈동자 + 하얀 반짝임). z는 얼굴 앞면
-	function kit.eyes(x: number, y: number, z: number, size: number)
-		for _, side in { 1, -1 } do
-			kit.ball("Eye", size, Vector3.new(x * side, y, z), C(25, 20, 30))
-			kit.ball("Shine", size * 0.35, Vector3.new(x * side + size * 0.15, y + size * 0.18, z - size * 0.4), C(255, 255, 255), NEON)
+	-- 납작한 원판 (원통, cframe의 X축이 판의 축)
+	function kit.disc(partName: string, thickness: number, diameter: number, cframe: CFrame, color: Color3, material: Enum.Material?)
+		return add(part({ Name = partName, Shape = Enum.PartType.Cylinder, Size = Vector3.new(thickness, diameter, diameter), CFrame = cframe, Color = color, Material = material or SMOOTH }, model))
+	end
+	-- 세 점 삼각형 판 (쐐기 두 개). 태그도 붙인다
+	function kit.tri(a: Vector3, b: Vector3, c: Vector3, thickness: number, color: Color3, material: Enum.Material?)
+		local before = {}
+		for _, child in model:GetChildren() do
+			before[child] = true
+		end
+		triangle(model, a, b, c, thickness, color, material or SMOOTH, root)
+		for _, child in model:GetChildren() do
+			if not before[child] then
+				tag(child)
+			end
 		end
 	end
-	function kit.blush(x: number, y: number, z: number, size: number)
-		for _, side in { 1, -1 } do
-			kit.blob("Blush", Vector3.new(size, size * 0.5, 0.1), Vector3.new(x * side, y, z), C(255, 140, 160))
+	-- 뾰족한 가시·이빨·발톱: 밑동 base → 끝 tip, 밑동 너비 width. side = 너비 방향(안 주면 알아서), cross면 십자로 두 장(입체)
+	function kit.spike(base: Vector3, tip: Vector3, width: number, color: Color3, material: Enum.Material?, cross: boolean?, side: Vector3?)
+		local dir = tip - base
+		if dir.Magnitude < 0.01 then
+			return
 		end
+		dir = dir.Unit
+		local s1: Vector3
+		if side then
+			s1 = side - dir * side:Dot(dir)
+		else
+			s1 = dir:Cross(if math.abs(dir.Y) < 0.9 then Vector3.yAxis else Vector3.xAxis)
+		end
+		if s1.Magnitude < 0.01 then
+			s1 = dir:Cross(Vector3.zAxis)
+		end
+		s1 = s1.Unit
+		local thick = math.max(width * 0.3, 0.03)
+		kit.tri(base - s1 * width / 2, base + s1 * width / 2, tip, thick, color, material)
+		if cross then
+			local s2 = dir:Cross(s1).Unit
+			kit.tri(base - s2 * width / 2, base + s2 * width / 2, tip, thick, color, material)
+		end
+	end
+	-- 원소 보스 장식 자리 표시
+	function kit.slot(p: BasePart, slotName: string): BasePart
+		p:SetAttribute("Slot", slotName)
+		return p
+	end
+	-- 이 안에서 만든 부품에 태그(속성)를 붙인다 (예: { BossOnly = true })
+	function kit.group(tags: { [string]: any }, build: () -> ())
+		local previous = kit.Tags
+		kit.Tags = tags
+		build()
+		kit.Tags = previous
 	end
 	return kit
 end
 
 local MOBS = {}
 
+-- 슬라임: 녹아내리는 독성 점액 덩어리. 반투명 몸 속에 녹다 만 해골·뼈·녹슨 칼날·동전·기포, 울퉁불퉁한 혹,
+-- 바닥에 퍼진 점액 웅덩이·흘러내리는 방울, 몸 깊숙이 비대칭으로 빛나는 작은 눈 두 점, 벌어진 입 구멍 (높이 약 2.5 × Scale 0.9)
 MOBS.Slime = function(k)
-	local green = C(110, 225, 160)
-	k.blob("Body", Vector3.new(3.2, 2.4, 3.2), Vector3.new(0, 1.2, 0), green, Enum.Material.Glass, 0.15)
-	k.blob("Core", Vector3.new(1.4, 1.0, 1.4), Vector3.new(0, 1.0, 0.2), C(70, 180, 120), Enum.Material.SmoothPlastic, 0.3)
-	k.eyes(0.55, 1.45, -1.42, 0.45)
-	k.blush(0.95, 1.1, -1.38, 0.45)
-	k.blob("Mouth", Vector3.new(0.35, 0.15, 0.1), Vector3.new(0, 1.0, -1.55), C(40, 90, 60))
-	k.limb("Sprout", Vector3.new(0, 2.3, 0), Vector3.new(0.1, 2.8, 0), 0.1, C(80, 150, 60))
-	k.blob("Leaf", Vector3.new(0.6, 0.12, 0.35), Vector3.new(0.35, 2.85, 0), C(100, 200, 80), nil, nil, CFrame.Angles(0, 0, math.rad(20)))
+	local ooze = C(100, 185, 70)
+	local deep = C(55, 120, 45)
+	local bone = C(200, 190, 160)
+	k.slot(k.blob("Body", Vector3.new(3.1, 2.2, 3.0), Vector3.new(0, 1.15, 0), ooze, GLASS, 0.35), "Core")
+	k.blob("Lump", Vector3.new(1.6, 1.3, 1.5), Vector3.new(0.7, 1.75, 0.35), ooze, GLASS, 0.35)
+	k.blob("Lump", Vector3.new(1.4, 1.1, 1.3), Vector3.new(-0.8, 1.55, 0.5), ooze, GLASS, 0.35)
+	k.blob("Lump", Vector3.new(1.2, 0.9, 1.2), Vector3.new(0.1, 2.05, -0.35), ooze, GLASS, 0.35)
+	k.blob("Puddle", Vector3.new(4.0, 0.35, 3.8), Vector3.new(0, 0.15, 0.05), deep, GLASS, 0.3)
+	k.blob("Nucleus", Vector3.new(1.3, 1.0, 1.2), Vector3.new(0.1, 1.15, 0.3), C(40, 90, 35), SMOOTH, 0.25)
+	-- 몸 속에 녹다 만 것들
+	k.ball("SkullBit", 0.55, Vector3.new(-0.55, 0.9, 0.35), bone)
+	for _, x in { -0.64, -0.46 } do
+		k.ball("SkullHole", 0.15, Vector3.new(x, 0.95, 0.1), C(40, 40, 30))
+	end
+	k.limb("BoneBit", Vector3.new(0.3, 0.6, 0.6), Vector3.new(0.95, 0.85, 0.1), 0.12, bone)
+	k.limb("BoneBit", Vector3.new(-0.2, 1.5, 0.7), Vector3.new(0.35, 1.3, 0.9), 0.09, bone)
+	k.disc("Coin", 0.05, 0.3, CFrame.new(0.6, 1.3, 0.55) * CFrame.Angles(0.5, 0.3, 1.1), C(150, 120, 60), CORRODED)
+	k.box("RustBlade", Vector3.new(0.08, 0.7, 0.18), CFrame.new(-0.3, 1.6, -0.1) * CFrame.Angles(0.4, 0.2, 0.9), C(110, 80, 60), CORRODED)
+	for i, p in { Vector3.new(0.4, 1.9, -0.6), Vector3.new(-0.9, 1.2, -0.5), Vector3.new(0.9, 1.0, -0.3), Vector3.new(-0.2, 0.55, -0.9), Vector3.new(0.5, 2.3, 0.2), Vector3.new(-0.6, 2.0, -0.1) } do
+		local bubble = k.ball("Bubble", 0.1 + (i % 3) * 0.06, p, C(205, 255, 185), GLASS)
+		bubble.Transparency = 0.4
+	end
+	-- 비대칭 작은 눈 (깊은 곳에서 노랗게) + 벌어진 입 구멍
+	k.slot(k.ball("Eye", 0.2, Vector3.new(0.38, 1.55, -1.25), C(230, 255, 90), NEON), "Eye")
+	k.slot(k.ball("Eye", 0.14, Vector3.new(-0.32, 1.47, -1.3), C(230, 255, 90), NEON), "Eye")
+	k.blob("Maw", Vector3.new(0.8, 0.35, 0.3), Vector3.new(0, 0.95, -1.42), C(25, 50, 20), SMOOTH)
+	-- 흘러내리는 방울
+	for i = 0, 5 do
+		local a = i / 6 * math.pi * 2 + 0.4
+		k.blob("Drip", Vector3.new(0.35, 0.6, 0.35), Vector3.new(math.cos(a) * 1.45, 0.5, math.sin(a) * 1.4), ooze, GLASS, 0.3)
+	end
 end
 
-MOBS.Skeleton = function(k)
-	local bone = C(240, 235, 220)
-	local dark = C(60, 55, 65)
-	k.ball("Skull", 2.2, Vector3.new(0, 3.0, 0), bone)
+-- 뼈 (스켈레톤·궁수 공통)
+local BONE = C(214, 204, 178)
+local BONE_DARK = C(150, 138, 112)
+local HOLE = C(30, 25, 25)
+-- 뼈 몸: 해골(광대·위아래 턱·이빨·깊은 눈구멍 속 작은 눈빛) + 목뼈 + 등뼈 + 갈비뼈 4쌍·복장뼈 + 쇄골 + 골반 + 다리뼈(넓적다리·무릎·정강이·종아리·발가락)
+-- 키 약 4.75. 사람처럼 늘씬하게 (예전 큰 머리 2.2 → 0.9)
+local function skeletonBody(k, eyeColor: Color3)
+	k.slot(k.blob("Skull", Vector3.new(0.82, 0.88, 0.95), Vector3.new(0, 4.3, -0.12), BONE, LIMESTONE), "Head")
+	k.blob("Cranium", Vector3.new(0.86, 0.8, 0.9), Vector3.new(0, 4.42, 0.02), BONE, LIMESTONE)
+	k.box("Brow", Vector3.new(0.74, 0.1, 0.18), CFrame.new(0, 4.34, -0.5), BONE_DARK, LIMESTONE)
 	for _, side in { 1, -1 } do
-		k.ball("Socket", 0.65, Vector3.new(0.45 * side, 3.05, -0.85), dark)
-		k.ball("Glint", 0.18, Vector3.new(0.5 * side, 3.12, -1.12), C(120, 220, 255), NEON)
+		k.ball("Socket", 0.26, Vector3.new(0.18 * side, 4.22, -0.5), HOLE)
+		k.slot(k.ball("Eye", 0.07, Vector3.new(0.18 * side, 4.22, -0.61), eyeColor, NEON), "Eye")
+		k.box("Cheek", Vector3.new(0.16, 0.13, 0.32), CFrame.new(0.3 * side, 4.06, -0.4) * CFrame.Angles(0, math.rad(-15 * side), 0), BONE, LIMESTONE)
 	end
-	k.blob("Nose", Vector3.new(0.25, 0.2, 0.1), Vector3.new(0, 2.7, -1.07), dark)
-	k.box("Jaw", Vector3.new(1.1, 0.35, 0.9), CFrame.new(0, 2.1, -0.3), bone)
+	k.box("NoseHole", Vector3.new(0.1, 0.13, 0.06), CFrame.new(0, 4.07, -0.6), HOLE)
+	k.box("Maxilla", Vector3.new(0.5, 0.12, 0.36), CFrame.new(0, 3.95, -0.38), BONE, LIMESTONE)
+	for i = -3, 3 do
+		k.box("Tooth", Vector3.new(0.055, 0.09, 0.05), CFrame.new(i * 0.065, 3.87, -0.56 + math.abs(i) * 0.015), C(232, 222, 195))
+	end
+	k.box("Jaw", Vector3.new(0.5, 0.09, 0.42), CFrame.new(0, 3.72, -0.33) * CFrame.Angles(math.rad(12), 0, 0), BONE, LIMESTONE)
 	for i = -2, 2 do
-		k.box("Tooth", Vector3.new(0.12, 0.12, 0.05), CFrame.new(i * 0.18, 2.3, -0.76), C(255, 255, 255))
+		k.box("Tooth", Vector3.new(0.05, 0.08, 0.05), CFrame.new(i * 0.07, 3.79, -0.5 + math.abs(i) * 0.015), C(220, 210, 180))
 	end
-	k.box("Ribs", Vector3.new(1.1, 1.0, 0.6), CFrame.new(0, 1.55, 0), bone)
-	for _, y in { 1.35, 1.55, 1.75 } do
-		k.box("RibGap", Vector3.new(1.12, 0.07, 0.62), CFrame.new(0, y, 0), dark)
+	-- 목뼈·등뼈
+	k.limb("Neck", Vector3.new(0, 3.55, 0.02), Vector3.new(0, 3.95, -0.06), 0.12, BONE_DARK)
+	k.limb("Spine", Vector3.new(0, 2.35, 0.12), Vector3.new(0, 3.55, 0.06), 0.12, BONE_DARK)
+	for i = 0, 4 do
+		k.box("Vertebra", Vector3.new(0.2, 0.1, 0.16), CFrame.new(0, 2.5 + i * 0.25, 0.2), BONE, LIMESTONE)
 	end
-	k.box("Pelvis", Vector3.new(0.9, 0.28, 0.5), CFrame.new(0, 0.95, 0), bone)
-	for _, side in { 1, -1 } do
-		k.limb("Leg", Vector3.new(0.3 * side, 0.9, 0), Vector3.new(0.32 * side, 0.15, 0), 0.22, bone)
-		k.ball("Foot", 0.32, Vector3.new(0.32 * side, 0.12, -0.12), bone)
-		k.limb("Arm", Vector3.new(0.65 * side, 1.9, 0), Vector3.new(0.85 * side, 1.15, -0.25), 0.18, bone)
-		k.ball("Hand", 0.28, Vector3.new(0.87 * side, 1.1, -0.28), bone)
-	end
-	k.box("Bandana", Vector3.new(2.25, 0.3, 2.25), CFrame.new(0, 3.55, 0), C(200, 50, 60)) -- 빨간 두건
-end
-
-MOBS.Zombie = function(k)
-	local skin = C(140, 200, 120)
-	k.ball("Head", 2.0, Vector3.new(0, 2.9, 0), skin)
-	k.box("Hair", Vector3.new(1.6, 0.35, 1.4), CFrame.new(0.1, 3.85, 0.1) * CFrame.Angles(0, 0, math.rad(8)), C(60, 90, 50))
-	k.ball("EyeWhite", 0.6, Vector3.new(0.42, 2.95, -0.82), C(255, 255, 255))
-	k.ball("Pupil", 0.25, Vector3.new(0.42, 2.95, -1.1), C(25, 20, 30))
-	for _, angle in { 45, -45 } do -- X자로 꿰맨 눈
-		k.box("Stitch", Vector3.new(0.45, 0.08, 0.05), CFrame.new(-0.42, 2.95, -0.98) * CFrame.Angles(0, 0, math.rad(angle)), C(50, 40, 40))
-	end
-	k.blob("Mouth", Vector3.new(0.6, 0.18, 0.1), Vector3.new(0, 2.4, -0.95), C(70, 40, 50))
-	k.box("Tooth", Vector3.new(0.12, 0.14, 0.05), CFrame.new(0.12, 2.37, -1.0), C(255, 255, 240))
-	k.box("Scar", Vector3.new(0.6, 0.06, 0.05), CFrame.new(-0.3, 3.5, -0.78) * CFrame.Angles(0, 0, math.rad(-15)), C(80, 60, 60))
-	k.blush(0.7, 2.6, -0.85, 0.35)
-	k.box("Shirt", Vector3.new(1.3, 1.1, 0.8), CFrame.new(0, 1.5, 0), C(90, 110, 150), Enum.Material.Fabric)
-	k.box("Patch", Vector3.new(0.35, 0.35, 0.05), CFrame.new(0.3, 1.6, -0.42), C(200, 170, 90), Enum.Material.Fabric)
-	for _, side in { 1, -1 } do
-		k.box("Arm", Vector3.new(0.35, 0.35, 1.3), CFrame.new(0.62 * side, 1.8, -0.75), skin) -- 앞으로 뻗은 팔
-		k.box("Leg", Vector3.new(0.45, 0.95, 0.5), CFrame.new(0.32 * side, 0.48, 0), C(110, 80, 60), Enum.Material.Fabric)
-	end
-end
-
-MOBS.Cerberus = function(k)
-	local fur = C(70, 55, 60)
-	local light = C(120, 100, 105)
-	k.blob("Body", Vector3.new(2.2, 1.6, 3.0), Vector3.new(0, 1.4, 0.2), fur)
-	for _, x in { 0.65, -0.65 } do
-		for _, z in { -0.8, 1.1 } do
-			k.limb("Leg", Vector3.new(x, 1.0, z), Vector3.new(x, 0.15, z), 0.45, fur)
-			k.ball("Paw", 0.5, Vector3.new(x, 0.2, z - 0.1), light)
-		end
-	end
-	-- 머리 셋
-	for i, x in { -1.0, 0, 1.0 } do
-		local y = if x == 0 then 2.65 else 2.35
-		local z = -1.5
-		k.ball("Head", 1.3, Vector3.new(x, y, z), fur)
-		k.blob("Snout", Vector3.new(0.7, 0.5, 0.6), Vector3.new(x, y - 0.2, z - 0.6), light)
-		k.ball("Nose", 0.22, Vector3.new(x, y - 0.05, z - 0.9), C(25, 20, 25))
-		k.eyes(0.25, y + 0.2, z - 0.58, 0.28)
+	-- 갈비뼈 4쌍 + 복장뼈
+	k.slot(k.box("Sternum", Vector3.new(0.12, 0.62, 0.07), CFrame.new(0, 3.18, -0.33) * CFrame.Angles(math.rad(-8), 0, 0), BONE), "Armor")
+	for i = 0, 3 do
+		local y = 3.45 - i * 0.19
+		local w = 0.44 - i * 0.03
 		for _, side in { 1, -1 } do
-			k.box("Ear", Vector3.new(0.3, 0.55, 0.2), CFrame.new(x + 0.38 * side, y + 0.6, z + 0.1) * CFrame.Angles(0, 0, math.rad(-20 * side)), fur)
+			local back = Vector3.new(0.06 * side, y, 0.14)
+			local mid = Vector3.new(w * side, y - 0.05, -0.04)
+			local front = Vector3.new(0.12 * side, y - 0.16, -0.31)
+			k.limb("Rib", back, mid, 0.065, BONE)
+			k.limb("Rib", mid, front, 0.06, BONE)
 		end
-		if i == 2 then
-			k.blob("Tongue", Vector3.new(0.25, 0.1, 0.35), Vector3.new(0, y - 0.5, z - 0.75), C(255, 120, 150))
+	end
+	-- 쇄골·골반
+	for _, side in { 1, -1 } do
+		k.limb("Clavicle", Vector3.new(0.08 * side, 3.58, -0.22), Vector3.new(0.6 * side, 3.62, -0.04), 0.075, BONE)
+		k.blob("Ilium", Vector3.new(0.3, 0.36, 0.14), Vector3.new(0.27 * side, 2.45, 0.06), BONE, LIMESTONE, nil, CFrame.Angles(0, 0, math.rad(20 * side)))
+	end
+	k.slot(k.box("Pelvis", Vector3.new(0.62, 0.18, 0.28), CFrame.new(0, 2.3, 0.06), BONE, LIMESTONE), "Armor")
+	-- 다리
+	for _, side in { 1, -1 } do
+		local hip = Vector3.new(0.22 * side, 2.2, 0.02)
+		local knee = Vector3.new(0.26 * side, 1.25, -0.1)
+		local ankle = Vector3.new(0.26 * side, 0.25, 0.02)
+		k.ball("Hip", 0.17, hip, BONE)
+		k.limb("Femur", hip, knee, 0.12, BONE)
+		k.ball("Knee", 0.17, knee, BONE)
+		k.ball("Kneecap", 0.1, knee + Vector3.new(0, 0.02, -0.09), BONE_DARK)
+		k.limb("Tibia", knee, ankle, 0.1, BONE)
+		k.limb("Fibula", knee + Vector3.new(0.06 * side, -0.1, 0.05), ankle + Vector3.new(0.05 * side, 0.05, 0.03), 0.05, BONE_DARK)
+		k.box("Foot", Vector3.new(0.22, 0.09, 0.42), CFrame.new(ankle.X, 0.06, -0.12), BONE)
+		for toe = -1, 1 do
+			k.box("Toe", Vector3.new(0.05, 0.06, 0.14), CFrame.new(ankle.X + toe * 0.07, 0.04, -0.38), BONE_DARK)
 		end
-	end
-	k.blob("Collar", Vector3.new(2.4, 0.4, 1.4), Vector3.new(0, 2.0, -1.0), C(200, 40, 50))
-	for _, x in { -0.8, 0, 0.8 } do
-		k.ball("Stud", 0.2, Vector3.new(x, 2.0, -1.68), GOLD, METAL)
-	end
-	k.limb("Tail", Vector3.new(0, 1.8, 1.6), Vector3.new(0, 2.6, 2.1), 0.25, fur)
-	k.ball("TailFlame", 0.5, Vector3.new(0, 2.75, 2.2), C(255, 140, 50), NEON)
-end
-
--- 사이클롭스: 커다란 눈 하나, 짧은 뿔, 나무 몽둥이. 플레이어보다 훨씬 커서 조금 무섭게 (높이 약 7, Config.Mobs.Cyclops.Scale배)
-MOBS.Cyclops = function(k)
-	local skin = C(150, 160, 120)
-	local light = C(185, 190, 150)
-	local dark = C(95, 100, 75)
-	local cloth = C(120, 85, 55)
-	local bone = C(240, 232, 210)
-	-- 다리·발
-	for _, side in { 1, -1 } do
-		k.limb("Leg", Vector3.new(0.75 * side, 2.5, 0), Vector3.new(0.8 * side, 0.45, 0), 1.05, skin)
-		k.box("Foot", Vector3.new(1.05, 0.5, 1.45), CFrame.new(0.8 * side, 0.25, -0.2), dark)
-	end
-	-- 허리 가리개·벨트
-	k.box("Loincloth", Vector3.new(2.5, 0.9, 1.9), CFrame.new(0, 2.6, 0), cloth, Enum.Material.Fabric)
-	k.box("Belt", Vector3.new(2.6, 0.28, 2.0), CFrame.new(0, 3.0, 0), C(70, 45, 30), LEATHER)
-	k.box("Buckle", Vector3.new(0.45, 0.35, 0.1), CFrame.new(0, 3.0, -1.02), C(160, 150, 140), METAL)
-	-- 몸통·배
-	k.blob("Torso", Vector3.new(3.0, 2.8, 2.2), Vector3.new(0, 4.1, 0), skin)
-	k.blob("Belly", Vector3.new(2.0, 1.6, 0.5), Vector3.new(0, 3.75, -0.95), light)
-	-- 뼈 목걸이
-	for i = -2, 2 do
-		k.box("Fang", Vector3.new(0.18, 0.35, 0.12), CFrame.new(i * 0.32, 4.85 - math.abs(i) * 0.06, -1.0 + math.abs(i) * 0.08) * CFrame.Angles(0, 0, math.rad(i * 8)), bone)
-	end
-	-- 머리
-	k.ball("Head", 2.15, Vector3.new(0, 5.65, -0.05), skin)
-	for _, side in { 1, -1 } do
-		k.ball("Ear", 0.55, Vector3.new(1.05 * side, 5.65, 0), skin)
-	end
-	-- 커다란 눈 하나 (흰자 + 주황 눈동자 + 검은 동공 + 반짝임)
-	k.ball("EyeWhite", 1.15, Vector3.new(0, 5.8, -0.72), C(250, 250, 245))
-	k.ball("Iris", 0.62, Vector3.new(0, 5.8, -1.15), C(230, 120, 30))
-	k.ball("Pupil", 0.3, Vector3.new(0, 5.8, -1.38), C(20, 15, 20))
-	k.ball("Shine", 0.14, Vector3.new(0.12, 5.92, -1.48), C(255, 255, 255), NEON)
-	-- 찡그린 눈썹 (가운데가 내려간 V자)
-	for _, side in { 1, -1 } do
-		k.box("Brow", Vector3.new(0.75, 0.22, 0.3), CFrame.new(0.33 * side, 6.45, -0.82) * CFrame.Angles(0, 0, math.rad(18 * side)), dark)
-	end
-	-- 입과 아래 송곳니
-	k.blob("Mouth", Vector3.new(1.0, 0.28, 0.12), Vector3.new(0, 5.0, -0.98), C(60, 30, 35))
-	for _, side in { 1, -1 } do
-		k.box("Tusk", Vector3.new(0.16, 0.34, 0.16), CFrame.new(0.32 * side, 5.18, -1.0), bone)
-	end
-	-- 이마 위 짧은 뿔
-	k.limb("Horn", Vector3.new(0, 6.55, -0.15), Vector3.new(0, 7.05, -0.35), 0.38, bone)
-	k.ball("HornTip", 0.22, Vector3.new(0, 7.12, -0.38), bone)
-	-- 팔 (어깨 → 팔꿈치 → 손)
-	for _, side in { 1, -1 } do
-		k.ball("Shoulder", 1.0, Vector3.new(1.55 * side, 4.85, 0), skin)
-		k.limb("UpperArm", Vector3.new(1.6 * side, 4.8, 0), Vector3.new(1.9 * side, 3.5, -0.3), 0.85, skin)
-		k.limb("Forearm", Vector3.new(1.9 * side, 3.5, -0.3), Vector3.new(1.95 * side, 2.6, -0.7), 0.8, skin)
-		k.ball("Hand", 0.95, Vector3.new(1.95 * side, 2.5, -0.75), light)
-	end
-	-- 오른손의 커다란 나무 몽둥이 (끝에 돌 박힘)
-	local wood = C(115, 75, 40)
-	k.limb("Club", Vector3.new(1.95, 2.3, -0.75), Vector3.new(2.3, 4.4, -1.9), 0.42, wood, WOOD)
-	k.blob("ClubHead", Vector3.new(1.1, 1.7, 1.1), Vector3.new(2.38, 4.85, -2.15), wood, WOOD, nil, CFrame.Angles(math.rad(-30), 0, math.rad(-8)))
-	for i, offset in { Vector3.new(0.5, 0.2, 0), Vector3.new(-0.5, 0.4, 0), Vector3.new(0, 0.6, -0.5), Vector3.new(0, -0.1, 0.5) } do
-		k.box("Stud", Vector3.new(0.25, 0.25, 0.25), CFrame.new(Vector3.new(2.38, 4.85, -2.15) + offset) * CFrame.Angles(math.rad(i * 30), math.rad(i * 45), 0), C(130, 130, 135), Enum.Material.Slate)
 	end
 end
+-- 뼈 팔: 어깨 → 위팔뼈 → 팔꿈치 → 아래팔 두 뼈 → 손뼈 + 손가락 둘. 손 부품을 돌려준다
+local function boneArm(k, shoulder: Vector3, elbow: Vector3, wrist: Vector3): BasePart
+	k.ball("Shoulder", 0.17, shoulder, BONE)
+	k.limb("Humerus", shoulder, elbow, 0.1, BONE)
+	k.ball("Elbow", 0.14, elbow, BONE)
+	local dir = (wrist - elbow).Unit
+	local across = dir:Cross(Vector3.yAxis)
+	across = if across.Magnitude > 0.01 then across.Unit * 0.035 else Vector3.new(0.035, 0, 0)
+	k.limb("Radius", elbow + across, wrist + across, 0.06, BONE)
+	k.limb("Ulna", elbow - across, wrist - across, 0.05, BONE_DARK)
+	local hand = k.box("Hand", Vector3.new(0.13, 0.15, 0.16), CFrame.lookAt(wrist + dir * 0.08, wrist + dir), BONE)
+	for _, f in { 1, -1 } do
+		k.limb("Finger", wrist + dir * 0.14 + across * f * 1.2, wrist + dir * 0.3 + across * f * 1.4 - Vector3.new(0, 0.05, 0), 0.035, BONE_DARK)
+	end
+	return hand
+end
 
--- 스켈레톤 궁수 (2026-10-10): 스켈레톤 몸 + 초록 깃털 모자 + 왼손 활(화살을 건 채) + 등에 화살통·가슴 끈
+-- 스켈레톤 (2026-10-10 다시 디자인): 사람 크기 해골 전사. 녹슨 투구(코 가리개)·한쪽 어깨 녹슨 견갑·낡은 허리 천,
+-- 오른손 이 빠진 녹슨 장검을 앞으로 겨누고 왼팔에 갈라진 나무 방패. 눈구멍 깊은 곳에 파란 불씨 (키 약 4.8)
+MOBS.Skeleton = function(k)
+	skeletonBody(k, C(120, 210, 255))
+	local rust = C(105, 85, 72)
+	-- 녹슨 투구 + 코 가리개
+	k.blob("Helmet", Vector3.new(0.96, 0.52, 1.02), Vector3.new(0, 4.62, -0.06), rust, CORRODED)
+	k.blob("HelmetRim", Vector3.new(1.08, 0.07, 1.12), Vector3.new(0, 4.43, -0.06), C(85, 70, 60), CORRODED)
+	k.box("NoseGuard", Vector3.new(0.07, 0.3, 0.05), CFrame.new(0, 4.3, -0.62), C(85, 70, 60), CORRODED)
+	-- 왼쪽 어깨 견갑 + 가슴 끈, 허리 천
+	k.slot(k.blob("Pauldron", Vector3.new(0.52, 0.28, 0.56), Vector3.new(-0.68, 3.74, 0), rust, CORRODED, nil, CFrame.Angles(0, 0, math.rad(18))), "Armor")
+	k.box("Strap", Vector3.new(0.1, 1.15, 0.05), CFrame.new(-0.25, 3.25, -0.36) * CFrame.Angles(0, 0, math.rad(-38)), C(70, 50, 35), LEATHER)
+	k.box("Loincloth", Vector3.new(0.55, 0.65, 0.04), CFrame.new(0, 1.98, -0.25) * CFrame.Angles(math.rad(4), 0, math.rad(3)), C(70, 58, 48), FABRIC)
+	k.box("Loincloth", Vector3.new(0.5, 0.55, 0.04), CFrame.new(0, 2.02, 0.32), C(62, 52, 44), FABRIC)
+	-- 오른팔 + 녹슨 장검 (앞으로 겨눔)
+	local rElbow, rWrist = Vector3.new(0.8, 2.95, -0.18), Vector3.new(0.72, 2.6, -0.6)
+	boneArm(k, Vector3.new(0.66, 3.58, 0), rElbow, rWrist)
+	local grip = rWrist + (rWrist - rElbow).Unit * 0.1
+	local dir = Vector3.new(0.05, 0.55, -0.83).Unit
+	local steel = C(150, 145, 140)
+	k.limb("SwordGrip", grip - dir * 0.2, grip + dir * 0.15, 0.07, C(55, 40, 30), LEATHER)
+	k.ball("SwordPommel", 0.13, grip - dir * 0.24, rust, CORRODED)
+	k.box("SwordGuard", Vector3.new(0.42, 0.06, 0.08), CFrame.lookAt(grip + dir * 0.18, grip + dir), rust, CORRODED)
+	local bladeCenter = grip + dir * 1.05
+	local bladeFrame = CFrame.lookAt(bladeCenter, bladeCenter + dir)
+	k.slot(k.box("Blade", Vector3.new(0.13, 0.035, 1.7), bladeFrame, steel, CORRODED), "Weapon")
+	k.box("Rust", Vector3.new(0.09, 0.045, 0.6), bladeFrame * CFrame.new(-0.01, 0, 0.35), C(125, 70, 40), CORRODED)
+	k.box("Notch", Vector3.new(0.05, 0.05, 0.1), bladeFrame * CFrame.new(0.06, 0, -0.2), HOLE)
+	k.spike(bladeCenter + dir * 0.85, bladeCenter + dir * 1.15, 0.13, steel, CORRODED, false, bladeFrame.XVector)
+	-- 왼팔 + 갈라진 나무 방패
+	local lWrist = Vector3.new(-0.72, 2.75, -0.5)
+	boneArm(k, Vector3.new(-0.66, 3.58, 0), Vector3.new(-0.86, 3.0, -0.12), lWrist)
+	local shieldFrame = CFrame.new(-0.78, 2.85, -0.7) * CFrame.Angles(0, math.rad(90 - 12), 0)
+	k.disc("Shield", 0.1, 1.15, shieldFrame, C(95, 70, 45), WOOD)
+	k.disc("ShieldRim", 0.06, 1.24, shieldFrame * CFrame.new(-0.03, 0, 0), C(85, 70, 60), CORRODED)
+	k.ball("ShieldBoss", 0.26, shieldFrame:PointToWorldSpace(Vector3.new(0.07, 0, 0)), rust, CORRODED)
+	k.box("ShieldCrack", Vector3.new(0.03, 0.5, 0.04), shieldFrame * CFrame.new(0.06, 0.28, 0.15) * CFrame.Angles(math.rad(20), 0, 0), HOLE)
+end
+
+-- 스켈레톤 궁수 (2026-10-10 다시 디자인): 같은 해골 몸 + 해진 짙은 초록 두건·망토, 왼손 활(화살을 건 채)·오른손이 시위를 당긴다,
+-- 등에 낡은 가죽 화살통(검은 깃 화살). 눈빛은 주황 (키 약 4.8)
 MOBS.SkeletonArcher = function(k)
-	local bone = C(235, 228, 210)
-	local dark = C(60, 55, 65)
-	local green = C(70, 135, 75)
-	local wood = C(125, 85, 50)
-	local leather = C(120, 75, 45)
-	k.ball("Skull", 2.2, Vector3.new(0, 3.0, 0), bone)
-	for _, side in { 1, -1 } do
-		k.ball("Socket", 0.65, Vector3.new(0.45 * side, 3.05, -0.85), dark)
-		k.ball("Glint", 0.18, Vector3.new(0.5 * side, 3.12, -1.12), C(255, 170, 80), NEON) -- 궁수는 주황 눈빛
-	end
-	k.blob("Nose", Vector3.new(0.25, 0.2, 0.1), Vector3.new(0, 2.7, -1.07), dark)
-	k.box("Jaw", Vector3.new(1.1, 0.35, 0.9), CFrame.new(0, 2.1, -0.3), bone)
-	for i = -2, 2 do
-		k.box("Tooth", Vector3.new(0.12, 0.12, 0.05), CFrame.new(i * 0.18, 2.3, -0.76), C(255, 255, 255))
-	end
-	-- 초록 깃털 모자 (로빈 후드)
-	k.blob("Cap", Vector3.new(2.35, 0.8, 2.5), Vector3.new(0, 3.85, 0.1), green, Enum.Material.Fabric)
-	k.blob("CapTip", Vector3.new(0.9, 0.7, 1.2), Vector3.new(0, 4.2, 0.55), green, Enum.Material.Fabric, nil, CFrame.Angles(math.rad(25), 0, 0))
-	k.limb("Feather", Vector3.new(0.7, 3.95, 0.3), Vector3.new(1.0, 4.9, 0.9), 0.14, C(220, 50, 60))
-	k.box("Ribs", Vector3.new(1.1, 1.0, 0.6), CFrame.new(0, 1.55, 0), bone)
-	for _, y in { 1.35, 1.55, 1.75 } do
-		k.box("RibGap", Vector3.new(1.12, 0.07, 0.62), CFrame.new(0, y, 0), dark)
-	end
-	k.box("Pelvis", Vector3.new(0.9, 0.28, 0.5), CFrame.new(0, 0.95, 0), bone)
-	for _, side in { 1, -1 } do
-		k.limb("Leg", Vector3.new(0.3 * side, 0.9, 0), Vector3.new(0.32 * side, 0.15, 0), 0.22, bone)
-		k.ball("Foot", 0.32, Vector3.new(0.32 * side, 0.12, -0.12), bone)
-	end
-	-- 왼팔: 앞으로 뻗어 활을 쥔다 / 오른팔: 시위를 당긴다
-	local grip = Vector3.new(-0.75, 1.8, -1.05)
-	k.limb("Arm", Vector3.new(-0.65, 1.9, 0), grip + Vector3.new(0, 0, 0.1), 0.18, bone)
-	k.ball("Hand", 0.28, grip, bone)
-	local pull = Vector3.new(-0.7, 1.8, -0.55)
-	k.limb("Arm", Vector3.new(0.65, 1.9, 0), Vector3.new(0.35, 1.75, -0.5), 0.18, bone)
-	k.limb("Arm", Vector3.new(0.35, 1.75, -0.5), pull, 0.16, bone)
-	k.ball("Hand", 0.26, pull, bone)
-	-- 활: 손잡이가 가장 앞, 양끝이 뒤로 휜다 (마디 이은 나무) + 시위 + 건 화살
-	local bowPoints = { Vector3.new(-0.75, 3.0, -0.75), Vector3.new(-0.75, 2.5, -1.05), grip + Vector3.new(0, 0, -0.08), Vector3.new(-0.75, 1.1, -1.05), Vector3.new(-0.75, 0.6, -0.75) }
+	skeletonBody(k, C(255, 150, 60))
+	local cloth = C(45, 60, 40)
+	local leather = C(95, 62, 40)
+	local wood = C(80, 55, 35)
+	-- 두건 (얼굴은 앞으로 드러남) + 뒤로 처진 끝 + 목도리 + 해진 망토
+	k.slot(k.blob("Hood", Vector3.new(1.05, 1.02, 1.12), Vector3.new(0, 4.4, 0.1), cloth, FABRIC), "Armor")
+	k.blob("HoodTip", Vector3.new(0.45, 0.5, 0.6), Vector3.new(0, 4.5, 0.6), cloth, FABRIC, nil, CFrame.Angles(math.rad(35), 0, 0))
+	k.blob("Scarf", Vector3.new(0.72, 0.22, 0.62), Vector3.new(0, 3.62, 0), cloth:Lerp(C(0, 0, 0), 0.2), FABRIC)
+	k.box("Cape", Vector3.new(0.95, 1.3, 0.05), CFrame.new(0, 3.0, 0.38) * CFrame.Angles(math.rad(8), 0, 0), cloth, FABRIC)
+	k.tri(Vector3.new(-0.47, 2.36, 0.47), Vector3.new(-0.1, 2.36, 0.47), Vector3.new(-0.3, 2.05, 0.5), 0.05, cloth, FABRIC) -- 해진 끝
+	-- 왼팔: 앞으로 뻗어 활을 쥔다 / 오른팔: 몸 앞을 가로질러 시위를 당긴다
+	local grip = Vector3.new(-0.75, 3.45, -1.0)
+	boneArm(k, Vector3.new(-0.66, 3.58, 0), Vector3.new(-0.72, 3.5, -0.5), grip + Vector3.new(0, 0, 0.1))
+	local pull = Vector3.new(-0.62, 3.47, -0.32)
+	boneArm(k, Vector3.new(0.66, 3.58, 0), Vector3.new(0.25, 3.45, -0.1), pull)
+	-- 활: 손잡이가 앞, 양끝이 뒤로 휘었다가 끝이 다시 앞으로 (리커브) + 시위 + 건 화살
+	local bowPoints = { Vector3.new(-0.75, 4.4, -0.85), Vector3.new(-0.75, 4.25, -0.72), Vector3.new(-0.75, 3.9, -0.98), grip + Vector3.new(0, 0, -0.1), Vector3.new(-0.75, 3.0, -0.98), Vector3.new(-0.75, 2.65, -0.72), Vector3.new(-0.75, 2.5, -0.85) }
 	for i = 1, #bowPoints - 1 do
-		k.limb("Bow", bowPoints[i], bowPoints[i + 1], 0.14, wood, WOOD)
+		k.slot(k.limb("Bow", bowPoints[i], bowPoints[i + 1], if i == 3 or i == 4 then 0.11 else 0.08, wood, WOOD), "Weapon")
 	end
-	k.limb("String", bowPoints[1], pull, 0.04, C(240, 240, 230))
-	k.limb("String", pull, bowPoints[5], 0.04, C(240, 240, 230))
-	k.limb("Arrow", pull, Vector3.new(-0.75, 1.8, -1.85), 0.06, C(170, 130, 85), WOOD)
-	k.box("ArrowHead", Vector3.new(0.12, 0.12, 0.25), CFrame.new(-0.75, 1.8, -1.95) * CFrame.Angles(0, 0, math.rad(45)), C(150, 150, 160), METAL)
-	-- 등에 비스듬히 멘 화살통 + 꽂힌 화살 (빨강·흰 깃) + 가슴을 가로지르는 끈
-	local quiverBottom, quiverTop = Vector3.new(0.4, 1.1, 0.5), Vector3.new(-0.3, 2.4, 0.6)
-	k.limb("Quiver", quiverBottom, quiverTop, 0.5, leather, LEATHER)
-	k.limb("QuiverRim", quiverTop, quiverTop + (quiverTop - quiverBottom).Unit * 0.12, 0.56, C(160, 150, 140), METAL)
-	for i, offset in { Vector3.new(0.08, 0, 0), Vector3.new(-0.1, 0.05, 0.08), Vector3.new(0, 0.02, -0.1) } do
-		local tip = quiverTop + (quiverTop - quiverBottom).Unit * 0.55 + offset
-		k.limb("QuiverArrow", quiverTop + offset, tip, 0.05, C(170, 130, 85), WOOD)
-		k.box("Fletch", Vector3.new(0.05, 0.22, 0.16), CFrame.new(tip), if i == 2 then C(255, 255, 255) else C(220, 50, 60))
+	k.limb("BowWrap", grip + Vector3.new(0, 0.12, -0.1), grip + Vector3.new(0, -0.12, -0.1), 0.13, leather, LEATHER)
+	k.limb("String", bowPoints[2], pull, 0.025, C(210, 205, 190))
+	k.limb("String", pull, bowPoints[6], 0.025, C(210, 205, 190))
+	local arrowTip = Vector3.new(-0.75, 3.47, -1.5)
+	k.limb("Arrow", pull, arrowTip, 0.045, C(150, 115, 75), WOOD)
+	k.spike(arrowTip, arrowTip + Vector3.new(0, 0, -0.22), 0.1, C(120, 120, 125), METAL, false, Vector3.xAxis)
+	k.box("Fletch", Vector3.new(0.02, 0.12, 0.2), CFrame.new(pull + Vector3.new(0, 0.05, -0.08)), C(25, 25, 25), FABRIC)
+	-- 등에 비스듬히 멘 화살통 + 검은 깃 화살 + 가슴을 가로지르는 끈
+	local quiverBottom, quiverTop = Vector3.new(0.4, 2.3, 0.5), Vector3.new(-0.3, 3.7, 0.55)
+	local up = (quiverTop - quiverBottom).Unit
+	k.limb("Quiver", quiverBottom, quiverTop, 0.42, leather, LEATHER)
+	k.limb("QuiverRim", quiverTop, quiverTop + up * 0.1, 0.48, C(85, 70, 60), CORRODED)
+	k.limb("QuiverBand", quiverBottom + up * 0.4, quiverBottom + up * 0.48, 0.46, C(85, 70, 60), CORRODED)
+	for _, offset in { Vector3.new(0.08, 0, 0), Vector3.new(-0.1, 0.05, 0.06), Vector3.new(0, 0.02, -0.09) } do
+		local tip = quiverTop + up * 0.5 + offset
+		k.limb("QuiverArrow", quiverTop + offset, tip, 0.04, C(150, 115, 75), WOOD)
+		k.box("Fletch", Vector3.new(0.03, 0.2, 0.14), CFrame.new(tip), C(25, 25, 25), FABRIC)
 	end
-	k.box("Strap", Vector3.new(0.14, 1.7, 0.08), CFrame.new(0.05, 1.7, -0.34) * CFrame.Angles(0, 0, math.rad(-35)), leather, LEATHER)
+	k.box("Strap", Vector3.new(0.1, 1.3, 0.05), CFrame.new(0.05, 3.2, -0.36) * CFrame.Angles(0, 0, math.rad(-38)), leather, LEATHER)
 end
 
--- 바위 골렘 (2026-10-10): 동글동글한 바위 몸 + 큰 주먹 + 가슴의 초록 빛 핵 + 이끼·작은 꽃. 무섭지만 귀엽게 (높이 약 7.6 × Scale 1.6)
-MOBS.StoneGolem = function(k)
-	local rock = C(135, 130, 125)
-	local dark = C(95, 92, 88)
-	local moss = C(95, 140, 70)
-	local glow = C(80, 255, 170)
-	local SLATE = Enum.Material.Slate
+-- 좀비 (2026-10-10 다시 디자인): 썩어 가는 사람. 앞으로 굽은 몸, 오른팔은 앞으로 뻗고 왼팔은 축 늘어짐(팔뚝 뼈가 드러남),
+-- 찢어진 셔츠·바지, 셔츠 틈 갈비뼈·꿰맨 상처, 움푹 꺼진 눈 속 흐린 노란 눈빛(한쪽은 처짐), 빠진 아래턱·누런 이빨,
+-- 썩어 뚫린 볼, 듬성듬성한 머리카락, 맨발 (키 약 4.5)
+MOBS.Zombie = function(k)
+	local skin = C(118, 138, 96)
+	local rot = C(78, 88, 60)
+	local wound = C(85, 28, 28)
+	local shirt = C(92, 88, 78)
+	local pants = C(55, 60, 75)
+	local teeth = C(200, 188, 140)
+	-- 다리 (바지, 오른쪽 아랫다리는 찢어져 맨살)
+	for _, side in { 1, -1 } do
+		local hip = Vector3.new(0.3 * side, 2.2, 0.08)
+		local knee = Vector3.new(0.33 * side, 1.22, -0.04)
+		local ankle = Vector3.new(0.32 * side, 0.25, 0.08)
+		local bare = side > 0
+		k.limb("Thigh", hip, knee, 0.4, pants, FABRIC)
+		k.ball("Knee", 0.36, knee, if bare then skin else pants, if bare then SMOOTH else FABRIC)
+		k.limb("Shin", knee, ankle, 0.31, if bare then skin else pants, if bare then SMOOTH else FABRIC)
+		k.blob("Foot", Vector3.new(0.34, 0.22, 0.62), Vector3.new(ankle.X, 0.11, -0.12), skin)
+	end
+	k.box("PantTear", Vector3.new(0.44, 0.16, 0.44), CFrame.new(0.33, 1.05, -0.04) * CFrame.Angles(0, 0, math.rad(15)), pants, FABRIC)
+	k.limb("ShinWound", Vector3.new(0.4, 0.8, -0.12), Vector3.new(0.38, 0.5, -0.1), 0.1, wound)
+	-- 골반·허리띠
+	k.box("Hips", Vector3.new(0.95, 0.45, 0.58), CFrame.new(0, 2.32, 0.08), pants, FABRIC)
+	k.box("Belt", Vector3.new(0.98, 0.1, 0.6), CFrame.new(0, 2.5, 0.08), C(50, 35, 25), LEATHER)
+	-- 몸통: 허리에서 앞으로 굽음
+	local lean = CFrame.new(0, 2.55, 0.1) * CFrame.Angles(math.rad(-22), 0, 0)
+	local leanRot = lean.Rotation
+	local function L(x: number, y: number, z: number): Vector3
+		return lean:PointToWorldSpace(Vector3.new(x, y, z))
+	end
+	k.slot(k.blob("Torso", Vector3.new(1.15, 1.3, 0.68), L(0, 0.62, 0), shirt, FABRIC, nil, leanRot), "Armor")
+	k.blob("Belly", Vector3.new(0.55, 0.45, 0.2), L(0.15, 0.3, -0.28), skin, SMOOTH, nil, leanRot)
+	k.blob("RibHole", Vector3.new(0.38, 0.44, 0.08), L(-0.22, 0.66, -0.31), C(60, 25, 25), SMOOTH, nil, leanRot)
+	for i = 0, 2 do
+		k.box("Rib", Vector3.new(0.3, 0.04, 0.05), CFrame.new(L(-0.22, 0.78 - i * 0.12, -0.35)) * leanRot * CFrame.Angles(0, 0, math.rad(-10)), BONE)
+	end
+	local scar = CFrame.new(L(0.27, 0.85, -0.34)) * leanRot * CFrame.Angles(0, 0, math.rad(30))
+	k.box("Scar", Vector3.new(0.5, 0.04, 0.03), scar, wound)
+	for i = -2, 1 do
+		k.box("Stitch", Vector3.new(0.025, 0.14, 0.03), scar * CFrame.new(i * 0.12 + 0.06, 0, -0.005), C(30, 25, 20))
+	end
+	k.box("ShirtFlap", Vector3.new(0.3, 0.35, 0.03), CFrame.new(L(0.42, 0.12, -0.3)) * leanRot * CFrame.Angles(0, 0, math.rad(12)), shirt, FABRIC)
+	k.blob("Shoulders", Vector3.new(1.45, 0.45, 0.7), L(0, 1.18, 0.02), shirt, FABRIC, nil, leanRot)
+	-- 목·머리 (앞으로 쭉 빠지고 고개가 기울어짐)
+	local headPos = Vector3.new(0.08, 3.9, -0.62)
+	local headRot = CFrame.Angles(math.rad(-10), 0, math.rad(12))
+	local hf = CFrame.new(headPos) * headRot
+	local function H(x: number, y: number, z: number): Vector3
+		return hf:PointToWorldSpace(Vector3.new(x, y, z))
+	end
+	k.limb("Neck", L(0, 1.32, -0.05), H(0, -0.32, 0.12), 0.26, skin)
+	k.slot(k.blob("Head", Vector3.new(0.8, 0.92, 0.88), headPos, skin, SMOOTH, nil, headRot), "Head")
+	k.blob("Brow", Vector3.new(0.72, 0.18, 0.3), H(0, 0.16, -0.32), rot, SMOOTH, nil, headRot)
+	for _, side in { 1, -1 } do
+		k.ball("Socket", 0.22, H(0.17 * side, 0.03, -0.37), C(35, 30, 30))
+		local droop = if side < 0 then -0.04 else 0
+		k.slot(k.ball("Eye", if side < 0 then 0.06 else 0.08, H(0.17 * side, 0.03 + droop, -0.46), C(220, 215, 120), NEON), "Eye")
+	end
+	k.blob("Nose", Vector3.new(0.14, 0.2, 0.14), H(0, -0.1, -0.44), rot, SMOOTH, nil, headRot)
+	k.blob("RotCheek", Vector3.new(0.22, 0.18, 0.08), H(-0.27, -0.13, -0.35), C(70, 30, 30), SMOOTH, nil, headRot)
+	k.blob("Mouth", Vector3.new(0.42, 0.16, 0.1), H(0, -0.33, -0.37), C(40, 15, 15), SMOOTH, nil, headRot)
+	for i, x in { -0.14, -0.06, 0.03, 0.12 } do
+		k.box("Tooth", Vector3.new(0.05, 0.06 + (i % 2) * 0.03, 0.04), CFrame.new(H(x, -0.27, -0.41)) * headRot, teeth)
+	end
+	k.box("Jaw", Vector3.new(0.5, 0.14, 0.4), CFrame.new(H(0.02, -0.47, -0.2)) * headRot * CFrame.Angles(math.rad(18), 0, 0), skin)
+	for _, x in { -0.1, 0.02, 0.1 } do
+		k.box("Tooth", Vector3.new(0.05, 0.07, 0.04), CFrame.new(H(x, -0.4, -0.37)) * headRot, teeth)
+	end
+	k.blob("Hair", Vector3.new(0.5, 0.12, 0.45), H(-0.12, 0.44, 0.05), C(45, 40, 30), FABRIC, nil, headRot)
+	k.blob("Hair", Vector3.new(0.3, 0.1, 0.32), H(0.22, 0.4, 0.2), C(45, 40, 30), FABRIC, nil, headRot)
+	k.limb("HairStrand", H(0.3, 0.3, -0.1), H(0.4, -0.12, -0.25), 0.05, C(45, 40, 30), FABRIC)
+	k.blob("Ear", Vector3.new(0.1, 0.22, 0.16), H(0.42, 0, 0), skin, SMOOTH, nil, headRot)
+	-- 오른팔: 앞으로 뻗어 움켜쥐려는 손 (손톱 검게)
+	local rs, re, rw = L(0.68, 1.1, 0), Vector3.new(0.85, 3.25, -0.95), Vector3.new(0.8, 3.15, -1.65)
+	k.ball("Shoulder", 0.42, rs, shirt, FABRIC)
+	k.limb("Sleeve", rs, rs:Lerp(re, 0.6), 0.36, shirt, FABRIC)
+	k.limb("UpperArm", rs, re, 0.27, skin)
+	k.ball("Elbow", 0.26, re, skin)
+	k.limb("Forearm", re, rw, 0.23, skin)
+	k.slot(k.blob("Hand", Vector3.new(0.26, 0.12, 0.3), rw + Vector3.new(0, -0.03, -0.12), skin), "Weapon")
+	for f = -1, 1 do
+		local tip = rw + Vector3.new(f * 0.09, -0.14, -0.48)
+		k.limb("Finger", rw + Vector3.new(f * 0.08, -0.04, -0.25), tip, 0.06, skin)
+		k.ball("Nail", 0.06, tip, C(45, 40, 35))
+	end
+	-- 왼팔: 축 늘어짐, 찢어진 소매, 팔뚝 살이 떨어져 뼈가 드러남
+	local ls, le, lw = L(-0.68, 1.1, 0), Vector3.new(-0.9, 2.55, -0.3), Vector3.new(-0.82, 1.85, -0.5)
+	k.ball("Shoulder", 0.42, ls, shirt, FABRIC)
+	k.limb("Sleeve", ls, ls:Lerp(le, 0.45), 0.36, shirt, FABRIC)
+	k.limb("UpperArm", ls, le, 0.26, skin)
+	k.ball("Elbow", 0.25, le, skin)
+	k.limb("Forearm", le, le:Lerp(lw, 0.45), 0.22, skin)
+	k.limb("BoneOut", le:Lerp(lw, 0.4), lw, 0.08, BONE)
+	k.limb("Flesh", le:Lerp(lw, 0.82), lw, 0.2, rot)
+	k.blob("Hand", Vector3.new(0.24, 0.3, 0.14), lw + Vector3.new(0, -0.2, -0.04), skin)
+	for f = -1, 1 do
+		k.limb("Finger", lw + Vector3.new(f * 0.07, -0.32, -0.05), lw + Vector3.new(f * 0.08, -0.55, -0.1), 0.055, skin)
+	end
+	k.box("BloodDrip", Vector3.new(0.05, 0.25, 0.04), CFrame.new(L(0.3, 0.55, -0.36)) * leanRot, wound)
+end
+
+-- 케르베로스 (2026-10-10 다시 디자인): 근육질 지옥 사냥개. 검붉은 짧은 털, 넓은 가슴·잘록한 배·엉덩이, 관절이 있는 다리와 발톱,
+-- 어깨 갈기·등뼈를 따라 솟은 가시, 채찍 같은 꼬리 끝 가시. 머리마다 긴 주둥이·벌린 턱·송곳니·뒤로 젖힌 귀·불씨 눈·가시 목걸이
+-- 보통은 머리 2개, 보스는 가운데 셋째 머리(속성 BossOnly)가 더 있다 (2026-10-10 사용자 요청). 몸길이 약 4.7, 높이 약 3.2 × Scale 1.1
+MOBS.Cerberus = function(k)
+	local fur = C(52, 38, 40)
+	local furDark = C(32, 24, 26)
+	local lip = C(95, 55, 55)
+	local fang = C(235, 225, 200)
+	local ember = C(255, 120, 40)
+	local iron = C(70, 65, 65)
+	-- 몸통
+	k.slot(k.blob("Chest", Vector3.new(1.55, 1.55, 1.6), Vector3.new(0, 2.0, -0.75), fur, FABRIC), "Armor")
+	k.blob("Ribcage", Vector3.new(1.25, 1.15, 1.6), Vector3.new(0, 1.98, 0.3), fur, FABRIC)
+	k.blob("Belly", Vector3.new(0.9, 0.6, 1.3), Vector3.new(0, 1.5, 0.2), furDark, FABRIC)
+	k.slot(k.blob("Haunch", Vector3.new(1.25, 1.25, 1.15), Vector3.new(0, 2.0, 1.2), fur, FABRIC), "Armor")
+	k.blob("Mane", Vector3.new(1.7, 0.95, 1.0), Vector3.new(0, 2.55, -0.95), furDark, FABRIC)
+	-- 등 가시 (뒤로 누운 뼈 가시)
+	for _, info in { { -0.45, 2.72 }, { 0.05, 2.55 }, { 0.55, 2.5 }, { 1.05, 2.57 } } do
+		local z, y = info[1], info[2]
+		k.spike(Vector3.new(0, y - 0.1, z), Vector3.new(0, y + 0.32, z + 0.25), 0.22, C(70, 50, 45), SLATE, false, Vector3.zAxis)
+	end
+	-- 앞다리 (어깨 → 팔꿈치 → 발목 → 발, 발톱 2개)
+	for _, side in { 1, -1 } do
+		local x = 0.55 * side
+		k.blob("Shoulder", Vector3.new(0.5, 0.95, 0.75), Vector3.new(x, 1.85, -0.85), fur, FABRIC)
+		local elbow = Vector3.new(x * 1.05, 1.15, -0.72)
+		local wrist = Vector3.new(x * 1.05, 0.35, -0.95)
+		k.limb("Foreleg", Vector3.new(x, 1.6, -0.85), elbow, 0.36, fur, FABRIC)
+		k.limb("Forearm", elbow, wrist, 0.26, fur, FABRIC)
+		k.blob("Paw", Vector3.new(0.36, 0.22, 0.5), Vector3.new(wrist.X, 0.11, wrist.Z - 0.12), furDark, FABRIC)
+		for _, c in { -0.08, 0.08 } do
+			k.spike(Vector3.new(wrist.X + c, 0.1, wrist.Z - 0.34), Vector3.new(wrist.X + c * 1.3, 0.02, wrist.Z - 0.55), 0.07, fang, SMOOTH, false, Vector3.xAxis)
+		end
+	end
+	-- 뒷다리 (개 다리: 허벅지 → 뒤로 꺾인 발목)
+	for _, side in { 1, -1 } do
+		local x = 0.5 * side
+		k.blob("Thigh", Vector3.new(0.5, 1.05, 0.85), Vector3.new(x, 1.75, 1.3), fur, FABRIC)
+		local knee = Vector3.new(x * 1.05, 1.25, 1.2)
+		local hock = Vector3.new(x * 1.05, 0.7, 1.62)
+		local foot = Vector3.new(x * 1.05, 0.2, 1.45)
+		k.limb("Shank", knee, hock, 0.28, fur, FABRIC)
+		k.limb("Hock", hock, foot, 0.22, fur, FABRIC)
+		k.blob("Paw", Vector3.new(0.32, 0.2, 0.45), Vector3.new(foot.X, 0.1, foot.Z - 0.12), furDark, FABRIC)
+	end
+	-- 꼬리 (채찍처럼 가늘어지다 끝에 가시)
+	local tail = { Vector3.new(0, 2.25, 1.7), Vector3.new(0, 2.45, 2.15), Vector3.new(0, 2.3, 2.6), Vector3.new(0, 1.95, 2.9) }
+	for i = 1, #tail - 1 do
+		k.limb("Tail", tail[i], tail[i + 1], 0.24 - i * 0.05, fur, FABRIC)
+	end
+	k.spike(tail[4], Vector3.new(0, 1.65, 3.2), 0.2, C(70, 50, 45), SLATE, true)
+	-- 머리 하나 (center = 머리 가운데, yaw = 바깥으로 돌린 각도)
+	local function head(center: Vector3, yaw: number)
+		local hf = CFrame.new(center) * CFrame.Angles(0, yaw, 0) * CFrame.Angles(math.rad(-8), 0, 0)
+		local rot = hf.Rotation
+		local function P(x: number, y: number, z: number): Vector3
+			return hf:PointToWorldSpace(Vector3.new(x, y, z))
+		end
+		k.limb("Neck", Vector3.new(center.X * 0.45, 2.25, -1.05), P(0, -0.05, 0.25), 0.5, fur, FABRIC)
+		k.slot(k.blob("Skull", Vector3.new(0.66, 0.6, 0.72), center, fur, FABRIC, nil, rot), "Head")
+		k.blob("Brow", Vector3.new(0.6, 0.16, 0.25), P(0, 0.2, -0.28), furDark, FABRIC, nil, rot)
+		k.blob("Muzzle", Vector3.new(0.38, 0.3, 0.62), P(0, -0.06, -0.55), fur, FABRIC, nil, rot)
+		k.blob("Lip", Vector3.new(0.4, 0.12, 0.55), P(0, -0.2, -0.55), lip, SMOOTH, nil, rot)
+		k.ball("Nose", 0.15, P(0, 0.03, -0.86), C(20, 15, 15))
+		k.box("Jaw", Vector3.new(0.3, 0.09, 0.5), CFrame.new(P(0, -0.33, -0.45)) * rot * CFrame.Angles(math.rad(18), 0, 0), furDark, FABRIC)
+		k.box("Tongue", Vector3.new(0.18, 0.04, 0.35), CFrame.new(P(0, -0.3, -0.5)) * rot * CFrame.Angles(math.rad(14), 0, 0), C(150, 50, 60))
+		for _, side in { 1, -1 } do
+			k.spike(P(0.12 * side, -0.2, -0.72), P(0.12 * side, -0.42, -0.74), 0.07, fang, SMOOTH, false, hf.XVector) -- 위 송곳니
+			k.spike(P(0.1 * side, -0.34, -0.62), P(0.1 * side, -0.19, -0.66), 0.06, fang, SMOOTH, false, hf.XVector) -- 아래 송곳니
+			k.slot(k.ball("Eye", 0.09, P(0.17 * side, 0.1, -0.36), ember, NEON), "Eye")
+			k.tri(P(0.2 * side, 0.22, -0.05), P(0.3 * side, 0.2, 0.15), P(0.28 * side, 0.55, 0.32), 0.06, furDark, FABRIC) -- 뒤로 젖힌 귀
+		end
+		k.disc("Collar", 0.14, 0.62, CFrame.new(P(0, -0.12, 0.3)) * rot * CFrame.Angles(0, math.rad(90), 0), iron, CORRODED)
+		k.spike(P(0, 0.15, 0.3), P(0, 0.4, 0.34), 0.11, iron, METAL, false, hf.ZVector)
+	end
+	head(Vector3.new(0.52, 2.62, -1.62), math.rad(-14)) -- 오른쪽 머리 (바깥 = +X)
+	head(Vector3.new(-0.52, 2.62, -1.62), math.rad(14)) -- 왼쪽 머리
+	k.group({ BossOnly = true }, function()
+		head(Vector3.new(0, 2.88, -1.88), 0) -- 보스만: 가운데 앞으로 나온 셋째 머리
+	end)
+end
+
+-- 사이클롭스 (2026-10-10 다시 디자인): 구부정한 근육 거인. 회녹색 가죽 피부·가슴·배·승모근·이두근, 부은 눈두덩 아래 핏줄 선 누런 외눈(세로 동공),
+-- 두꺼운 눈썹 뼈·넓은 코·아래로 튀어나온 엄니, 머리 흉터, 가죽 끈·해골 버클·털 허리 가리개, 왼쪽 어깨 가시 쇠 견갑(해골 장식),
+-- 손목 가죽 보호대, 오른손 쇠띠·대못 박힌 통나무 몽둥이 (높이 약 7 × Scale 1.4)
+MOBS.Cyclops = function(k)
+	local skin = C(138, 135, 104)
+	local shade = C(104, 102, 78)
+	local cloth = C(90, 65, 45)
+	local leather = C(70, 48, 32)
+	local bone = C(225, 215, 190)
+	local iron = C(80, 76, 72)
 	-- 다리·발
 	for _, side in { 1, -1 } do
-		k.box("Leg", Vector3.new(1.3, 2.0, 1.4), CFrame.new(1.0 * side, 1.1, 0.1) * CFrame.Angles(0, math.rad(6 * side), 0), dark, SLATE)
-		k.box("Foot", Vector3.new(1.6, 0.6, 1.9), CFrame.new(1.05 * side, 0.3, -0.15), rock, SLATE)
+		local hip, knee, ankle = Vector3.new(0.75 * side, 2.7, 0), Vector3.new(0.8 * side, 1.4, -0.15), Vector3.new(0.82 * side, 0.4, 0)
+		k.limb("Thigh", hip, knee, 1.0, skin)
+		k.ball("Knee", 0.85, knee, shade)
+		k.blob("Calf", Vector3.new(0.85, 1.1, 0.9), Vector3.new(0.8 * side, 0.95, 0.08), skin)
+		k.limb("Shin", knee, ankle, 0.75, skin)
+		k.limb("Wrap", ankle + Vector3.new(0, 0.25, 0), ankle + Vector3.new(0, 0.55, 0), 0.8, leather, LEATHER)
+		k.blob("Foot", Vector3.new(0.95, 0.5, 1.4), Vector3.new(0.82 * side, 0.25, -0.25), shade)
+		for t = -1, 1 do
+			k.ball("Toe", 0.3, Vector3.new(0.82 * side + t * 0.27, 0.17, -0.92), skin)
+		end
 	end
-	-- 몸통 (커다란 바위) + 이끼 + 금
-	k.blob("Torso", Vector3.new(4.4, 3.6, 3.2), Vector3.new(0, 3.9, 0), rock, SLATE)
-	k.blob("Chunk", Vector3.new(2.0, 1.4, 1.6), Vector3.new(1.3, 5.2, 0.6), dark, SLATE, nil, CFrame.Angles(0, 0, math.rad(20)))
-	k.blob("Chunk", Vector3.new(1.8, 1.2, 1.4), Vector3.new(-1.4, 5.1, 0.5), dark, SLATE, nil, CFrame.Angles(0, 0, math.rad(-15)))
-	k.blob("Moss", Vector3.new(1.6, 0.4, 1.4), Vector3.new(-1.3, 5.75, 0.3), moss, Enum.Material.Grass)
-	k.blob("Moss", Vector3.new(1.2, 0.35, 1.1), Vector3.new(1.4, 5.85, 0.4), moss, Enum.Material.Grass)
-	k.ball("Flower", 0.3, Vector3.new(-1.1, 6.0, 0.1), C(255, 200, 220))
-	k.ball("FlowerCore", 0.14, Vector3.new(-1.1, 6.05, -0.03), C(255, 220, 80))
-	-- 가슴의 빛나는 핵 + 둘레 빛 금
-	local core = k.ball("Core", 0.95, Vector3.new(0, 4.2, -1.45), glow, NEON)
-	for _, angle in { 20, 110, 200, 300 } do
+	-- 허리: 털 가리개 앞뒤 + 가죽 벨트 + 해골 버클
+	k.box("Loincloth", Vector3.new(1.3, 1.1, 0.1), CFrame.new(0, 2.35, -0.95) * CFrame.Angles(math.rad(-6), 0, 0), cloth, FABRIC)
+	k.box("Loincloth", Vector3.new(1.6, 1.0, 0.1), CFrame.new(0, 2.4, 0.95) * CFrame.Angles(math.rad(6), 0, 0), cloth, FABRIC)
+	k.box("Belt", Vector3.new(2.5, 0.3, 1.95), CFrame.new(0, 3.0, 0), leather, LEATHER)
+	k.ball("BuckleSkull", 0.42, Vector3.new(0, 3.0, -1.0), bone)
+	for _, x in { -0.08, 0.08 } do
+		k.ball("BuckleEye", 0.1, Vector3.new(x, 3.03, -1.18), C(30, 25, 25))
+	end
+	-- 몸통: 배·가슴·가슴 근육·승모근·등 혹, 가슴 흉터
+	k.slot(k.blob("Belly", Vector3.new(2.4, 1.8, 1.9), Vector3.new(0, 3.6, -0.05), skin), "Armor")
+	k.blob("Chest", Vector3.new(2.9, 1.7, 2.0), Vector3.new(0, 4.5, 0.05), skin)
+	for _, side in { 1, -1 } do
+		k.blob("Pec", Vector3.new(1.2, 0.8, 0.5), Vector3.new(0.6 * side, 4.55, -0.85), skin, SMOOTH, nil, CFrame.Angles(0, 0, math.rad(-8 * side)))
+	end
+	k.blob("Traps", Vector3.new(2.0, 0.8, 1.3), Vector3.new(0, 5.1, 0.3), shade)
+	k.blob("Hump", Vector3.new(2.2, 1.3, 1.0), Vector3.new(0, 4.8, 0.85), skin)
+	k.box("ChestScar", Vector3.new(0.9, 0.06, 0.05), CFrame.new(0.35, 4.3, -1.1) * CFrame.Angles(0, 0, math.rad(35)), C(170, 140, 115))
+	k.box("Strap", Vector3.new(0.25, 2.6, 0.08), CFrame.new(-0.2, 4.2, -1.0) * CFrame.Angles(math.rad(-6), 0, math.rad(-40)), leather, LEATHER)
+	-- 머리 (앞으로 숙임)
+	k.slot(k.blob("Head", Vector3.new(1.75, 1.85, 1.75), Vector3.new(0, 5.95, -0.45), skin), "Head")
+	k.blob("Jaw", Vector3.new(1.5, 0.75, 1.35), Vector3.new(0, 5.35, -0.6), shade)
+	k.blob("BrowRidge", Vector3.new(1.5, 0.45, 0.6), Vector3.new(0, 6.38, -1.05), shade)
+	k.blob("Socket", Vector3.new(0.95, 0.8, 0.3), Vector3.new(0, 6.0, -1.15), C(60, 50, 40))
+	k.ball("Eyeball", 0.75, Vector3.new(0, 6.0, -1.12), C(225, 215, 175))
+	k.slot(k.ball("Iris", 0.38, Vector3.new(0, 6.0, -1.43), C(200, 120, 25)), "Eye")
+	k.box("Pupil", Vector3.new(0.07, 0.24, 0.05), CFrame.new(0, 6.0, -1.6), C(15, 10, 10))
+	for i, angle in { 20, 160, 230 } do
 		local a = math.rad(angle)
-		k.box("Crack", Vector3.new(0.9, 0.08, 0.08), CFrame.new(math.cos(a) * 0.8, 4.2 + math.sin(a) * 0.8, -1.42) * CFrame.Angles(0, 0, a), glow, NEON)
+		k.box("Vein", Vector3.new(0.22, 0.025, 0.03), CFrame.new(math.cos(a) * 0.27, 6.0 + math.sin(a) * 0.25, -1.43 + i * 0.02) * CFrame.Angles(0, 0, a), C(190, 50, 45))
+	end
+	k.blob("Lid", Vector3.new(0.9, 0.26, 0.42), Vector3.new(0, 6.28, -1.25), skin, SMOOTH, nil, CFrame.Angles(math.rad(-12), 0, 0)) -- 무겁게 내려온 눈꺼풀
+	k.blob("Nose", Vector3.new(0.48, 0.42, 0.5), Vector3.new(0, 5.6, -1.32), shade)
+	for _, side in { 1, -1 } do
+		k.ball("Nostril", 0.12, Vector3.new(0.12 * side, 5.48, -1.52), C(40, 30, 25))
+		k.spike(Vector3.new(0.36 * side, 5.22, -1.18), Vector3.new(0.42 * side, 5.68, -1.27), 0.16, bone, SMOOTH, true) -- 아래 엄니
+		k.blob("Ear", Vector3.new(0.25, 0.5, 0.35), Vector3.new(0.88 * side, 5.95, -0.4), shade, SMOOTH, nil, CFrame.Angles(0, 0, math.rad(-20 * side)))
+	end
+	k.box("Mouth", Vector3.new(0.9, 0.07, 0.1), CFrame.new(0, 5.3, -1.24), C(50, 25, 25))
+	for _, x in { -0.18, 0, 0.18 } do
+		k.box("Tooth", Vector3.new(0.09, 0.1, 0.06), CFrame.new(x, 5.36, -1.25), C(205, 195, 160))
+	end
+	k.box("HeadScar", Vector3.new(0.05, 0.6, 0.05), CFrame.new(0.4, 6.6, -0.95) * CFrame.Angles(math.rad(-30), 0, math.rad(15)), C(170, 140, 115))
+	-- 팔 (어깨 → 이두근 → 팔꿈치 → 팔뚝 → 손목 보호대 → 손)
+	for _, side in { 1, -1 } do
+		local shoulder, elbow, wrist = Vector3.new(1.6 * side, 4.85, 0), Vector3.new(1.95 * side, 3.55, -0.25), Vector3.new(2.0 * side, 2.55, -0.7)
+		k.blob("Shoulder", Vector3.new(1.1, 1.1, 1.1), Vector3.new(1.55 * side, 4.95, 0), skin)
+		k.limb("UpperArm", shoulder, elbow, 0.85, skin)
+		k.blob("Bicep", Vector3.new(0.75, 0.9, 0.75), shoulder:Lerp(elbow, 0.5) + Vector3.new(0, 0, -0.25), skin)
+		k.ball("Elbow", 0.72, elbow, shade)
+		k.limb("Forearm", elbow, wrist, 0.78, skin)
+		k.limb("Bracer", elbow:Lerp(wrist, 0.6), wrist, 0.86, leather, LEATHER)
+		k.limb("BracerBand", elbow:Lerp(wrist, 0.7), elbow:Lerp(wrist, 0.76), 0.9, iron, CORRODED)
+		k.blob("Hand", Vector3.new(0.8, 0.9, 0.8), Vector3.new(2.0 * side, 2.35, -0.8), shade)
+		if side < 0 then
+			for f = -1, 1 do
+				k.limb("Finger", Vector3.new(-2.0 + f * 0.22, 2.1, -1.05), Vector3.new(-2.0 + f * 0.24, 1.85, -1.12), 0.2, shade)
+			end
+		end
+	end
+	-- 왼쪽 어깨 가시 쇠 견갑 + 해골 장식
+	k.slot(k.blob("Pauldron", Vector3.new(1.35, 0.55, 1.35), Vector3.new(-1.62, 5.45, 0), iron, CORRODED, nil, CFrame.Angles(0, 0, math.rad(14))), "Armor")
+	for _, offset in { Vector3.new(-0.2, 0, -0.35), Vector3.new(-0.35, 0, 0.1), Vector3.new(-0.1, 0, 0.45) } do
+		local base = Vector3.new(-1.62, 5.62, 0) + offset
+		k.spike(base, base + Vector3.new(-0.25, 0.55, 0), 0.22, C(150, 145, 135), METAL, true)
+	end
+	k.ball("ShoulderSkull", 0.48, Vector3.new(-1.75, 5.2, -0.68), bone)
+	-- 오른손 몽둥이: 통나무 + 쇠띠 2 + 대못
+	local wood = C(95, 65, 38)
+	local hand = Vector3.new(2.0, 2.35, -0.8)
+	local tip = Vector3.new(2.38, 4.85, -2.15)
+	local dir = (tip - hand).Unit
+	k.slot(k.limb("Club", hand - dir * 0.4, tip - dir * 0.6, 0.42, wood, WOOD), "Weapon")
+	k.slot(k.blob("ClubHead", Vector3.new(1.05, 1.8, 1.05), tip, wood, WOOD, nil, CFrame.lookAt(Vector3.zero, dir) * CFrame.Angles(math.rad(-90), 0, 0)), "Weapon")
+	for _, t in { -0.45, 0.35 } do
+		k.limb("ClubBand", tip + dir * (t - 0.06), tip + dir * (t + 0.06), 1.0, iron, CORRODED)
+	end
+	local s1 = dir:Cross(Vector3.yAxis).Unit
+	local s2 = dir:Cross(s1).Unit
+	for i = 0, 5 do
+		local a = i / 6 * math.pi * 2
+		local out = s1 * math.cos(a) + s2 * math.sin(a)
+		local base = tip + dir * ((i % 2) * 0.5 - 0.1) + out * 0.45
+		k.spike(base, base + out * 0.42, 0.13, C(150, 145, 140), METAL)
+	end
+end
+
+-- 바위 골렘 (2026-10-10 다시 디자인): 각진 바위 덩어리를 쌓은 고릴라 같은 거인. 짧은 다리·땅에 닿을 듯 긴 팔·커다란 돌 주먹,
+-- 몸에 반쯤 묻힌 작은 머리(눈썹 바위 아래 가는 초록 눈빛), 가슴의 마나 핵에서 갈라진 빛나는 금, 어깨 이끼, 등에 솟은 수정 (높이 약 7.5 × Scale 1.6)
+MOBS.StoneGolem = function(k)
+	local rock = C(118, 114, 108)
+	local dark = C(84, 80, 76)
+	local moss = C(80, 110, 60)
+	local glow = C(80, 255, 170)
+	-- 다리·발
+	for _, side in { 1, -1 } do
+		k.box("Thigh", Vector3.new(1.3, 1.4, 1.4), CFrame.new(1.0 * side, 1.95, 0.2) * CFrame.Angles(math.rad(8), math.rad(6 * side), math.rad(-4 * side)), dark, SLATE)
+		k.box("Shin", Vector3.new(1.2, 1.3, 1.3), CFrame.new(1.05 * side, 0.85, 0.05) * CFrame.Angles(math.rad(-5), math.rad(-8 * side), 0), rock, SLATE)
+		k.box("Foot", Vector3.new(1.7, 0.5, 2.0), CFrame.new(1.05 * side, 0.25, -0.2) * CFrame.Angles(0, math.rad(5 * side), 0), dark, BASALT)
+		for _, x in { -0.4, 0.35 } do
+			k.box("ToeRock", Vector3.new(0.5, 0.4, 0.45), CFrame.new(1.05 * side + x, 0.3, -1.15) * CFrame.Angles(math.rad(10), math.rad(20 * x), 0), rock, SLATE)
+		end
+	end
+	-- 골반·배·가슴 (앞으로 숙인 커다란 바위) + 가슴 판
+	k.box("Pelvis", Vector3.new(2.6, 1.0, 1.6), CFrame.new(0, 2.85, 0.2), dark, SLATE)
+	k.box("Waist", Vector3.new(3.0, 1.4, 2.2), CFrame.new(0, 3.75, 0.2) * CFrame.Angles(math.rad(-6), math.rad(4), 0), rock, SLATE)
+	k.slot(k.box("Chest", Vector3.new(4.0, 1.9, 2.6), CFrame.new(0, 5.15, 0.15) * CFrame.Angles(math.rad(-12), 0, math.rad(2)), rock, SLATE), "Armor")
+	for _, info in { { -0.95, 5.25, 12 }, { 0.95, 5.3, -10 }, { 0, 3.85, 4 } } do
+		k.box("ChestPlate", Vector3.new(1.5, 1.1, 0.35), CFrame.new(info[1], info[2], -1.2) * CFrame.Angles(math.rad(-14), 0, math.rad(info[3])), dark, BASALT)
+	end
+	-- 마나 핵 + 빛나는 금
+	local core = k.slot(k.ball("Core", 0.85, Vector3.new(0, 4.6, -1.2), glow, NEON), "Core")
+	for _, angle in { 25, 100, 160, 215, 320 } do
+		local a = math.rad(angle)
+		k.box("Crack", Vector3.new(0.85, 0.07, 0.07), CFrame.new(math.cos(a) * 0.75, 4.6 + math.sin(a) * 0.75, -1.3) * CFrame.Angles(0, 0, a), glow, NEON)
 	end
 	local light = Instance.new("PointLight")
 	light.Color = glow
 	light.Range = 10
 	light.Brightness = 1.2
 	light.Parent = core
-	-- 머리 (몸에 반쯤 묻힌 작은 바위) + 동그란 초록 눈 + 바위 눈썹 + 작은 입
-	k.blob("Head", Vector3.new(2.1, 1.7, 1.9), Vector3.new(0, 6.35, -0.4), rock, SLATE)
-	for _, side in { 1, -1 } do
-		k.ball("Eye", 0.5, Vector3.new(0.45 * side, 6.45, -1.25), glow, NEON)
-		k.ball("Pupil", 0.22, Vector3.new(0.45 * side, 6.45, -1.48), C(20, 60, 40))
-		k.box("Brow", Vector3.new(0.7, 0.3, 0.45), CFrame.new(0.42 * side, 6.85, -1.15) * CFrame.Angles(0, 0, math.rad(15 * side)), dark, SLATE)
+	-- 등 바위 + 수정
+	for i, info in { { -0.9, 6.0, 1.0 }, { 0.8, 6.1, 0.9 }, { 0, 5.7, 1.35 } } do
+		k.box("BackRock", Vector3.new(1.1, 0.9, 1.0), CFrame.new(info[1], info[2], info[3]) * CFrame.Angles(math.rad(i * 25), math.rad(i * 40), math.rad(i * 15)), dark, SLATE)
+		local base = Vector3.new(info[1] * 0.8, info[2] + 0.3, info[3])
+		k.spike(base, base + Vector3.new(info[1] * 0.2, 0.9 - i * 0.12, 0.25), 0.32, C(120, 255, 200), GLASS, true)
 	end
-	k.blob("Mouth", Vector3.new(0.6, 0.15, 0.1), Vector3.new(0, 6.0, -1.3), C(40, 40, 45))
-	-- 머리 위 작은 수정
-	k.box("Crystal", Vector3.new(0.35, 0.8, 0.35), CFrame.new(0.2, 7.3, -0.3) * CFrame.Angles(0, math.rad(45), math.rad(-12)), glow, NEON)
-	-- 팔: 둥근 어깨 바위 → 굵은 팔 → 커다란 주먹 (주먹마다 마디 돌)
+	-- 머리: 몸에 반쯤 묻힌 각진 돌 + 튀어나온 눈썹 바위 + 가는 눈빛 + 턱 바위
+	k.slot(k.box("Head", Vector3.new(1.3, 1.1, 1.3), CFrame.new(0, 6.15, -0.8) * CFrame.Angles(math.rad(-8), math.rad(6), 0), rock, SLATE), "Head")
+	k.box("Brow", Vector3.new(1.55, 0.35, 0.6), CFrame.new(0, 6.5, -1.38) * CFrame.Angles(math.rad(12), 0, 0), dark, BASALT)
 	for _, side in { 1, -1 } do
-		k.ball("Shoulder", 1.6, Vector3.new(2.35 * side, 5.0, 0), dark, SLATE)
-		k.limb("Arm", Vector3.new(2.45 * side, 4.8, 0), Vector3.new(2.75 * side, 2.7, -0.4), 1.2, rock, SLATE)
-		k.blob("Fist", Vector3.new(1.8, 1.7, 1.8), Vector3.new(2.8 * side, 1.95, -0.5), rock, SLATE)
+		k.slot(k.box("Eye", Vector3.new(0.34, 0.08, 0.06), CFrame.new(0.3 * side, 6.27, -1.47) * CFrame.Angles(0, 0, math.rad(-12 * side)), glow, NEON), "Eye")
+	end
+	k.box("Jaw", Vector3.new(1.1, 0.4, 0.9), CFrame.new(0, 5.72, -1.15) * CFrame.Angles(math.rad(6), 0, 0), dark, SLATE)
+	-- 어깨 바위 + 이끼, 팔, 주먹
+	for _, side in { 1, -1 } do
+		k.slot(k.box("Shoulder", Vector3.new(1.8, 1.6, 1.8), CFrame.new(2.35 * side, 5.65, 0.1) * CFrame.Angles(math.rad(10), math.rad(25 * side), math.rad(-15 * side)), dark, SLATE), "Armor")
+		k.blob("Moss", Vector3.new(1.5, 0.3, 1.3), Vector3.new(2.3 * side, 6.45, 0.1), moss, Enum.Material.Grass)
+		k.box("UpperArm", Vector3.new(1.2, 1.8, 1.2), CFrame.new(2.6 * side, 4.35, -0.1) * CFrame.Angles(math.rad(-8), 0, math.rad(-6 * side)), rock, SLATE)
+		k.box("Elbow", Vector3.new(0.9, 0.8, 0.9), CFrame.new(2.72 * side, 3.4, -0.25) * CFrame.Angles(math.rad(30), math.rad(30), math.rad(20)), dark, SLATE)
+		k.box("Forearm", Vector3.new(1.5, 2.0, 1.5), CFrame.new(2.8 * side, 2.6, -0.45) * CFrame.Angles(math.rad(-10), math.rad(8 * side), 0), rock, SLATE)
+		k.box("ArmCrack", Vector3.new(0.06, 1.2, 0.06), CFrame.new(2.8 * side - 0.2 * side, 2.7, -1.22) * CFrame.Angles(0, 0, math.rad(15 * side)), glow, NEON)
+		k.slot(k.box("Fist", Vector3.new(1.9, 1.5, 1.9), CFrame.new(2.85 * side, 1.15, -0.6) * CFrame.Angles(math.rad(5), math.rad(10 * side), 0), dark, BASALT), "Weapon")
 		for i = -1, 1 do
-			k.ball("Knuckle", 0.45, Vector3.new(2.8 * side + i * 0.45, 2.35, -1.3), dark, SLATE)
+			k.box("Knuckle", Vector3.new(0.5, 0.5, 0.45), CFrame.new(2.85 * side + i * 0.55, 1.55, -1.55) * CFrame.Angles(math.rad(20), math.rad(i * 10), 0), rock, SLATE)
 		end
+	end
+	-- 몸에 붙은 작은 돌 조각
+	for i, p in { Vector3.new(1.3, 4.0, -0.9), Vector3.new(-1.4, 3.7, -0.8), Vector3.new(-1.6, 5.9, -0.7), Vector3.new(1.5, 6.0, -0.6) } do
+		k.box("Pebble", Vector3.new(0.45, 0.35, 0.4), CFrame.new(p) * CFrame.Angles(i, i * 2, i * 0.5), dark, SLATE)
 	end
 end
 
--- 서리 거인 (2026-10-10): 하얀 털 거인 + 하늘색 얼굴 + 얼음 왕관 + 얼음 엄니 + 커다란 발 (높이 약 8 × Scale 1.8)
+-- 서리 거인 (2026-10-10 다시 디자인): 창백한 푸른 피부의 요툰. 긴 흰 수염(얼음 구슬 땋은 두 갈래)·뒤로 넘긴 흰 머리,
+-- 깊은 눈두덩 속 차가운 하늘색 눈빛, 털가죽 망토, 가죽 치마·얼음 버클, 얼음 견갑에 자라난 수정, 얼음 왕관,
+-- 털 장화·손목 털, 오른손 얼음 날 도끼 (높이 약 8.6 × Scale 1.8)
 MOBS.FrostGiant = function(k)
-	local fur = C(236, 242, 250)
-	local shade = C(200, 215, 232)
-	local skin = C(150, 200, 235)
-	local deep = C(60, 95, 150)
-	local ice = C(175, 230, 255)
-	local FABRIC = Enum.Material.Fabric
-	-- 커다란 발 + 털 다리
+	local skin = C(150, 175, 195)
+	local shade = C(110, 135, 160)
+	local fur = C(225, 228, 232)
+	local furShade = C(180, 185, 192)
+	local leather = C(70, 60, 55)
+	local ice = C(185, 230, 255)
+	local eye = C(150, 235, 255)
+	-- 다리: 허벅지 맨살 → 털 장화
 	for _, side in { 1, -1 } do
-		k.blob("Foot", Vector3.new(1.6, 0.8, 2.1), Vector3.new(0.95 * side, 0.4, -0.25), skin)
-		for i = -1, 1 do
-			k.ball("Toe", 0.45, Vector3.new(0.95 * side + i * 0.45, 0.35, -1.25), C(230, 245, 255))
+		local hip, knee = Vector3.new(0.95 * side, 3.1, 0), Vector3.new(1.0 * side, 1.6, -0.12)
+		k.limb("Thigh", hip, knee, 1.15, skin)
+		k.ball("Knee", 0.95, knee, shade)
+		k.limb("Shin", knee, Vector3.new(1.0 * side, 0.8, 0), 0.95, skin)
+		k.blob("Boot", Vector3.new(1.3, 1.35, 1.75), Vector3.new(1.0 * side, 0.6, -0.15), fur, FABRIC)
+		k.limb("BootStrap", Vector3.new(1.0 * side, 0.95, 0), Vector3.new(1.0 * side, 1.08, 0), 1.25, leather, LEATHER)
+	end
+	-- 가죽 치마 + 벨트 + 얼음 버클
+	k.box("Kilt", Vector3.new(2.9, 1.2, 0.12), CFrame.new(0, 2.75, -1.25) * CFrame.Angles(math.rad(-8), 0, 0), leather, LEATHER)
+	k.box("Kilt", Vector3.new(3.1, 1.3, 0.12), CFrame.new(0, 2.75, 1.25) * CFrame.Angles(math.rad(8), 0, 0), leather, LEATHER)
+	k.box("Belt", Vector3.new(3.3, 0.4, 2.65), CFrame.new(0, 3.35, 0), C(45, 38, 35), LEATHER)
+	k.box("Buckle", Vector3.new(0.6, 0.5, 0.15), CFrame.new(0, 3.35, -1.36) * CFrame.Angles(0, 0, math.rad(45)), ice, GLASS)
+	-- 몸통: 배·가슴·가슴 근육 + 털가죽 망토(어깨·등)
+	k.blob("Belly", Vector3.new(2.7, 2.0, 2.3), Vector3.new(0, 4.1, -0.05), skin)
+	k.slot(k.blob("Chest", Vector3.new(3.4, 2.0, 2.4), Vector3.new(0, 5.1, 0.05), skin), "Armor")
+	for _, side in { 1, -1 } do
+		k.blob("Pec", Vector3.new(1.35, 0.85, 0.5), Vector3.new(0.7 * side, 5.15, -1.0), skin, SMOOTH, nil, CFrame.Angles(0, 0, math.rad(-8 * side)))
+	end
+	k.blob("Pelt", Vector3.new(3.8, 1.0, 2.7), Vector3.new(0, 5.95, 0.2), fur, FABRIC)
+	k.box("Cloak", Vector3.new(3.2, 3.0, 0.3), CFrame.new(0, 4.4, 1.3) * CFrame.Angles(math.rad(6), 0, 0), furShade, FABRIC)
+	k.ball("PeltClasp", 0.4, Vector3.new(0, 5.9, -1.15), ice, GLASS)
+	-- 머리: 피부 + 깊은 눈두덩 + 하늘색 눈빛 + 큰 코 + 흰 수염·콧수염·땋은 수염 + 뒤 머리 + 얼음 왕관
+	k.slot(k.blob("Head", Vector3.new(1.6, 1.8, 1.6), Vector3.new(0, 6.95, -0.3), skin), "Head")
+	k.blob("Brow", Vector3.new(1.45, 0.4, 0.55), Vector3.new(0, 7.3, -0.95), shade)
+	for _, side in { 1, -1 } do
+		k.ball("Socket", 0.36, Vector3.new(0.32 * side, 7.08, -0.98), C(45, 60, 80))
+		k.slot(k.ball("Eye", 0.14, Vector3.new(0.32 * side, 7.08, -1.13), eye, NEON), "Eye")
+		k.blob("Moustache", Vector3.new(0.6, 0.22, 0.3), Vector3.new(0.28 * side, 6.55, -1.1), fur, FABRIC, nil, CFrame.Angles(0, 0, math.rad(-18 * side)))
+		local braidTop, braidBottom = Vector3.new(0.35 * side, 5.75, -0.98), Vector3.new(0.4 * side, 4.95, -1.05)
+		k.limb("Braid", braidTop, braidBottom, 0.26, fur, FABRIC)
+		k.ball("IceBead", 0.26, braidBottom, ice, GLASS)
+		k.blob("Ear", Vector3.new(0.22, 0.45, 0.3), Vector3.new(0.82 * side, 6.95, -0.3), shade)
+	end
+	k.blob("Nose", Vector3.new(0.42, 0.55, 0.45), Vector3.new(0, 6.82, -1.12), shade)
+	k.blob("Beard", Vector3.new(1.6, 1.5, 0.95), Vector3.new(0, 6.05, -0.85), fur, FABRIC)
+	k.blob("BeardTip", Vector3.new(0.9, 0.9, 0.6), Vector3.new(0, 5.35, -0.95), furShade, FABRIC)
+	k.blob("Hair", Vector3.new(1.75, 1.7, 1.3), Vector3.new(0, 7.1, 0.25), fur, FABRIC)
+	k.blob("HairTail", Vector3.new(0.8, 1.4, 0.6), Vector3.new(0, 6.2, 0.85), furShade, FABRIC)
+	k.disc("CrownBand", 0.2, 1.7, CFrame.new(0, 7.62, -0.25) * CFrame.Angles(0, 0, math.rad(90)), C(150, 200, 230), ICE)
+	for i, x in { -0.62, -0.32, 0, 0.32, 0.62 } do
+		local base = Vector3.new(x, 7.65, -0.25 - (0.65 - math.abs(x)) * 0.6)
+		local height = if i == 3 then 1.0 else 0.6 - math.abs(x) * 0.2
+		k.spike(base, base + Vector3.new(x * 0.25, height, 0), 0.26, ice, GLASS, true)
+	end
+	-- 팔: 맨살 + 얼음 견갑(수정이 자람) + 손목 털 + 큰 손
+	for _, side in { 1, -1 } do
+		local shoulder, elbow, wrist = Vector3.new(1.9 * side, 5.5, 0), Vector3.new(2.35 * side, 3.85, -0.2), Vector3.new(2.5 * side, 2.55, -0.65)
+		k.blob("Shoulder", Vector3.new(1.3, 1.3, 1.3), Vector3.new(1.85 * side, 5.6, 0), skin)
+		k.slot(k.blob("IcePauldron", Vector3.new(1.5, 0.6, 1.5), Vector3.new(1.9 * side, 6.2, 0.05), ice, GLASS, 0.15, CFrame.Angles(0, 0, math.rad(-15 * side))), "Armor")
+		for j, offset in { Vector3.new(0, 0, -0.3), Vector3.new(0.25 * side, 0, 0.3) } do
+			local base = Vector3.new(1.95 * side, 6.4, 0.05) + offset
+			k.spike(base, base + Vector3.new(0.3 * side, 0.9 - j * 0.2, 0.1), 0.3, ice, GLASS, true)
 		end
-		k.limb("Leg", Vector3.new(0.95 * side, 3.0, 0), Vector3.new(0.95 * side, 0.7, 0), 1.35, fur, FABRIC)
+		k.limb("UpperArm", shoulder, elbow, 1.0, skin)
+		k.blob("Bicep", Vector3.new(0.85, 1.0, 0.85), shoulder:Lerp(elbow, 0.5) + Vector3.new(0, 0, -0.25), skin)
+		k.ball("Elbow", 0.85, elbow, shade)
+		k.limb("Forearm", elbow, wrist, 0.92, skin)
+		k.limb("Cuff", elbow:Lerp(wrist, 0.65), wrist, 1.08, fur, FABRIC)
+		k.blob("Hand", Vector3.new(0.95, 1.0, 0.95), Vector3.new(2.52 * side, 2.3, -0.75), shade)
 	end
-	-- 몸통 (털) + 하늘색 배 + 허리 끈
-	k.blob("Torso", Vector3.new(3.7, 3.7, 2.9), Vector3.new(0, 4.25, 0), fur, FABRIC)
-	k.blob("Belly", Vector3.new(2.4, 2.2, 0.6), Vector3.new(0, 3.9, -1.2), shade, FABRIC)
-	k.box("Belt", Vector3.new(3.4, 0.35, 2.7), CFrame.new(0, 2.85, 0), deep, LEATHER)
-	k.box("Buckle", Vector3.new(0.6, 0.5, 0.15), CFrame.new(0, 2.85, -1.38), ice, GLASS)
-	-- 머리: 털 + 하늘색 얼굴 + 동그란 큰 눈 + 화난 눈썹 + 얼음 엄니 + 털 수염
-	k.blob("Head", Vector3.new(2.3, 2.2, 2.1), Vector3.new(0, 6.65, -0.1), fur, FABRIC)
-	k.blob("Face", Vector3.new(1.7, 1.35, 0.45), Vector3.new(0, 6.55, -1.0), skin)
-	k.eyes(0.38, 6.75, -1.2, 0.4)
-	for _, side in { 1, -1 } do
-		k.box("Brow", Vector3.new(0.6, 0.16, 0.2), CFrame.new(0.36 * side, 7.1, -1.2) * CFrame.Angles(0, 0, math.rad(20 * side)), deep)
-		k.box("Tusk", Vector3.new(0.16, 0.38, 0.16), CFrame.new(0.3 * side, 6.25, -1.22) * CFrame.Angles(0, 0, math.rad(-8 * side)), ice, GLASS)
-	end
-	k.blob("Mouth", Vector3.new(0.7, 0.2, 0.1), Vector3.new(0, 6.15, -1.2), deep)
-	k.blob("Beard", Vector3.new(1.8, 0.9, 0.9), Vector3.new(0, 5.75, -0.85), fur, FABRIC)
-	k.blush(0.62, 6.4, -1.18, 0.3)
-	-- 얼음 왕관 (뾰족한 수정 다섯 개)
-	for i, x in { -0.7, -0.35, 0, 0.35, 0.7 } do
-		local height = if i == 3 then 1.0 else 0.65
-		k.box("Crown", Vector3.new(0.3, height, 0.3), CFrame.new(x, 7.6 + height / 2 - 0.15, -0.35 + math.abs(x) * 0.25) * CFrame.Angles(0, math.rad(45), math.rad(-x * 18)), ice, GLASS)
-	end
-	-- 팔: 털 어깨 + 얼음 어깨 수정 + 긴 팔 + 하늘색 큰 손
-	for _, side in { 1, -1 } do
-		k.ball("Shoulder", 1.4, Vector3.new(1.9 * side, 5.4, 0), fur, FABRIC)
-		k.box("ShoulderIce", Vector3.new(0.4, 0.9, 0.4), CFrame.new(2.1 * side, 6.1, 0.1) * CFrame.Angles(0, math.rad(45), math.rad(-25 * side)), ice, GLASS)
-		k.limb("UpperArm", Vector3.new(2.0 * side, 5.3, 0), Vector3.new(2.4 * side, 3.6, -0.2), 1.1, fur, FABRIC)
-		k.limb("Forearm", Vector3.new(2.4 * side, 3.6, -0.2), Vector3.new(2.5 * side, 2.3, -0.6), 1.0, fur, FABRIC)
-		k.ball("Hand", 1.2, Vector3.new(2.5 * side, 2.0, -0.7), skin)
-	end
+	-- 오른손 얼음 도끼: 검은 나무 자루 + 얼음 날 두 장 + 얼음 핵
+	local hand = Vector3.new(2.52, 2.3, -0.75)
+	local dir = Vector3.new(0.1, 0.85, -0.5).Unit
+	local top = hand + dir * 2.6
+	k.limb("AxeHandle", hand - dir * 0.6, top + dir * 0.3, 0.3, C(55, 45, 40), WOOD)
+	k.slot(k.box("AxeCore", Vector3.new(0.5, 0.8, 0.5), CFrame.lookAt(top, top + Vector3.new(0, 0, -1)) * CFrame.new(0, 0, 0), ice, GLASS), "Weapon")
+	local side = Vector3.new(0, 0, -1) -- 날은 앞(-Z)으로
+	local up = dir
+	k.tri(top + up * 0.4 + side * 0.2, top - up * 0.4 + side * 0.2, top + side * 1.3 + up * 0.75, 0.16, ice, GLASS)
+	k.tri(top - up * 0.4 + side * 0.2, top + side * 1.3 + up * 0.75, top + side * 1.25 - up * 0.85, 0.16, ice, GLASS)
+	k.spike(top + up * 0.35, top + up * 1.0, 0.25, ice, GLASS, true)
 	local glow = Instance.new("PointLight")
 	glow.Color = ice
 	glow.Range = 12
 	glow.Brightness = 0.8
-	glow.Parent = k.Model:FindFirstChild("Face")
+	glow.Parent = k.Model:FindFirstChild("Head")
 end
 
--- 베헤모스 (2026-10-10): 네발 거대 짐승. 검보라 몸 + 휘어진 큰 뿔 둘 + 등 가시 + 굵은 다리 + 화난 큰 눈 (뿔 끝 높이 약 8.5 × Scale 2)
+-- 베헤모스 (2026-10-10 다시 디자인): 네발 거대 짐승. 검붉은 두꺼운 가죽, 등을 덮은 겹친 돌 비늘판·뼈 가시, 옆구리 용암 틈,
+-- 기둥 같은 다리·발굽·발톱, 가시 철퇴 꼬리, 뒤로 휘었다 앞으로 감기는 큰 뿔, 엄니·이빨 줄, 깊은 눈썹 판 아래 작은 붉은 눈 (뿔 끝 높이 약 8.4 × Scale 2)
 MOBS.Behemoth = function(k)
-	local hide = C(110, 70, 90)
-	local light = C(160, 115, 135)
-	local dark = C(70, 45, 60)
-	local ivory = C(240, 225, 190)
-	local red = C(200, 60, 70)
-	-- 몸통 + 배
-	k.blob("Body", Vector3.new(4.4, 3.8, 6.4), Vector3.new(0, 3.6, 0.4), hide)
-	k.blob("Belly", Vector3.new(3.4, 1.8, 5.0), Vector3.new(0, 2.5, 0.4), light)
-	-- 다리 넷 + 발굽 + 발톱
+	local hide = C(72, 50, 54)
+	local belly = C(110, 80, 75)
+	local plate = C(55, 42, 46)
+	local ivory = C(215, 200, 170)
+	local lava = C(255, 90, 30)
+	-- 몸통: 가슴·몸통·엉덩이 + 배
+	k.slot(k.blob("Chest", Vector3.new(4.0, 3.7, 2.8), Vector3.new(0, 3.8, -2.0), hide, LEATHER), "Armor")
+	k.blob("Body", Vector3.new(4.2, 3.5, 6.0), Vector3.new(0, 3.6, 0.4), hide, LEATHER)
+	k.slot(k.blob("Hips", Vector3.new(3.8, 3.3, 2.4), Vector3.new(0, 3.75, 2.8), hide, LEATHER), "Armor")
+	k.blob("Belly", Vector3.new(3.2, 1.6, 5.2), Vector3.new(0, 2.35, 0.3), belly, LEATHER)
+	-- 등 돌 비늘판 5장 + 뼈 가시
+	for i = 0, 4 do
+		local z = -2.4 + i * 1.25
+		local y = 5.45 - math.abs(i - 1.5) * 0.12
+		k.box("BackPlate", Vector3.new(2.7, 0.45, 1.5), CFrame.new(0, y, z) * CFrame.Angles(math.rad(-12), 0, 0), plate, SLATE)
+		local h = 1.4 - math.abs(i - 1.5) * 0.25
+		k.spike(Vector3.new(0, y + 0.1, z + 0.2), Vector3.new(0, y + h, z + 0.65), 0.55, ivory, LIMESTONE, false, Vector3.zAxis)
+	end
+	-- 옆구리 비늘판 + 용암 틈
+	for _, side in { 1, -1 } do
+		for j, info in { { -1.6, 4.3 }, { 0.2, 4.1 }, { 2.2, 4.4 } } do
+			k.box("SidePlate", Vector3.new(0.3, 1.0, 1.4), CFrame.new(1.95 * side, info[2], info[1]) * CFrame.Angles(0, 0, math.rad(-20 * side)), plate, SLATE)
+			k.box("LavaCrack", Vector3.new(0.12, 0.08, 1.1), CFrame.new(2.05 * side, info[2] - 0.75, info[1] + 0.3) * CFrame.Angles(math.rad(j * 15 - 30), 0, math.rad(-15 * side)), lava, NEON)
+		end
+	end
+	local heat = Instance.new("PointLight")
+	heat.Color = lava
+	heat.Range = 14
+	heat.Brightness = 0.9
+	heat.Parent = k.Model:FindFirstChild("Body")
+	-- 다리 넷: 윗다리 근육 → 기둥 다리 → 무릎 → 아랫다리 → 발굽 + 발톱 2
 	for _, x in { 1.6, -1.6 } do
-		for _, z in { -1.7, 2.4 } do
-			k.limb("Leg", Vector3.new(x, 3.0, z), Vector3.new(x * 1.06, 0.6, z), 1.45, hide)
-			k.box("Hoof", Vector3.new(1.6, 0.6, 1.6), CFrame.new(x * 1.06, 0.3, z - 0.1), dark)
-			for i = -1, 1 do
-				k.box("Claw", Vector3.new(0.25, 0.25, 0.35), CFrame.new(x * 1.06 + i * 0.45, 0.2, z - 0.95), ivory)
+		for _, z in { -1.8, 2.5 } do
+			k.blob("UpperLeg", Vector3.new(1.6, 2.1, 1.8), Vector3.new(x, 3.3, z), hide, LEATHER)
+			local knee = Vector3.new(x * 1.06, 1.7, z + (if z < 0 then -0.1 else 0.15))
+			k.limb("Leg", Vector3.new(x, 2.9, z), knee, 1.4, hide, LEATHER)
+			k.ball("Knee", 1.3, knee, plate, SLATE)
+			k.limb("Shin", knee, Vector3.new(x * 1.06, 0.55, z), 1.2, hide, LEATHER)
+			k.disc("Hoof", 0.6, 1.6, CFrame.new(x * 1.06, 0.3, z - 0.05) * CFrame.Angles(0, 0, math.rad(90)), C(40, 32, 30), BASALT)
+			for _, c in { -0.35, 0.35 } do
+				local base = Vector3.new(x * 1.06 + c, 0.25, z - 0.75)
+				k.spike(base, base + Vector3.new(c * 0.2, -0.15, -0.5), 0.3, ivory, LIMESTONE, false, Vector3.xAxis)
 			end
 		end
 	end
-	-- 등 가시 (빨간 세모 판)
-	for i, z in { -1.6, -0.3, 1.0, 2.3 } do
-		local h = 1.3 - math.abs(i - 2.2) * 0.2
-		triangle(k.Model, Vector3.new(0, 5.15, z - 0.55), Vector3.new(0, 5.15, z + 0.55), Vector3.new(0, 5.2 + h, z + 0.35), 0.3, red, Enum.Material.SmoothPlastic, k.Root)
+	-- 꼬리 + 가시 철퇴
+	local tail = { Vector3.new(0, 4.0, 3.7), Vector3.new(0, 3.6, 4.6), Vector3.new(0, 3.1, 5.3) }
+	for i = 1, #tail - 1 do
+		k.limb("Tail", tail[i], tail[i + 1], 0.9 - i * 0.2, hide, LEATHER)
 	end
-	-- 꼬리 + 가시 공
-	k.limb("Tail", Vector3.new(0, 3.9, 3.4), Vector3.new(0, 3.1, 5.0), 0.8, hide)
-	k.ball("TailClub", 1.0, Vector3.new(0, 3.0, 5.2), dark)
-	for _, offset in { Vector3.new(0.5, 0, 0), Vector3.new(-0.5, 0, 0), Vector3.new(0, 0.5, 0), Vector3.new(0, 0, 0.5) } do
-		k.box("TailSpike", Vector3.new(0.25, 0.25, 0.25), CFrame.new(Vector3.new(0, 3.0, 5.2) + offset) * CFrame.Angles(0, math.rad(45), math.rad(45)), ivory)
+	local club = Vector3.new(0, 3.0, 5.6)
+	k.slot(k.blob("TailClub", Vector3.new(1.1, 0.9, 1.2), club, plate, SLATE), "Weapon")
+	for _, out in { Vector3.new(1, 0.2, 0), Vector3.new(-1, 0.2, 0), Vector3.new(0, 1, 0.2), Vector3.new(0, -0.2, 1) } do
+		local d = out.Unit
+		k.spike(club + d * 0.45, club + d * 1.0, 0.3, ivory, LIMESTONE)
 	end
-	-- 머리: 큰 머리 + 밝은 주둥이 + 콧구멍 + 아래 엄니 + 화난 큰 눈 (빨간 눈동자) + 눈썹
-	k.blob("Head", Vector3.new(3.0, 2.6, 2.8), Vector3.new(0, 4.6, -3.5), hide)
-	k.blob("Snout", Vector3.new(2.2, 1.5, 1.7), Vector3.new(0, 4.0, -4.75), light)
+	-- 머리: 큰 머리 + 주둥이 + 아래턱 + 눈썹 판 + 이마 판 + 붉은 눈 + 콧구멍 + 엄니·이빨 + 귀 + 큰 뿔
+	k.slot(k.blob("Head", Vector3.new(2.8, 2.4, 2.6), Vector3.new(0, 4.4, -3.6), hide, LEATHER), "Head")
+	k.blob("Snout", Vector3.new(2.0, 1.4, 1.8), Vector3.new(0, 3.9, -4.75), belly, LEATHER)
+	k.blob("Jaw", Vector3.new(1.8, 0.7, 1.6), Vector3.new(0, 3.2, -4.5), hide, LEATHER, nil, CFrame.Angles(math.rad(8), 0, 0))
+	k.box("BrowPlate", Vector3.new(2.6, 0.55, 1.0), CFrame.new(0, 5.1, -4.3) * CFrame.Angles(math.rad(15), 0, 0), plate, SLATE)
+	k.box("ForeheadPlate", Vector3.new(1.4, 0.4, 1.3), CFrame.new(0, 5.5, -3.6) * CFrame.Angles(math.rad(-10), 0, 0), plate, SLATE)
 	for _, side in { 1, -1 } do
-		k.ball("Nostril", 0.35, Vector3.new(0.45 * side, 4.25, -5.55), dark)
-		k.box("Tusk", Vector3.new(0.25, 0.7, 0.25), CFrame.new(0.75 * side, 3.65, -5.3) * CFrame.Angles(math.rad(-20), 0, math.rad(12 * side)), ivory)
-		k.ball("EyeWhite", 0.75, Vector3.new(0.8 * side, 5.1, -4.65), C(255, 250, 240))
-		k.ball("Iris", 0.42, Vector3.new(0.8 * side, 5.08, -4.95), C(230, 50, 50), NEON)
-		k.ball("Pupil", 0.2, Vector3.new(0.8 * side, 5.08, -5.1), C(20, 10, 15))
-		k.ball("Shine", 0.12, Vector3.new(0.8 * side + 0.1, 5.18, -5.15), C(255, 255, 255), NEON)
-		k.box("Brow", Vector3.new(0.9, 0.25, 0.35), CFrame.new(0.75 * side, 5.55, -4.7) * CFrame.Angles(0, 0, math.rad(22 * side)), dark)
-		k.ball("Ear", 0.7, Vector3.new(1.5 * side, 5.3, -3.0), dark)
-		-- 뿔: 머리 옆에서 위로 크게 휘어 앞을 향한다 (마디가 점점 가늘어짐)
-		local horn = { Vector3.new(1.2 * side, 5.4, -3.4), Vector3.new(2.0 * side, 6.3, -3.2), Vector3.new(2.3 * side, 7.5, -3.6), Vector3.new(2.0 * side, 8.4, -4.2) }
-		for i = 1, #horn - 1 do
-			k.limb("Horn", horn[i], horn[i + 1], 0.85 - i * 0.17, ivory)
+		k.ball("Socket", 0.45, Vector3.new(0.78 * side, 4.72, -4.62), C(25, 15, 15))
+		k.slot(k.ball("Eye", 0.24, Vector3.new(0.78 * side, 4.72, -4.8), C(255, 60, 40), NEON), "Eye")
+		k.ball("Nostril", 0.3, Vector3.new(0.42 * side, 4.15, -5.58), C(30, 20, 20))
+		k.spike(Vector3.new(0.72 * side, 3.4, -5.15), Vector3.new(0.92 * side, 4.25, -5.65), 0.32, ivory, LIMESTONE, true) -- 아래 엄니
+		for t = 0, 1 do
+			local base = Vector3.new((0.25 + t * 0.25) * side, 3.48, -5.45 + t * 0.2)
+			k.spike(base, base + Vector3.new(0, 0.3, 0), 0.14, ivory, LIMESTONE, false, Vector3.xAxis) -- 아래 이빨
 		end
-		k.ball("HornTip", 0.3, horn[4], red, NEON)
+		k.blob("Ear", Vector3.new(0.3, 0.6, 0.8), Vector3.new(1.45 * side, 5.0, -3.1), hide, LEATHER, nil, CFrame.Angles(0, 0, math.rad(-30 * side)))
+		-- 뿔: 머리 옆에서 뒤·위로 휘었다가 앞으로 감긴다 (마디가 점점 가늘어짐)
+		local horn = { Vector3.new(1.15 * side, 5.3, -3.4), Vector3.new(1.85 * side, 6.0, -3.0), Vector3.new(2.35 * side, 7.0, -3.2), Vector3.new(2.3 * side, 7.9, -3.8), Vector3.new(1.95 * side, 8.35, -4.4) }
+		for i = 1, #horn - 1 do
+			local hornPart = k.limb("Horn", horn[i], horn[i + 1], 0.95 - i * 0.17, if i % 2 == 0 then ivory else ivory:Lerp(C(150, 130, 100), 0.3), LIMESTONE)
+			if i >= 3 then
+				k.slot(hornPart, "Weapon")
+			end
+		end
+		k.spike(horn[5], horn[5] + (horn[5] - horn[4]).Unit * 0.5, 0.25, ivory, LIMESTONE)
 	end
-	k.blob("Mouth", Vector3.new(1.2, 0.2, 0.15), Vector3.new(0, 3.55, -5.5), dark)
+	k.box("Mouth", Vector3.new(1.3, 0.12, 0.15), CFrame.new(0, 3.55, -5.55), C(35, 15, 15))
 end
 
 -- 바다 생물 (2026-10-09): 기준점 = 몸 아래, 앞 = -Z. 서버 MobService가 물 속에서 헤엄치게 옮긴다
 -- (물고기·황금 물고기·복어 모델은 2026-10-10 사용자 요청으로 삭제. 남은 템플릿·아이콘은 아래에서 지운다)
--- 낙지: 분홍 둥근 머리 + 꼬불꼬불 다리 8개(빨판) + 큰 눈 + 쭉 내민 입
+-- 낙지 (2026-10-10 다시 디자인): 진짜 문어처럼 뒤로 처진 주머니 몸통(얼룩무늬), 눈 혹 위 가로 막대 동공의 금색 눈,
+-- 옆 물총 구멍, 다리 사이 막, 끝으로 갈수록 가늘게 말리는 다리 8개(아래 빨판)
 MOBS.Octopus = function(k)
-	local pink = C(230, 110, 120)
-	local light = C(255, 190, 195)
-	k.blob("Head", Vector3.new(1.7, 1.9, 1.7), Vector3.new(0, 2.15, 0.15), pink, nil, nil, CFrame.Angles(math.rad(-12), 0, 0))
-	k.blob("Shine", Vector3.new(0.4, 0.25, 0.1), Vector3.new(-0.35, 2.75, -0.62), C(255, 230, 230), nil, 0.2, CFrame.Angles(math.rad(-30), 0, math.rad(25)))
-	k.eyes(0.36, 1.85, -0.72, 0.42)
-	k.blush(0.62, 1.55, -0.7, 0.3)
-	k.limb("Mouth", Vector3.new(0, 1.45, -0.6), Vector3.new(0, 1.4, -0.95), 0.3, C(210, 90, 100))
-	k.ball("MouthHole", 0.18, Vector3.new(0, 1.4, -1.05), C(90, 30, 40))
+	local red = C(160, 70, 60)
+	local dark = C(105, 40, 38)
+	local pale = C(225, 175, 160)
+	k.slot(k.blob("Mantle", Vector3.new(1.5, 2.0, 1.7), Vector3.new(0, 2.25, 0.5), red, SMOOTH, nil, CFrame.Angles(math.rad(28), 0, 0)), "Head")
+	k.slot(k.blob("HeadBase", Vector3.new(1.6, 1.0, 1.45), Vector3.new(0, 1.45, -0.1), red), "Armor")
+	for i, p in { Vector3.new(0.4, 2.6, 0.2), Vector3.new(-0.35, 2.3, 0.0), Vector3.new(0.1, 2.95, 0.75), Vector3.new(-0.45, 2.85, 0.6), Vector3.new(0.55, 2.1, 0.9) } do
+		k.blob("Spot", Vector3.new(0.3, 0.22, 0.08), p + Vector3.new(0, 0, -0.62 + i * 0.05), dark, SMOOTH, nil, CFrame.Angles(math.rad(28), 0, 0))
+	end
+	for _, side in { 1, -1 } do
+		k.blob("EyeBump", Vector3.new(0.45, 0.42, 0.45), Vector3.new(0.55 * side, 1.78, -0.5), red)
+		k.ball("Eyeball", 0.3, Vector3.new(0.6 * side, 1.8, -0.64), C(210, 170, 60))
+		k.slot(k.box("Pupil", Vector3.new(0.18, 0.05, 0.04), CFrame.new(0.62 * side, 1.8, -0.79), C(15, 10, 10)), "Eye")
+		k.blob("Lid", Vector3.new(0.4, 0.14, 0.3), Vector3.new(0.6 * side, 1.95, -0.62), dark)
+	end
+	k.limb("Siphon", Vector3.new(0.65, 1.4, 0.1), Vector3.new(0.95, 1.3, 0.25), 0.22, dark)
+	k.blob("Web", Vector3.new(2.1, 0.25, 2.1), Vector3.new(0, 1.05, -0.05), dark)
 	for i = 0, 7 do
 		local a = i / 8 * math.pi * 2 + math.pi / 8
 		local function at(r: number, y: number, twist: number): Vector3
-			return Vector3.new(math.cos(a + twist) * r, y, math.sin(a + twist) * r)
+			return Vector3.new(math.cos(a + twist) * r, y, math.sin(a + twist) * r - 0.05)
 		end
-		local points = { at(0.45, 1.35, 0), at(0.95, 0.75, 0.1), at(1.35, 0.3, 0.25), at(1.65, 0.4, 0.55), at(1.6, 0.7, 0.85) }
+		local points = { at(0.5, 1.15, 0), at(0.95, 0.65, 0.05), at(1.35, 0.3, 0.15), at(1.7, 0.25, 0.35), at(1.85, 0.45, 0.6), at(1.7, 0.7, 0.85) }
 		for j = 1, #points - 1 do
-			k.limb("Leg", points[j], points[j + 1], 0.42 - j * 0.07, pink)
+			k.limb("Arm", points[j], points[j + 1], 0.36 - j * 0.06, red)
 		end
 		for j = 2, 3 do
-			k.ball("Sucker", 0.14, points[j] - Vector3.new(0, 0.12, 0), light)
+			k.ball("Sucker", 0.13, points[j] - Vector3.new(0, 0.12, 0), pale)
 		end
 	end
 end
 
--- 해파리: 반투명 보라 갓 + 속 빛 + 둘레 주름 + 늘어진 실 + 작은 눈
+-- 해파리 (2026-10-10 다시 디자인): 눈·입 없이 반투명 갓 + 안쪽 갓, 네 잎 생식선(빛), 갓 위 방사 수관, 갓 가장자리 주름,
+-- 주름진 입 팔 4개, 가늘고 긴 촉수 12개 (빛)
 MOBS.Jellyfish = function(k)
-	local lilac = C(205, 175, 255)
-	k.blob("Bell", Vector3.new(2.0, 1.3, 2.0), Vector3.new(0, 2.3, 0), lilac, GLASS, 0.3)
-	k.blob("Core", Vector3.new(1.1, 0.7, 1.1), Vector3.new(0, 2.35, 0), C(240, 170, 230), NEON, 0.4)
-	for i = 0, 9 do
-		local a = i / 10 * math.pi * 2
-		k.ball("Frill", 0.35, Vector3.new(math.cos(a) * 0.9, 1.75, math.sin(a) * 0.9), C(185, 150, 245))
+	local bell = C(195, 170, 240)
+	local glow = C(240, 150, 220)
+	k.slot(k.blob("Bell", Vector3.new(2.2, 1.3, 2.2), Vector3.new(0, 2.35, 0), bell, GLASS, 0.45), "Core")
+	k.blob("InnerBell", Vector3.new(1.7, 0.85, 1.7), Vector3.new(0, 2.25, 0), C(220, 200, 255), NEON, 0.75)
+	for i = 0, 3 do
+		local a = i / 4 * math.pi * 2 + math.pi / 4
+		k.blob("Gonad", Vector3.new(0.5, 0.18, 0.28), Vector3.new(math.cos(a) * 0.38, 2.4, math.sin(a) * 0.38), glow, NEON, 0.2, CFrame.Angles(0, -a, 0))
 	end
-	for i = 0, 5 do
-		local a = i / 6 * math.pi * 2 + 0.3
-		local top = Vector3.new(math.cos(a) * 0.55, 1.7, math.sin(a) * 0.55)
-		local mid = Vector3.new(math.cos(a + 0.4) * 0.65, 0.95, math.sin(a + 0.4) * 0.65)
-		local bottom = Vector3.new(math.cos(a) * 0.5, 0.2, math.sin(a) * 0.5)
-		k.limb("Tentacle", top, mid, 0.09, C(220, 190, 255), NEON)
-		k.limb("Tentacle", mid, bottom, 0.07, C(220, 190, 255), NEON)
+	for i = 0, 7 do
+		local a = i / 8 * math.pi * 2
+		k.limb("Canal", Vector3.new(math.cos(a) * 0.15, 2.98, math.sin(a) * 0.15), Vector3.new(math.cos(a) * 1.0, 2.35, math.sin(a) * 1.0), 0.035, glow, NEON)
 	end
-	k.eyes(0.3, 2.15, -0.93, 0.26)
-	k.blob("Mouth", Vector3.new(0.22, 0.08, 0.06), Vector3.new(0, 1.93, -0.97), C(110, 70, 140))
+	for i = 0, 11 do
+		local a = i / 12 * math.pi * 2
+		k.blob("Rim", Vector3.new(0.5, 0.18, 0.3), Vector3.new(math.cos(a) * 1.0, 1.8, math.sin(a) * 1.0), bell, GLASS, 0.4, CFrame.Angles(0, -a, 0))
+	end
+	-- 주름진 입 팔 4개 (마디마다 좌우로 흔들려 내려감)
+	for i = 0, 3 do
+		local a = i / 4 * math.pi * 2
+		for j = 0, 4 do
+			local wobble = math.sin(j * 1.3 + i) * 0.12
+			local r = 0.2 + j * 0.05
+			k.blob("OralArm", Vector3.new(0.3 - j * 0.03, 0.35, 0.14), Vector3.new(math.cos(a + wobble) * r, 1.6 - j * 0.3, math.sin(a + wobble) * r), C(230, 190, 255), GLASS, 0.3, CFrame.Angles(0, -a, math.rad(20 * (if j % 2 == 0 then 1 else -1))))
+		end
+	end
+	-- 가는 촉수 12개
+	for i = 0, 11 do
+		local a = i / 12 * math.pi * 2 + 0.13
+		local top = Vector3.new(math.cos(a) * 0.95, 1.75, math.sin(a) * 0.95)
+		local mid = Vector3.new(math.cos(a + 0.25) * 1.05, 1.0, math.sin(a + 0.25) * 1.05)
+		local bottom = Vector3.new(math.cos(a) * 0.9, 0.15, math.sin(a) * 0.9)
+		k.limb("Tentacle", top, mid, 0.045, C(225, 195, 255), NEON)
+		k.limb("Tentacle", mid, bottom, 0.035, C(225, 195, 255), NEON)
+	end
 	local light = Instance.new("PointLight")
 	light.Color = C(220, 180, 255)
 	light.Range = 8
 	light.Brightness = 0.6
-	light.Parent = k.Model:FindFirstChild("Core")
+	light.Parent = k.Model:FindFirstChild("InnerBell")
 end
 
--- 상어: 회색 몸 + 흰 배 + 세모 등지느러미·꼬리 + 이빨 줄 + 화난 눈썹 (조금 무섭게, Config.Mobs.Shark.Scale배)
+-- 상어 (2026-10-10 다시 디자인): 백상아리처럼 어뢰 몸통(마디로 가늘어짐)·회색 등 + 흰 배, 뾰족한 주둥이, 작고 까만 눈,
+-- 아가미 틈 5줄, 넓게 뒤로 젖힌 가슴지느러미, 높은 등지느러미 + 작은 둘째 등지느러미, 위가 긴 초승달 꼬리,
+-- 살짝 벌린 입 속 잇몸과 톱니 이빨 줄, 옆구리 흉터 (Config.Mobs.Shark.Scale배)
 MOBS.Shark = function(k)
-	local grey = C(120, 140, 165)
-	local dark = C(80, 95, 120)
-	local white = C(240, 242, 245)
+	local grey = C(98, 112, 125)
+	local dark = C(70, 80, 92)
+	local white = C(232, 234, 236)
 	local y = 0.95
-	k.blob("Body", Vector3.new(1.35, 1.5, 4.4), Vector3.new(0, y, 0), grey)
-	k.blob("Belly", Vector3.new(1.1, 0.8, 3.4), Vector3.new(0, y - 0.38, -0.3), white)
-	k.blob("Snout", Vector3.new(1.0, 0.9, 1.2), Vector3.new(0, y + 0.1, -1.85), grey)
-	-- 지느러미·꼬리 (세모 판)
-	triangle(k.Model, Vector3.new(0, y + 0.6, 0.45), Vector3.new(0, y + 0.6, -0.55), Vector3.new(0, y + 1.75, 0.6), 0.16, grey, Enum.Material.SmoothPlastic, k.Root)
-	triangle(k.Model, Vector3.new(0, y + 0.1, 1.9), Vector3.new(0, y - 0.15, 2.2), Vector3.new(0, y + 1.25, 3.0), 0.14, dark, Enum.Material.SmoothPlastic, k.Root)
-	triangle(k.Model, Vector3.new(0, y - 0.05, 1.9), Vector3.new(0, y + 0.15, 2.2), Vector3.new(0, y - 0.85, 2.75), 0.14, dark, Enum.Material.SmoothPlastic, k.Root)
-	for _, side in { 1, -1 } do
-		triangle(k.Model, Vector3.new(side * 0.5, y - 0.35, -0.7), Vector3.new(side * 0.5, y - 0.35, 0.1), Vector3.new(side * 1.35, y - 0.75, 0.35), 0.12, grey, Enum.Material.SmoothPlastic, k.Root)
-		for i = 0, 2 do
-			k.box("Gill", Vector3.new(0.05, 0.45, 0.06), CFrame.new(side * 0.64, y + 0.05, -0.95 + i * 0.18), dark)
-		end
-		k.box("Brow", Vector3.new(0.12, 0.08, 0.4), CFrame.new(side * 0.42, y + 0.55, -1.7) * CFrame.Angles(math.rad(-25), 0, 0), C(40, 45, 60))
+	k.blob("Snout", Vector3.new(0.75, 0.62, 1.1), Vector3.new(0, y + 0.08, -2.05), grey)
+	k.slot(k.blob("Head", Vector3.new(1.2, 1.25, 1.6), Vector3.new(0, y, -1.25), grey), "Head")
+	k.slot(k.blob("Body", Vector3.new(1.42, 1.5, 2.3), Vector3.new(0, y, -0.05), grey), "Armor")
+	k.blob("Rear", Vector3.new(1.0, 1.05, 1.7), Vector3.new(0, y + 0.05, 1.35), grey)
+	k.blob("Tail", Vector3.new(0.45, 0.6, 1.2), Vector3.new(0, y + 0.1, 2.3), dark)
+	for _, info in { { -1.25, 1.1, 1.35 }, { -0.05, 1.3, 2.1 }, { 1.3, 0.9, 1.5 } } do
+		k.blob("Belly", Vector3.new(info[2], 0.7, info[3]), Vector3.new(0, y - 0.35, info[1]), white)
 	end
-	k.eyes(0.42, y + 0.35, -1.7, 0.3)
-	-- 입 + 이빨 줄
-	k.blob("Mouth", Vector3.new(0.8, 0.22, 0.5), Vector3.new(0, y - 0.22, -2.1), C(80, 30, 40))
+	-- 지느러미 (세모 판)
+	k.tri(Vector3.new(0, y + 0.62, 0.35), Vector3.new(0, y + 0.62, -0.6), Vector3.new(0, y + 1.85, 0.55), 0.14, dark) -- 등지느러미
+	k.tri(Vector3.new(0, y + 0.45, 1.75), Vector3.new(0, y + 0.45, 1.45), Vector3.new(0, y + 0.8, 1.85), 0.08, dark) -- 둘째 등지느러미
+	k.tri(Vector3.new(0, y + 0.15, 2.7), Vector3.new(0, y - 0.05, 2.9), Vector3.new(0, y + 1.35, 3.45), 0.12, dark) -- 꼬리 위
+	k.tri(Vector3.new(0, y + 0.05, 2.75), Vector3.new(0, y + 0.15, 2.95), Vector3.new(0, y - 0.7, 3.25), 0.12, dark) -- 꼬리 아래
+	for _, side in { 1, -1 } do
+		k.tri(Vector3.new(side * 0.5, y - 0.35, -0.85), Vector3.new(side * 0.5, y - 0.4, -0.15), Vector3.new(side * 1.55, y - 0.85, 0.3), 0.1, grey) -- 가슴지느러미
+		k.tri(Vector3.new(side * 0.25, y - 0.4, 1.3), Vector3.new(side * 0.25, y - 0.38, 1.6), Vector3.new(side * 0.55, y - 0.65, 1.75), 0.06, grey) -- 배지느러미
+		for i = 0, 4 do
+			k.box("Gill", Vector3.new(0.04, 0.42 - i * 0.03, 0.05), CFrame.new(side * 0.6, y + 0.02, -0.98 + i * 0.13) * CFrame.Angles(0, 0, math.rad(8 * side)), C(45, 52, 60))
+		end
+		k.slot(k.ball("Eye", 0.13, Vector3.new(side * 0.46, y + 0.22, -1.8), C(10, 10, 12)), "Eye")
+	end
+	k.box("Scar", Vector3.new(0.04, 0.05, 0.6), CFrame.new(0.71, y + 0.25, 0.2) * CFrame.Angles(math.rad(10), 0, 0), C(160, 165, 170))
+	-- 살짝 벌린 입 + 잇몸 + 톱니 이빨 (위 7, 아래 5)
+	k.blob("Mouth", Vector3.new(0.85, 0.3, 0.55), Vector3.new(0, y - 0.25, -2.05), C(55, 20, 25))
+	k.blob("Gum", Vector3.new(0.8, 0.1, 0.5), Vector3.new(0, y - 0.13, -2.05), C(170, 70, 80))
 	for i = -3, 3 do
-		k.box("Tooth", Vector3.new(0.09, 0.14, 0.06), CFrame.new(i * 0.1, y - 0.12, -2.33 + math.abs(i) * 0.04) * CFrame.Angles(0, 0, math.rad(45)), C(255, 255, 250))
+		local base = Vector3.new(i * 0.1, y - 0.14, -2.27 + math.abs(i) * 0.05)
+		k.spike(base, base + Vector3.new(0, -0.16, -0.01), 0.09, C(250, 248, 238), SMOOTH, false, Vector3.xAxis)
+	end
+	for i = -2, 2 do
+		local base = Vector3.new(i * 0.1, y - 0.38, -2.22 + math.abs(i) * 0.05)
+		k.spike(base, base + Vector3.new(0, 0.14, -0.01), 0.08, C(240, 238, 225), SMOOTH, false, Vector3.xAxis)
 	end
 end
 
@@ -1373,7 +1993,45 @@ local function ingotIcon(m: Model, color: Color3, stamp: Color3, round: boolean)
 	end
 end
 
+-- 원소의 돌 아이콘 (2026-10-10): 거친 돌 받침에 박힌 원소 결정 셋 (가운데 빛나는 큰 결정) + 원소마다 장식
+local function elementStoneIcon(m: Model, color: Color3, glow: Color3, style: string)
+	local base = if style == "Earth" then C(120, 90, 60) else C(72, 66, 62)
+	part({ Name = "Rock", Size = Vector3.new(1.3, 0.55, 1.0), CFrame = CFrame.new(0, -0.45, 0) * CFrame.Angles(0, math.rad(15), math.rad(4)), Color = base, Material = Enum.Material.Slate }, m)
+	part({ Name = "Rock", Size = Vector3.new(0.6, 0.45, 0.6), CFrame = CFrame.new(0.5, -0.25, 0.15) * CFrame.Angles(0.3, 0.5, 0.2), Color = base:Lerp(C(0, 0, 0), 0.2), Material = Enum.Material.Slate }, m)
+	for i, info in { { 0, 1.25, 0, 0 }, { -0.38, 0.75, -20, 0.1 }, { 0.35, 0.65, 25, -0.1 } } do
+		local width = if i == 1 then 0.42 else 0.34
+		part({
+			Name = "Crystal", Size = Vector3.new(width, info[2], width), CFrame = CFrame.new(info[1], -0.2 + info[2] / 2, info[4]) * CFrame.Angles(0, math.rad(45), math.rad(info[3])),
+			Color = if i == 1 then glow else color, Material = if i == 1 then NEON else GLASS, Transparency = if i == 1 then 0.05 else 0.15,
+		}, m)
+	end
+	if style == "Fire" then
+		for _, x in { -0.25, 0.28 } do
+			triangle(m, Vector3.new(x - 0.12, 0.6, -0.25), Vector3.new(x + 0.12, 0.6, -0.25), Vector3.new(x, 1.05, -0.25), 0.05, C(255, 160, 50), NEON, nil, true) -- 불꽃
+		end
+	elseif style == "Frost" then
+		part({ Name = "Snow", Size = Vector3.new(1.2, 0.12, 0.9), CFrame = CFrame.new(0, -0.15, 0) * CFrame.Angles(0, math.rad(15), 0), Color = C(240, 248, 255), Material = Enum.Material.Snow }, m)
+	elseif style == "Earth" then
+		part({ Name = "Band", Size = Vector3.new(1.32, 0.08, 1.02), CFrame = CFrame.new(0, -0.35, 0) * CFrame.Angles(0, math.rad(15), math.rad(4)), Color = C(255, 170, 60), Material = NEON }, m)
+	else
+		part({ Name = "Gust", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.05, 1.3, 1.3), CFrame = CFrame.new(0, 0.3, 0) * CFrame.Angles(0, 0, math.rad(80)) * CFrame.Angles(math.rad(20), 0, 0), Color = glow, Material = NEON, Transparency = 0.3 }, m)
+	end
+end
+
 local LOOT_ICONS = {
+	-- 원소의 돌 (2026-10-10): 원소 보스 전리품
+	FireStone = function(m)
+		elementStoneIcon(m, C(255, 95, 25), C(255, 190, 80), "Fire")
+	end,
+	FrostStone = function(m)
+		elementStoneIcon(m, C(120, 210, 255), C(200, 245, 255), "Frost")
+	end,
+	EarthStone = function(m)
+		elementStoneIcon(m, C(200, 130, 55), C(255, 190, 80), "Earth")
+	end,
+	WindStone = function(m)
+		elementStoneIcon(m, C(120, 230, 150), C(200, 255, 215), "Wind")
+	end,
 	-- 바다 생물 전리품·음식 (2026-10-09)
 	FishMeat = function(m) -- 생선: 분홍 살 + 하얀 줄 + 은빛 껍질
 		part({ Name = "Skin", Size = Vector3.new(1.7, 0.3, 0.95), CFrame = CFrame.new(0, -0.12, 0), Color = C(150, 175, 200), Material = METAL }, m)

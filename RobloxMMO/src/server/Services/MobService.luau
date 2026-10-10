@@ -521,8 +521,8 @@ local function decorateElement(model: Model, id: string, spec: any)
 			local s = sizeOf(base)
 			for i, dir in FROST_DIRS do
 				local length = s * (if i == 1 then 0.55 else 0.4)
-				local crystal = decoPart(base, surfaceFrame(base, dir, 0.15) * CFrame.Angles(math.rad(-90), 0, 0) * CFrame.new(0, length / 2, 0), Vector3.new(s * 0.14, length, s * 0.14), Color3.fromRGB(190, 235, 255), Enum.Material.Glass, 0.15)
-				crystal.CFrame *= CFrame.Angles(0, math.rad(45), 0)
+				local offset = surfaceFrame(base, dir, 0.15) * CFrame.Angles(math.rad(-90), 0, 0) * CFrame.new(0, length / 2, 0) * CFrame.Angles(0, math.rad(45), 0)
+				decoPart(base, offset, Vector3.new(s * 0.14, length, s * 0.14), Color3.fromRGB(190, 235, 255), Enum.Material.Glass, 0.15)
 			end
 		end
 		for _, head in first(slots.Head, 3) do
@@ -538,8 +538,7 @@ local function decorateElement(model: Model, id: string, spec: any)
 		for _, base in armor do
 			local s = sizeOf(base)
 			for i, dir in EARTH_DIRS do
-				local plate = decoPart(base, surfaceFrame(base, dir, 0.08) * CFrame.Angles(0, 0, math.rad(i * 37)), Vector3.new(s * 0.42, s * 0.32, s * 0.1), rock:Lerp(Color3.fromRGB(80, 60, 45), (i % 2) * 0.5), Enum.Material.Slate)
-				plate:SetAttribute("Slot", nil)
+				decoPart(base, surfaceFrame(base, dir, 0.08) * CFrame.Angles(0, 0, math.rad(i * 37)), Vector3.new(s * 0.42, s * 0.32, s * 0.1), rock:Lerp(Color3.fromRGB(80, 60, 45), (i % 2) * 0.5), Enum.Material.Slate)
 			end
 		end
 		for _, head in first(slots.Head, 3) do
