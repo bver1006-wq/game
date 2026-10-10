@@ -731,9 +731,13 @@ local function addHpBar(mob: Instance)
 	name.Size = UDim2.fromScale(1, 0.5)
 	name.BackgroundTransparency = 1
 	name.Font = Enum.Font.FredokaOne
-	name.Text = if def then (if boss then bossConfig.NamePrefix .. def.DisplayName else def.DisplayName) else ""
+	-- 원소 보스(속성 Element, 2026-10-10)는 "👑 불타는 보스 ~" + 원소 색
+	local elementAttribute = mob:GetAttribute("Element")
+	local element = if boss and typeof(elementAttribute) == "string" then ((bossConfig :: any).Elements or {})[elementAttribute] else nil
+	local prefix = if element then element.BossPrefix elseif boss then bossConfig.NamePrefix else ""
+	name.Text = if def then prefix .. def.DisplayName else ""
 	name.TextScaled = true
-	name.TextColor3 = if boss then bossConfig.NameColor else Color3.new(1, 1, 1)
+	name.TextColor3 = if element then element.NameColor elseif boss then bossConfig.NameColor else Color3.new(1, 1, 1)
 	name.Parent = billboard
 	local nameStroke = Instance.new("UIStroke")
 	nameStroke.Thickness = 1.5

@@ -358,7 +358,7 @@ src/
 - [x] 광산 광석: MineScale(1.4)배로 키우고, 옆으로 광선을 쏴 벽 속에 묻힌 만큼 밀어낸 뒤 다시 땅에 맞춘다 (OreService.pushOutOfWalls)
 - [x] 배경음악 (MusicController, Config.Music): 평소 느릿한 곡(Calm, APM)을 차례로, 몹을 때리거나 맞으면 전투곡(Battle)으로 크로스페이드하고 마지막 전투 뒤 BattleHoldTime(10초) 유지, 광산에선 줄임. 새소리(Ambience)는 Id를 아직 못 찾아 빈 값. 곡 Id는 웹 목록에서 찾은 값이라 안 나오면 Creator Store 곡으로 교체
 - [x] 활 화살·화살통 (2026-10-09)
-  - 장비 칸 8개: 무기 다음에 "방패" 칸(Slot Shield). 지금은 화살통만 들어간다 (EquipmentDefs.QuiverOrder, Order와 따로 둬서 장비 아이콘 제작 스크립트에 안 섞임). 가방 분류 "무기"
+  - 장비 칸 8개: 무기 다음에 "방패" 칸(Slot Shield). 화살통 또는 방패(2026-10-10, 아래 "방패·신발 속도·무기 균형") 하나가 들어간다 (EquipmentDefs.QuiverOrder, Order와 따로 둬서 장비 아이콘 제작 스크립트에 안 섞임). 가방 분류 "무기"
   - 나무 화살통(화살 30) / 철 화살통(화살 60). 사냥꾼 "활" 탭 아래에서 통나무 잔뜩 + 골드 조금 (Config.Quiver.Items, ShopAction "BuyQuiver"). 여러 개 살 수 있고, 안 끼고 있으면 사자마자 낀다
   - 서버 EquipmentService가 끼운 화살통의 남은 화살을 센다 (속성 Arrows). 활 한 발에 1개 (CombatService → useArrow). 몹 없이 쏜 화살도 AttackRequest(nil)로 1개. 화살이 없으면 클라가 쏘지 않고 "화살통이 필요해요"/"화살이 없어요"
   - 0개가 되면 화살통이 가방에서 사라지고 "화살을 다 썼어요", 가방에 다른 화살통이 있으면 저절로 바꿔 낀다. 덜 쓴 화살통을 빼면 종류마다 남은 수를 기억(stash)해서 다시 끼우면 그 수로
@@ -406,7 +406,7 @@ src/
   - 쿨다운은 버튼 위 어두운 덮개가 아래로 줄고 남은 초 숫자. 마나가 모자라면 흐리게 (클라 SkillController)
   - 구르기(Config.Roll): 움직이는 쪽(가만히면 바라보는 쪽)으로 Distance 12스터드를 Duration 0.3초에 (클라가 LinearVelocity로 수평 속도만, 벽은 레이로 보고 그 앞까지). 몸통 뿌리 관절(R15 Root·R6 RootJoint) C0를 앞으로 한 바퀴 + 흙먼지 + "휙". 서버 SkillService가 RollRequest(방향)를 받아 쿨다운 1.2초·마나 4를 확인하고 IFrame 0.4초 무적, 다른 사람에게 SkillEffect "Roll"로 구르는 모습
   - 스킬 칸(Config.Skills, Kind로 들고 있는 도구 종류에 맞춤, 아무것도 안 들면 빈 칸). 클라는 SkillRequest(대상)만, 서버 SkillService가 종류·마나·쿨다운·거리·주인·장비 벽·피버를 확인하고 SkillEffect(kind, userId, position, data)를 보내면 연출·쿨다운 시작
-    - 칼 🛡 방패 막기(Block): 마나 12·쿨 6초, 1.5초 동안 몹 피해 80% 줄임. 캐릭터 둘레 파란 ForceField 공
+    - 칼 🛡 방패 막기(Block): 마나 12·쿨 6초, 1.5초 동안 몹 피해 80% 줄임. 캐릭터 둘레 파란 ForceField 공. 방패를 차고 있으면 2.2초·95% (ShieldReduction·ShieldDuration, 2026-10-10)
     - 방망이 💥 내려찍기(Slam): 마나 15·쿨 7초, 둘레 8스터드 몹에게 무기 데미지 ×1.8 + 밀쳐 내기 6 + 기절 1.5초(MobService.stun: 안 움직이고 공격 안 함). 충격파 고리·흙먼지·쿵 소리·카메라 흔들림, 몹 머리 위 💫. 남의 몹·흠집 못 내는 몹(장비 벽)은 기절 안 함
     - 활 🏹 연사(RapidFire): 마나 12·쿨 6초, 노리는 몹에게 화살 3발을 0.15초 간격(화살 3개 씀, 한 발 ×0.8). 화살은 CombatEffect 11번째 인자 fromSkill로 내 화면에서도 날아감
     - 곡괭이·도끼 ⚒ 강하게 찍기(PowerStrike): 마나 10·쿨 6초, 가까운 바위·나무를 확인하고(맞는 도구·거리·주인·단계) 5초 안의 다음 한 번이 ×3 (MiningService.armPowerStrike, HitEffect "Charged" 연출). 걸리자마자 클라가 한 번 휘두른다
@@ -488,6 +488,13 @@ src/
   - 서버 QuestService: MobService die → report("Kill", 몹), MiningService finishRock → report("Gather", 광석·통나무, 받은 개수), CraftingService.craft(·테스트 지급) → report("Craft", 아이템). 만들기 단계는 이미 가지고 있으면(도구는 같은 종류 단계 이상) 바로 완료 → 예전 저장도 막히지 않음. 넘치는 수는 다음 단계로 안 넘어감
   - 진행은 플레이어 속성 QuestStep(다 끝나면 단계 수 + 1)·QuestProgress, 완료는 리모트 QuestComplete(stepIndex, rewardText). 저장 DataService 칸 "Quest" = { Step, Progress }
   - 화면 QuestHUD: 왼쪽 위 가방 그림 아래(Config.Quest.HudPosition y 104, HudWidth) "📜 퀘스트 n/9" · 단계 이름 · 진행 막대 3/5 · 설명 · 만들기 단계는 "필요: …"(Config.Recipes에서 자동) · "👉 NPC 이름에게 가요" + 그 NPC 머리 위 ❗(통통). 누르면 설명 접기, 화면 높이 < CompactScreenHeight면 처음부터 접힘. 완료하면 화면 가운데 "🎉 퀘스트 완료!" + 보상 + 다음 단계(CelebrateTime초). 마지막엔 "기본 퀘스트 완료! 이제 자유롭게 모험해요" 뒤 FinishHideDelay초에 창을 숨김
+- [x] 방패·신발 속도·무기 균형 (2026-10-10 사용자 요청)
+  - 신발 속도: 신발을 신어야 지금 속도(Config.Movement.RunSpeed 24 = 1단계 가죽 장화), 안 신으면 × NoBootsMultiplier(0.85 → 20.4), 단계마다 BootsSpeed만큼 더 빠름 (24 / 24.8 / 25.6 / 26.5 / 27.4 / 28.3 / 29.2). 서버 EquipmentService가 능력치 Speed·속성 StatSpeed(지금 달리기 속도)를 정하고 ManaService가 WalkSpeed로 쓴다 (모으는 중엔 Charge.WalkSpeed 그대로). 장비 창 "속도", 상세 창 "이동 속도 X (신발 없으면 20.4)"
+  - 방패 7종 (EquipmentDefs SHIELDS → Order·ShieldOrder, 정의 필드 Set = 방어구 세트, 화살통은 Quiver = true): 나무 방패 / 뼈 방패 / 케르베로스 송곳니 방패 / 사이클롭스 외눈 방패 / 바위 골렘 방패 / 서리 거인 얼음 방패 / 베헤모스 비늘 방패. 능력치 Config.Equipment.Base.Shield(방어 4·체력 8) × 단계 배수. 사냥꾼 "방패" 탭에서 만든다 (Config.Recipes: 1단계 통나무 + 젤리, 2단계부터 아래 방패 2개 + 그 세트 몹 재료 + 괴·통나무)
+  - 방패 칸에는 방패 또는 화살통 하나. 방패는 한손 무기(칼·방망이, 도구도)와 같이 쓰고, 두 손 무기(Config.Shield.TwoHandedKinds = 활)를 들면 숨고 능력치도 빠진다 (속성 ShieldOff → 장비 창 방패 칸 "🚫활" + "활을 들면 방패를 못 써요"). 방패를 찬 채 활을 쏘면 "방패 대신 화살통을 끼우세요"
+  - 칼 방패 막기: 방패를 쓰는 중이면 ShieldReduction(95%)·ShieldDuration(2.2초) (SkillService → EquipmentService.hasActiveShield)
+  - 모양: GearVisualService buildShield가 왼팔 아래팔 바깥(팔찌 바깥)에 세트마다 다른 방패 (나무 둥근 판자·쇠 혹 / 뼈 둥근 판·갈비뼈 살·해골 / 케르베로스 연 모양·늑대 얼굴·송곳니 / 사이클롭스 큰 둥근 가죽·외눈 / 골렘 네모 돌판·빛나는 금·핵 / 서리 얼음 연 모양·수정 가시·눈송이 / 베헤모스 가시 큰 판·두 뿔·용암 핵·불티). 크기 Config.Shield. 화살통 모양은 그대로. 아이콘은 BuildWeaponsAndMobs ARMOR_ICONS.Shield
+  - 무기 균형 (Config.Weapons, 같은 단계 칼 기준): 방망이 = 데미지 약 1.4배·간격 약 1.25배 (11·18·28·45·67·109 / 0.63, 미스릴 0.53), 활 = 데미지 약 0.85배 (7·11·17·27·41·66, 간격·사거리 그대로). 칼은 8·13·20·32·48·78 / 0.5 (미스릴 0.42) 그대로
 - [ ] 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)

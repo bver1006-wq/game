@@ -18,10 +18,10 @@ export type MobDef = {
 
 -- 마을에서 가까운 순서: 슬라임 → 스켈레톤·좀비 → 케르베로스 → 사이클롭스 → 바위 골렘 → 서리 거인 → 베헤모스
 local MobDefs: { [string]: MobDef } = {
-	Slime = { Id = "Slime", DisplayName = "귀여운 슬라임", TemplateName = "Slime", LootId = "SlimeJelly", Color = Color3.fromRGB(110, 225, 160), Hop = true, Tier = 1 },
-	Skeleton = { Id = "Skeleton", DisplayName = "귀여운 스켈레톤", TemplateName = "Skeleton", LootId = "Bone", Color = Color3.fromRGB(240, 235, 220), Tier = 2 },
-	Zombie = { Id = "Zombie", DisplayName = "귀여운 좀비", TemplateName = "Zombie", LootId = "OldCloth", Color = Color3.fromRGB(140, 200, 120), Tier = 2 },
-	Cerberus = { Id = "Cerberus", DisplayName = "귀여운 케르베로스", TemplateName = "Cerberus", LootId = "CerberusFang", Color = Color3.fromRGB(70, 55, 60), Tier = 3 },
+	Slime = { Id = "Slime", DisplayName = "슬라임", TemplateName = "Slime", LootId = "SlimeJelly", Color = Color3.fromRGB(110, 225, 160), Hop = true, Tier = 1 },
+	Skeleton = { Id = "Skeleton", DisplayName = "스켈레톤", TemplateName = "Skeleton", LootId = "Bone", Color = Color3.fromRGB(240, 235, 220), Tier = 2 },
+	Zombie = { Id = "Zombie", DisplayName = "좀비", TemplateName = "Zombie", LootId = "OldCloth", Color = Color3.fromRGB(140, 200, 120), Tier = 2 },
+	Cerberus = { Id = "Cerberus", DisplayName = "케르베로스", TemplateName = "Cerberus", LootId = "CerberusFang", Color = Color3.fromRGB(70, 55, 60), Tier = 3 },
 	Cyclops = { Id = "Cyclops", DisplayName = "사이클롭스", TemplateName = "Cyclops", LootId = "CyclopsEye", Color = Color3.fromRGB(150, 160, 120), Tier = 4 },
 	-- 스켈레톤 궁수 (2026-10-10): 스켈레톤 무덤에 몇 마리. 거리를 두고 활을 쏜다 (Config.Mobs.SkeletonArcher.Ranged)
 	SkeletonArcher = { Id = "SkeletonArcher", DisplayName = "스켈레톤 궁수", TemplateName = "SkeletonArcher", LootId = "Bone", Color = Color3.fromRGB(235, 228, 210), Tier = 2 },

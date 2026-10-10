@@ -31,6 +31,7 @@ local EQUIPMENT_TABS: { [string]: { string } } = {
 	Armor = { "Armor" },
 	Boots = { "Boots" },
 	Gloves = { "Gloves" },
+	Shield = { "Shield" }, -- 방패만 (화살통은 Order에 없어서 활 탭 아래 drawQuivers)
 	Accessory = { "Necklace", "Bracelet" },
 }
 -- 종류별 티어 속성 (서버 PickaxeService가 기록)
@@ -306,6 +307,11 @@ end
 -- 장비 탭: 칸 목록(slots)의 장비를 칸·단계 순서로
 local function drawEquipment(slots: { string })
 	local order = 0
+	if slots[1] == "Shield" then
+		-- 방패 탭 안내 (2026-10-10): 한손 무기와 같이, 활을 들면 못 씀
+		order += 1
+		sectionHeader(`방패 — 칼·방망이와 같이 써요. {Config.Shield.BowHint}`, order)
+	end
 	for _, slot in slots do
 		if #slots > 1 then
 			order += 1

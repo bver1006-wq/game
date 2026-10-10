@@ -12,6 +12,7 @@ export type PickaxeDef = {
 	Kind: ToolKind, -- 곡괭이는 바위, 도끼는 나무, 칼·활·방망이는 몹
 	Tier: number,
 	ToolName: string, -- ServerStorage/Templates/Pickaxes 안의 Tool 이름
+	Element: string?, -- 원소 무기(2026-10-10)면 "Fire"|"Frost"|"Earth"|"Wind". 원소 보스만 주고 조합식이 없다 (효과는 Config.ElementWeapons)
 }
 
 local PickaxeDefs: { [string]: PickaxeDef } = {
@@ -50,6 +51,11 @@ local PickaxeDefs: { [string]: PickaxeDef } = {
 	DiamondMace = { Id = "DiamondMace", DisplayName = "다이아몬드 철퇴", Kind = "Club", Tier = 4, ToolName = "DiamondMace" },
 	MithrilHammer = { Id = "MithrilHammer", DisplayName = "미스릴 전투망치", Kind = "Club", Tier = 5, ToolName = "MithrilHammer" },
 	OrichalcumHammer = { Id = "OrichalcumHammer", DisplayName = "오리하르콘 거인망치", Kind = "Club", Tier = 6, ToolName = "OrichalcumHammer" },
+	-- 원소 무기 (2026-10-10): 원소 보스(Config.MobBoss.Elements)가 아주 가끔 준다. 5단계, 맞힐 때 원소 효과. 모양은 studio/BuildWeaponsAndMobs
+	FlameSword = { Id = "FlameSword", DisplayName = "불꽃 검", Kind = "Sword", Tier = 5, ToolName = "FlameSword", Element = "Fire" },
+	FrostBow = { Id = "FrostBow", DisplayName = "서리 활", Kind = "Bow", Tier = 5, ToolName = "FrostBow", Element = "Frost" },
+	EarthHammer = { Id = "EarthHammer", DisplayName = "대지의 망치", Kind = "Club", Tier = 5, ToolName = "EarthHammer", Element = "Earth" },
+	WindSword = { Id = "WindSword", DisplayName = "질풍 검", Kind = "Sword", Tier = 5, ToolName = "WindSword", Element = "Wind" },
 }
 
 return table.freeze(PickaxeDefs)

@@ -1379,20 +1379,20 @@ end
 -- 7 베헤모스 가시 큰 방패(검붉은 비늘·두 뿔·용암 틈·불티)
 type ShieldFrame = { a: Anchor, u: number, d: number, th: number, cf: CFrame }
 
--- 판 앞면(바깥) 위 (y, z) 자리, 앞으로 out만큼 띄운 CFrame
+-- 판 앞면(바깥) 위 (y, z) 자리에서 앞(-X)으로 out만큼 나간 점 (shieldDisc·shieldKite의 out = 그 판 앞면이 기본 판 앞면보다 나온 거리)
 local function shieldFace(f: ShieldFrame, y: number, z: number, out: number): CFrame
 	return f.cf * CFrame.new(-f.th / 2 - out, y, z)
 end
 
 -- 앞에서 본 둥근 판 (원기둥 축 = X = 앞뒤)
 local function shieldDisc(ctx: Ctx, f: ShieldFrame, name: string, dia: number, thick: number, out: number, color: Color3, material: Enum.Material, alpha: number?): Part
-	return ap(ctx, f.a, name, CYLINDER, Vector3.new(thick, dia, dia), shieldFace(f, 0, 0, out - thick / 2 + f.th / 2), color, material, alpha)
+	return ap(ctx, f.a, name, CYLINDER, Vector3.new(thick, dia, dia), shieldFace(f, 0, 0, out - thick / 2), color, material, alpha)
 end
 
 -- 연(카이트) 모양 판: 위는 네모, 아래는 뾰족 (쐐기 두 개). 높이 h, 너비 w
 local function shieldKite(ctx: Ctx, f: ShieldFrame, name: string, h: number, w: number, thick: number, out: number, color: Color3, material: Enum.Material, alpha: number?)
 	local top = h * 0.5
-	local cf = shieldFace(f, 0, 0, out - thick / 2 + f.th / 2)
+	local cf = shieldFace(f, 0, 0, out - thick / 2)
 	ap(ctx, f.a, name, BLOCK, Vector3.new(thick, top, w), cf * CFrame.new(0, h * 0.5 - top / 2, 0), color, material, alpha)
 	-- 아래 뾰족한 부분 = 아래를 향한 삼각 가시
 	aspike(ctx, f.a, name, cf * CFrame.new(0, h * 0.5 - top, 0) * POINT_DOWN, h - top, w, thick, color, material)
@@ -1421,12 +1421,11 @@ local function buildShield(ctx: Ctx, def: EquipmentDef)
 	if setId == "Leather" then
 		-- 나무 둥근 방패: 판자 4장 + 쇠 테 + 가운데 쇠 혹 + 못
 		local wood = def.Color
-		shieldDisc(ctx, f, "ShieldBody", d, th, 0, wood, Enum.Material.WoodPlanks)
-		for i = -1, 1 do
-			ap(ctx, arm, "ShieldPlankLine", BLOCK, Vector3.new(th * 0.2, d * 0.92 * math.sqrt(1 - (i * 0.25) ^ 2), d * 0.02), shieldFace(f, 0, i * d * 0.22, th * 0.05), darken(wood, 0.4), Enum.Material.Wood)
-		end
 		shieldDisc(ctx, f, "ShieldRim", d * 1.04, th * 0.8, -th * 0.1, C(120, 112, 105), Enum.Material.Metal)
 		shieldDisc(ctx, f, "ShieldBody", d * 0.96, th * 1.1, th * 0.1, wood, Enum.Material.WoodPlanks)
+		for i = -1, 1 do
+			ap(ctx, arm, "ShieldPlankLine", BLOCK, Vector3.new(th * 0.2, d * 0.92 * math.sqrt(1 - (i * 0.25) ^ 2), d * 0.02), shieldFace(f, 0, i * d * 0.22, th * 0.15), darken(wood, 0.4), Enum.Material.Wood)
+		end
 		aball(ctx, arm, "ShieldBoss", d * 0.24, shieldFace(f, 0, 0, th * 0.05), C(150, 145, 140), Enum.Material.Metal)
 		for k = 0, 5 do
 			local ang = k / 6 * math.pi * 2
@@ -1439,7 +1438,7 @@ local function buildShield(ctx: Ctx, def: EquipmentDef)
 		for i = -2, 2 do
 			ap(ctx, arm, "ShieldRib", CYLINDER, Vector3.new(d * 0.82 * math.sqrt(1 - (i * 0.18) ^ 2), d * 0.07, d * 0.07), shieldFace(f, 0, i * d * 0.17, th * 0.1) * AXIS_Y, s.Main, s.MainMat)
 		end
-		local skull = aball(ctx, arm, "ShieldSkull", d * 0.4, shieldFace(f, d * 0.04, 0, th * 0.1), s.Main, s.MainMat)
+		aball(ctx, arm, "ShieldSkull", d * 0.4, shieldFace(f, d * 0.04, 0, th * 0.1), s.Main, s.MainMat)
 		for _, z in { -0.08, 0.08 } do
 			aball(ctx, arm, "ShieldSocket", d * 0.12, shieldFace(f, d * 0.08, z * d, d * 0.15), s.Accent, s.AccentMat)
 			local eye = aball(ctx, arm, "ShieldEye", d * 0.05, shieldFace(f, d * 0.08, z * d, d * 0.2), s.Gem, Enum.Material.Neon)
@@ -1450,7 +1449,6 @@ local function buildShield(ctx: Ctx, def: EquipmentDef)
 		for i = -2, 1 do
 			ap(ctx, arm, "ShieldTooth", BLOCK, Vector3.new(d * 0.05, d * 0.06, d * 0.045), shieldFace(f, -d * 0.12, (i + 0.5) * d * 0.055, d * 0.17), s.Main, s.MainMat)
 		end
-		local _ = skull
 	elseif setId == "Cerberus" then
 		-- 케르베로스 연 모양: 짙은 털가죽 + 테두리 끈 + 늑대 얼굴(빨간 눈) + 아래 송곳니 3개
 		shieldKite(ctx, f, "ShieldRim", d * 1.08, d * 0.78, th * 0.7, -th * 0.15, s.Trim, s.TrimMat)
@@ -1458,14 +1456,14 @@ local function buildShield(ctx: Ctx, def: EquipmentDef)
 		aball(ctx, arm, "ShieldWolf", d * 0.3, shieldFace(f, d * 0.12, 0, th * 0.1), darken(s.Main, 0.25), s.MainMat)
 		ap(ctx, arm, "ShieldSnout", BLOCK, Vector3.new(d * 0.14, d * 0.1, d * 0.12), shieldFace(f, d * 0.04, 0, d * 0.12), darken(s.Main, 0.35), s.MainMat)
 		for _, z in { -0.07, 0.07 } do
-			local eye = aball(ctx, arm, "ShieldEye", d * 0.05, shieldFace(f, d * 0.16, z * d, d * 0.13), s.Gem, Enum.Material.Neon)
+			local eye = aball(ctx, arm, "ShieldEye", d * 0.05, shieldFace(f, d * 0.16, z * d, d * 0.16), s.Gem, Enum.Material.Neon)
 			if z > 0 then
 				setGlow(eye, s)
 			end
-			aspike(ctx, arm, "ShieldEar", shieldFace(f, d * 0.24, z * d * 1.4, d * 0.05) * FACE_FRONT, d * 0.14, d * 0.1, d * 0.05, darken(s.Main, 0.25), s.MainMat)
+			aspike(ctx, arm, "ShieldEar", shieldFace(f, d * 0.24, z * d * 1.4, d * 0.05), d * 0.14, d * 0.1, d * 0.05, darken(s.Main, 0.25), s.MainMat)
 		end
 		for i = -1, 1 do
-			aspike(ctx, arm, "ShieldFang", shieldFace(f, -d * 0.05 - math.abs(i) * d * 0.04, i * d * 0.13, th * 0.2) * FACE_FRONT * POINT_DOWN, d * 0.18, d * 0.07, d * 0.05, s.Accent, s.AccentMat)
+			aspike(ctx, arm, "ShieldFang", shieldFace(f, -d * 0.05 - math.abs(i) * d * 0.04, i * d * 0.13, th * 0.2) * POINT_DOWN, d * 0.18, d * 0.07, d * 0.05, s.Accent, s.AccentMat)
 		end
 	elseif setId == "Cyclops" then
 		-- 사이클롭스 큰 둥근 가죽 방패: 덧댄 가죽 조각·X 바느질 + 가운데 큰 외눈
@@ -1486,20 +1484,20 @@ local function buildShield(ctx: Ctx, def: EquipmentDef)
 		-- 바위 골렘 네모 큰 방패: 돌판 + 둘레 돌 + 빛나는 금 + 가운데 핵 + 위 이끼
 		local h, w = d * 1.15, d * 0.8
 		ap(ctx, arm, "ShieldBody", BLOCK, Vector3.new(th * 1.5, h, w), shieldFace(f, 0, 0, -th * 0.25), s.Main, s.MainMat)
-		ap(ctx, arm, "ShieldTrim", BLOCK, Vector3.new(th * 1.2, h * 0.14, w * 1.08), shieldFace(f, h * 0.45, 0, -th * 0.1), s.Trim, s.TrimMat)
-		ap(ctx, arm, "ShieldTrim", BLOCK, Vector3.new(th * 1.2, h * 0.12, w * 1.04), shieldFace(f, -h * 0.46, 0, -th * 0.1), s.Trim, s.TrimMat)
+		ap(ctx, arm, "ShieldTrim", BLOCK, Vector3.new(th * 1.2, h * 0.14, w * 1.08), shieldFace(f, h * 0.45, 0, th * 0.1), s.Trim, s.TrimMat)
+		ap(ctx, arm, "ShieldTrim", BLOCK, Vector3.new(th * 1.2, h * 0.12, w * 1.04), shieldFace(f, -h * 0.46, 0, th * 0.1), s.Trim, s.TrimMat)
 		ap(ctx, arm, "ShieldMoss", BLOCK, Vector3.new(th * 0.4, h * 0.05, w * 0.7), shieldFace(f, h * 0.53, w * 0.05, -th * 0.3), s.Accent, s.AccentMat)
 		for _, c in { { 0.2, -0.22, 0.6 }, { -0.22, 0.2, -0.5 }, { 0.05, 0.25, 0.9 } } do
-			ap(ctx, arm, "ShieldCrack", BLOCK, Vector3.new(th * 0.3, h * 0.28, w * 0.04), shieldFace(f, h * c[1], w * c[2], th * 0.3) * CFrame.Angles(c[3], 0, 0), s.Gem, Enum.Material.Neon)
+			ap(ctx, arm, "ShieldCrack", BLOCK, Vector3.new(th * 0.3, h * 0.28, w * 0.04), shieldFace(f, h * c[1], w * c[2], th * 0.45) * CFrame.Angles(c[3], 0, 0), s.Gem, Enum.Material.Neon)
 		end
-		local core = ap(ctx, arm, "ShieldCore", BLOCK, Vector3.new(th * 0.6, w * 0.24, w * 0.24), shieldFace(f, 0, 0, th * 0.3) * CFrame.Angles(math.pi / 4, 0, 0), s.Gem, Enum.Material.Neon)
+		local core = ap(ctx, arm, "ShieldCore", BLOCK, Vector3.new(th * 0.6, w * 0.24, w * 0.24), shieldFace(f, 0, 0, th * 0.5) * CFrame.Angles(math.pi / 4, 0, 0), s.Gem, Enum.Material.Neon)
 		setGlow(core, s)
 	elseif setId == "Frost" then
 		-- 서리 거인 얼음 연 모양: 하얀 털 테두리 + 반투명 얼음 판 + 위 수정 가시 3개 + 가운데 푸른 수정, 눈송이
 		shieldKite(ctx, f, "ShieldRim", d * 1.08, d * 0.8, th * 0.7, -th * 0.15, s.Main, s.MainMat)
 		shieldKite(ctx, f, "ShieldBody", d, d * 0.7, th * 1.1, 0, s.Trim, s.TrimMat, 0.2)
 		for i = -1, 1 do
-			local tilt = CFrame.Angles(-i * 0.35, 0, 0)
+			local tilt = CFrame.Angles(i * 0.35, 0, 0) -- 가장자리 수정은 바깥으로 기울게
 			acrystal(ctx, arm, "ShieldCrystal", shieldFace(f, d * 0.5, i * d * 0.24, -th * 0.2) * tilt, d * (if i == 0 then 0.32 else 0.22), d * 0.08, s.Accent, s.AccentMat, s.Gem, Enum.Material.Neon)
 		end
 		local gemPart = ap(ctx, arm, "ShieldGem", BLOCK, Vector3.new(th * 0.6, d * 0.2, d * 0.2), shieldFace(f, d * 0.08, 0, th * 0.25) * CFrame.Angles(math.pi / 4, 0, 0), s.Gem, Enum.Material.Neon)
@@ -1514,11 +1512,11 @@ local function buildShield(ctx: Ctx, def: EquipmentDef)
 			local y, z = math.cos(ang) * d * 0.3, math.sin(ang) * d * 0.3
 			ap(ctx, arm, "ShieldScale", BLOCK, Vector3.new(th * 0.4, d * 0.15, d * 0.15), shieldFace(f, y, z, th * 0.2) * CFrame.Angles(math.pi / 4, 0, 0), darken(s.Main, 0.25), s.MainMat)
 			if k % 2 == 1 then
-				aspike(ctx, arm, "ShieldSpike", shieldFace(f, math.cos(ang) * d * 0.5, math.sin(ang) * d * 0.5, -th * 0.2) * CFrame.Angles(-ang, 0, 0), d * 0.16, d * 0.08, d * 0.05, s.Accent, s.AccentMat)
+				aspike(ctx, arm, "ShieldSpike", shieldFace(f, math.cos(ang) * d * 0.5, math.sin(ang) * d * 0.5, -th * 0.2) * CFrame.Angles(ang, 0, 0), d * 0.16, d * 0.08, d * 0.05, s.Accent, s.AccentMat)
 			end
 		end
 		for _, side in { -1, 1 } do
-			ahorn(ctx, arm, "ShieldHorn", shieldFace(f, d * 0.4, side * d * 0.3, th * 0.1) * CFrame.Angles(-side * 0.5, 0, 0), d * 0.45, d * 0.1, 4, CFrame.Angles(side * 0.35, 0, 0), s.Accent, s.AccentMat)
+			ahorn(ctx, arm, "ShieldHorn", shieldFace(f, d * 0.4, side * d * 0.3, th * 0.1) * CFrame.Angles(side * 0.5, 0, 0), d * 0.45, d * 0.1, 4, CFrame.Angles(-side * 0.3, 0, 0), s.Accent, s.AccentMat)
 		end
 		local core = aball(ctx, arm, "ShieldCore", d * 0.2, shieldFace(f, 0, 0, th * 0.2), s.Gem, Enum.Material.Neon)
 		setGlow(core, s)

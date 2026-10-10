@@ -1825,6 +1825,105 @@ local ARMOR_ICONS = {
 			iblock(m, "Ember", Vector3.new(0.26, 0.26, 0.06), CFrame.new(0, 0.05, 0.22) * CFrame.Angles(0, 0, math.rad(45)), s.Gem, NEON)
 		end
 	end,
+	-- 방패 (2026-10-10): 캐릭터 왼팔 방패(GearVisualService buildShield)와 같은 모양. 앞면 = +Z
+	Shield = function(m, set, s)
+		local FACE = CFrame.Angles(0, math.pi / 2, 0) -- 원기둥 축(X)을 앞(Z)으로
+		local function disc(name, d, thick, z, color, mat, alpha)
+			part({ Name = name, Shape = CYL, Size = Vector3.new(thick, d, d), CFrame = CFrame.new(0, 0, z) * FACE, Color = color, Material = mat, Transparency = alpha or 0 }, m)
+		end
+		local function kite(name, h, w, thick, z, color, mat, alpha)
+			iblock(m, name, Vector3.new(w, h * 0.5, thick), CFrame.new(0, h * 0.25, z), color, mat, alpha)
+			triangle(m, Vector3.new(-w / 2, 0, z), Vector3.new(w / 2, 0, z), Vector3.new(0, -h * 0.5, z), thick, color, mat, nil, true)
+		end
+		if set == "Leather" then
+			-- 나무 둥근 방패: 판자·쇠 테·가운데 쇠 혹·못
+			local wood = C(160, 112, 66)
+			disc("Rim", 2.1, 0.16, -0.02, C(120, 112, 105), METAL)
+			disc("Body", 2.0, 0.2, 0.02, wood, Enum.Material.WoodPlanks)
+			for i = -1, 1 do
+				iblock(m, "Plank", Vector3.new(0.04, 1.85 * math.sqrt(1 - (i * 0.25) ^ 2), 0.05), CFrame.new(i * 0.45, 0, 0.12), wood:Lerp(Color3.new(0, 0, 0), 0.4), Enum.Material.Wood)
+			end
+			iball(m, "Boss", 0.5, CFrame.new(0, 0, 0.12), C(150, 145, 140), METAL)
+			for k = 0, 5 do
+				local a = k / 6 * math.pi * 2
+				iball(m, "Nail", 0.1, CFrame.new(math.cos(a) * 0.82, math.sin(a) * 0.82, 0.13), C(170, 165, 160), METAL)
+			end
+		elseif set == "Bone" then
+			-- 뼈 둥근 방패: 가죽 판 + 갈비뼈 살 + 해골
+			disc("Rim", 2.1, 0.14, -0.03, s.Main, s.MainMat)
+			disc("Body", 2.0, 0.2, 0, s.Trim, s.TrimMat)
+			for i = -2, 2 do
+				part({ Name = "Rib", Shape = CYL, Size = Vector3.new(1.7 * math.sqrt(1 - (i * 0.18) ^ 2), 0.15, 0.15), CFrame = CFrame.new(i * 0.35, 0, 0.12) * UPRIGHT, Color = s.Main, Material = s.MainMat }, m)
+			end
+			iball(m, "Skull", 0.8, CFrame.new(0, 0.08, 0.2), s.Main, s.MainMat)
+			for _, x in { -0.17, 0.17 } do
+				iball(m, "Socket", 0.24, CFrame.new(x, 0.16, 0.5), s.Accent, s.AccentMat)
+				iball(m, "Eye", 0.1, CFrame.new(x, 0.16, 0.6), s.Gem, NEON)
+			end
+		elseif set == "Cerberus" then
+			-- 케르베로스 연 모양: 털가죽 + 늑대 얼굴(빨간 눈·귀) + 아래 송곳니
+			kite("Rim", 2.3, 1.68, 0.12, -0.03, s.Trim, s.TrimMat)
+			kite("Body", 2.15, 1.5, 0.2, 0, s.Main, s.MainMat)
+			local fur = s.Main:Lerp(Color3.new(0, 0, 0), 0.25)
+			iball(m, "Wolf", 0.62, CFrame.new(0, 0.25, 0.18), fur, s.MainMat)
+			iblock(m, "Snout", Vector3.new(0.28, 0.2, 0.3), CFrame.new(0, 0.08, 0.42), fur:Lerp(Color3.new(0, 0, 0), 0.15), s.MainMat)
+			for _, x in { -0.15, 0.15 } do
+				iball(m, "Eye", 0.11, CFrame.new(x, 0.34, 0.45), s.Gem, NEON)
+				ispike(m, Vector3.new(x * 1.4, 0.48, 0.15), Vector3.new(x, 1, 0), 0.3, 0.2, fur, s.MainMat)
+			end
+			for i = -1, 1 do
+				ispike(m, Vector3.new(i * 0.28, -0.1 - math.abs(i) * 0.08, 0.14), Vector3.new(0, -1, 0), 0.38, 0.14, s.Accent, s.AccentMat)
+			end
+		elseif set == "Cyclops" then
+			-- 사이클롭스 큰 둥근 가죽: 덧댄 조각·바느질 + 가운데 큰 외눈
+			disc("Rim", 2.3, 0.16, -0.03, s.Trim, s.TrimMat)
+			disc("Body", 2.2, 0.24, 0, s.Main, s.MainMat)
+			local patch = s.Patch or s.Main
+			iblock(m, "Patch", Vector3.new(0.5, 0.55, 0.06), CFrame.new(-0.45, 0.6, 0.13) * CFrame.Angles(0, 0, 0.3), patch, s.MainMat)
+			iblock(m, "Patch", Vector3.new(0.55, 0.45, 0.06), CFrame.new(0.4, -0.65, 0.13) * CFrame.Angles(0, 0, -0.25), patch, s.MainMat)
+			for _, a in { 0.8, -0.8 } do
+				iblock(m, "Stitch", Vector3.new(0.05, 0.36, 0.05), CFrame.new(-0.45, 0.6, 0.17) * CFrame.Angles(0, 0, a), s.Accent, s.AccentMat)
+			end
+			iball(m, "EyeWhite", 0.8, CFrame.new(0, 0, 0.08), C(250, 248, 240), Enum.Material.SmoothPlastic)
+			iball(m, "Iris", 0.44, CFrame.new(0, 0, 0.3), s.Gem, NEON)
+			iball(m, "Pupil", 0.22, CFrame.new(0, 0, 0.45), C(20, 15, 20), Enum.Material.SmoothPlastic)
+			iblock(m, "Lid", Vector3.new(0.9, 0.12, 0.22), CFrame.new(0, 0.44, 0.15), s.Trim, s.TrimMat)
+		elseif set == "Golem" then
+			-- 바위 골렘 네모 큰 방패: 돌판·둘레 돌·빛나는 금·핵·이끼
+			iblock(m, "Body", Vector3.new(1.75, 2.5, 0.3), CFrame.identity, s.Main, s.MainMat)
+			iblock(m, "Trim", Vector3.new(1.9, 0.32, 0.36), CFrame.new(0, 1.1, 0.02), s.Trim, s.TrimMat)
+			iblock(m, "Trim", Vector3.new(1.85, 0.28, 0.36), CFrame.new(0, -1.12, 0.02), s.Trim, s.TrimMat)
+			iblock(m, "Moss", Vector3.new(1.2, 0.1, 0.25), CFrame.new(0.1, 1.3, 0), s.Accent, s.AccentMat)
+			for _, c in { { -0.4, 0.5, 0.6 }, { 0.4, -0.5, -0.5 }, { 0.5, 0.15, 0.9 } } do
+				iblock(m, "Crack", Vector3.new(0.07, 0.6, 0.05), CFrame.new(c[1], c[2], 0.17) * CFrame.Angles(0, 0, c[3]), s.Gem, NEON)
+			end
+			iblock(m, "Core", Vector3.new(0.4, 0.4, 0.14), CFrame.new(0, 0, 0.2) * CFrame.Angles(0, 0, math.rad(45)), s.Gem, NEON)
+		elseif set == "Frost" then
+			-- 서리 거인 얼음 연 모양: 하얀 털 테 + 반투명 얼음 + 위 수정 가시 + 푸른 수정
+			kite("Rim", 2.5, 1.85, 0.14, -0.03, s.Main, s.MainMat)
+			kite("Body", 2.3, 1.62, 0.22, 0, s.Trim, s.TrimMat, 0.2)
+			for i = -1, 1 do
+				icrystal(m, CFrame.new(i * 0.55, 1.1, 0), CFrame.Angles(0, 0, -i * 0.35), if i == 0 then 0.75 else 0.5, 0.18, s)
+			end
+			iblock(m, "Gem", Vector3.new(0.42, 0.42, 0.14), CFrame.new(0, 0.2, 0.15) * CFrame.Angles(0, 0, math.rad(45)), s.Gem, NEON)
+		else
+			-- 베헤모스 가시 큰 방패: 검붉은 비늘 + 용암 테 + 두 뿔 + 둘레 가시 + 불빛 핵
+			disc("Rim", 2.6, 0.18, -0.04, s.Trim, s.TrimMat)
+			disc("Body", 2.45, 0.28, 0, s.Main, s.MainMat)
+			for k = 0, 7 do
+				local a = k / 8 * math.pi * 2
+				iblock(m, "Scale", Vector3.new(0.34, 0.34, 0.08), CFrame.new(math.cos(a) * 0.72, math.sin(a) * 0.72, 0.16) * CFrame.Angles(0, 0, math.rad(45)), s.Main:Lerp(Color3.new(0, 0, 0), 0.25), s.MainMat)
+				if k % 2 == 1 then
+					local dir = Vector3.new(math.cos(a), math.sin(a), 0)
+					ispike(m, dir * 1.22, dir, 0.4, 0.2, s.Accent, s.AccentMat)
+				end
+			end
+			for _, x in { -1, 1 } do
+				ihorn(m, CFrame.new(x * 0.7, 0.95, 0.05) * CFrame.Angles(0, 0, -x * 0.5), 1.0, 0.24, 4, CFrame.Angles(0, 0, x * 0.3), s.Accent, s.AccentMat)
+			end
+			iball(m, "Core", 0.46, CFrame.new(0, 0, 0.2), s.Gem, NEON)
+		end
+	end,
 }
 -- 단계별 장식 색: 1~2 몸 색을 어둡게 / 3~4 금 / 5 미스릴 파란 빛 / 6 오리하르콘 주황 빛 (5단계부터 장식이 빛난다, 2026-10-09)
 local HIGH_ACCENTS = { [5] = MITHRIL_GLOW, [6] = EMBER }

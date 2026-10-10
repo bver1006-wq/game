@@ -232,6 +232,9 @@ local function buyQuiver(player: Player, itemId: string)
 	if worn == nil or worn == "" then
 		-- 화살통을 안 끼고 있으면 바로 끼워 준다
 		EquipmentService.equip(player, itemId)
+	elseif typeof(worn) == "string" and not (Config.Quiver.Items :: any)[worn] then
+		-- 방패를 차고 있으면 그대로 둔다 (2026-10-10). 활을 쓸 때 가방에서 화살통을 끼우면 된다
+		NotifyService.send(player, `{def.DisplayName} 구매 완료! (화살 {quiver.Arrows}개) 활을 쓸 땐 방패 대신 가방에서 끼우세요.`, "good")
 	else
 		NotifyService.send(player, `{def.DisplayName} 구매 완료! (화살 {quiver.Arrows}개) 지금 화살통을 다 쓰면 저절로 바꿔 껴요.`, "good")
 	end

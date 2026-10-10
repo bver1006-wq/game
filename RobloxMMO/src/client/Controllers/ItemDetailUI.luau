@@ -146,8 +146,11 @@ local function describeKind(itemId: string): (string, number?)
 	end
 	local equipment = EquipmentDefs.Items[itemId]
 	if equipment then
-		if equipment.Slot == "Shield" then
+		if equipment.Quiver then
 			return "화살통 · 방패 칸", nil
+		end
+		if equipment.Slot == "Shield" then
+			return "방패 · 한손 무기와 같이", equipment.Tier
 		end
 		for _, slot in EquipmentDefs.Slots do
 			if slot.Id == equipment.Slot then
@@ -316,6 +319,20 @@ local function drawWeaponStats(tool: PickaxeDefs.PickaxeDef)
 		addStat("밀쳐 내기", num(knockback))
 	end
 	addStat("치명타", `{num(Config.Combat.CritChance * 100)}% · x{num(Config.Combat.CritMultiplier)}`)
+	-- 원소 무기 효과 (2026-10-10, Config.ElementWeapons)
+	local element = (Config.ElementWeapons :: any)[tool.Id]
+	if element then
+		local color = (((Config.MobBoss :: any).Elements or {})[element.Element] or {}).NameColor
+		if element.Burn then
+			addStat("🔥 불태우기", `{element.Burn.Ticks}번 × 데미지의 {num(element.Burn.Percent * 100)}%`, color)
+		elseif element.Slow then
+			addStat("❄ 느리게", `{num(element.Slow.Duration)}초 동안 x{num(element.Slow.Multiplier)} 속도`, color)
+		elseif element.StunChance then
+			addStat("🪨 기절", `{num(element.StunChance * 100)}% · {num(element.StunTime)}초`, color)
+		elseif element.GustChance then
+			addStat("🌪 바람 추가타", `{num(element.GustChance * 100)}% · x{num(element.GustMultiplier)}`, color)
+		end
+	end
 	if tool.Kind == "Bow" then
 		addStat("다 모은 강타", `x{num(Config.Charge.BowOverMultiplier)} (마나 {Config.Charge.ManaCost})`)
 		addText("화살통이 있어야 쏴요. 한 발에 화살 1개.", UiKit.Colors.SubText)
@@ -341,7 +358,7 @@ end
 -- 장비 능력치
 local function drawEquipmentStats(itemId: string)
 	local equipment = EquipmentDefs.Items[itemId]
-	if equipment.Slot == "Shield" then
+	if equipment.Quiver then
 		local quiver = (Config.Quiver.Items :: any)[itemId]
 		if quiver then
 			addStat("화살", `{quiver.Arrows}개`, UiKit.Colors.Good)
@@ -362,7 +379,17 @@ local function drawEquipmentStats(itemId: string)
 	if stats.Crit > 0 then
 		addStat("치명타", `+{num(stats.Crit)}%`, UiKit.Colors.Good)
 	end
+	if equipment.Slot == "Boots" then
+		-- 신발 속도 (2026-10-10): 신으면 이 속도로 달린다 (신발 없음 = RunSpeed × NoBootsMultiplier)
+		local movement = Config.Movement
+		local bonus = TierDefs.pick(movement.BootsSpeed, equipment.Tier) or 0
+		local bare = math.round(movement.RunSpeed * movement.NoBootsMultiplier * 10) / 10
+		addStat("이동 속도", `{num(movement.RunSpeed + bonus)} (신발 없으면 {num(bare)})`, UiKit.Colors.Good)
+	end
 	addStat("전투력", `+{combatPower(stats)}`, Color3.fromRGB(255, 220, 120))
+	if equipment.Slot == "Shield" then
+		addText(`왼팔에 차요. 칼·방망이와 같이 쓰고, 칼 "방패 막기"가 더 세져요. {Config.Shield.BowHint}.`, UiKit.Colors.SubText)
+	end
 end
 
 -- 음식·주문서 정보
@@ -438,6 +465,17 @@ local function drawInfo(itemId: string)
 			elseif bossOnly then
 				addHeader("얻는 법")
 				addText(`{Config.MobBoss.NamePrefix}몹(커다란 몹)을 잡으면 나와요.`)
+			else
+				-- 원소 보스 전리품 (원소의 돌·원소 무기, 2026-10-10)
+				local boss = Config.MobBoss :: any
+				for _, elementId in boss.ElementOrder or {} do
+					local spec = boss.Elements[elementId]
+					if spec and (spec.Stone == itemId or spec.Weapon == itemId) then
+						local chance = if spec.Stone == itemId then boss.ElementLoot.StoneChance else boss.ElementLoot.WeaponChance
+						addHeader("얻는 법")
+						addText(`{spec.BossPrefix}몹을 잡으면 {num(chance * 100)}% 확률로 나와요.`)
+					end
+				end
 			end
 		end
 	end

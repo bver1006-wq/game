@@ -5,7 +5,7 @@
 -- Studio의 NPC 모델 속성 ShopId가 여기 키와 같아야 한다.
 
 export type ShopTab = {
-	Id: "Smelt" | "Pickaxe" | "Axe" | "Sword" | "Bow" | "Club" | "Helmet" | "Armor" | "Boots" | "Gloves" | "Accessory" | "Sell" | "Buy" | "Bag" | "ComingSoon",
+	Id: "Smelt" | "Pickaxe" | "Axe" | "Sword" | "Bow" | "Club" | "Helmet" | "Armor" | "Boots" | "Gloves" | "Shield" | "Accessory" | "Sell" | "Buy" | "Bag" | "ComingSoon",
 	Title: string, -- 그림 아래 짧은 이름
 	Icon: string, -- 탭 그림: 아이템 Id (ItemIcon) 또는 "@Bag" / "@Coin"
 	Note: string?, -- ComingSoon 탭에 보여줄 설명
@@ -47,7 +47,7 @@ local ShopDefs: { [string]: ShopDef } = {
 	Hunter = {
 		Id = "Hunter",
 		NpcName = "사냥꾼 카엘",
-		Role = "칼 · 활 · 방망이 · 방어구 · 장신구",
+		Role = "칼 · 활 · 방망이 · 방패 · 방어구 · 장신구",
 		Greeting = "들판에 귀여운 녀석들이 늘었어. 얕보면 큰코다치니 무기 하나 챙겨 가게.",
 		Tabs = {
 			-- 사냥과 전투는 2026-10-09 사용자 결정으로 앞당김. 장비는 칸마다 탭 (장신구 = 목걸이 + 팔찌)
@@ -59,6 +59,7 @@ local ShopDefs: { [string]: ShopDef } = {
 			{ Id = "Armor", Title = "갑옷", Icon = "BoneArmor" },
 			{ Id = "Boots", Title = "신발", Icon = "CerberusBoots" },
 			{ Id = "Gloves", Title = "장갑", Icon = "GolemGloves" },
+			{ Id = "Shield", Title = "방패", Icon = "BoneShield" }, -- 방패 1~7단계 (2026-10-10, 화살통은 활 탭)
 			{ Id = "Accessory", Title = "장신구", Icon = "IronNecklace" },
 		},
 	},

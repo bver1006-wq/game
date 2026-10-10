@@ -387,7 +387,7 @@ function InventoryUI.init()
 					EquipmentPanel.rebuildFigure()
 				end
 			end)
-		elseif string.sub(name, 1, 4) == "Stat" or name == "CombatPower" or name == "Arrows" then
+		elseif string.sub(name, 1, 4) == "Stat" or name == "CombatPower" or name == "Arrows" or name == "ShieldOff" then
 			refreshEquipment()
 		end
 	end)

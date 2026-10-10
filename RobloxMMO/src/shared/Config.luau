@@ -397,6 +397,23 @@ Config.Weapons = {
 	OrichalcumBow = { Damage = 66, Cooldown = 0.8, Range = 68 }, -- 78 × 0.85
 	MithrilHammer = { Damage = 67, Cooldown = 0.53, Range = 8, Knockback = 9 }, -- 48 × 1.4, 간격 0.42 × 1.25
 	OrichalcumHammer = { Damage = 109, Cooldown = 0.63, Range = 8.5, Knockback = 11 }, -- 78 × 1.4
+	-- 원소 무기 (2026-10-10): 원소 보스만 아주 가끔 준다 (Config.MobBoss.ElementLoot, 조합식 없음). 5단계 칼 54 기준. 맞힐 때 효과는 Config.ElementWeapons
+	FlameSword = { Damage = 54, Cooldown = 0.45, Range = 9.5 },
+	FrostBow = { Damage = 46, Cooldown = 0.7, Range = 62 }, -- 54 × 0.85
+	EarthHammer = { Damage = 76, Cooldown = 0.56, Range = 8.5, Knockback = 10 }, -- 54 × 1.4
+	WindSword = { Damage = 44, Cooldown = 0.34, Range = 9.5 }, -- 약하지만 아주 빠르다
+}
+
+-- 원소 무기가 몹을 맞힐 때 효과 (2026-10-10, 서버 CombatService → MobService.applyWeaponElement)
+--   Fire 불꽃 검: 맞은 몹이 Ticks번 Interval초마다 준 데미지 × Percent만큼 더 탄다 (다시 맞히면 새로)
+--   Frost 서리 활: 맞은 몹이 Duration초 동안 Multiplier배 속도로 느려진다
+--   Earth 대지의 망치: StunChance 확률로 StunTime초 기절
+--   Wind 질풍 검: GustChance 확률로 GustDelay초 뒤 바람 추가타 (데미지 × GustMultiplier)
+Config.ElementWeapons = {
+	FlameSword = { Element = "Fire", Burn = { Percent = 0.15, Ticks = 4, Interval = 0.5 } },
+	FrostBow = { Element = "Frost", Slow = { Multiplier = 0.5, Duration = 2.5 } },
+	EarthHammer = { Element = "Earth", StunChance = 0.2, StunTime = 1.0 },
+	WindSword = { Element = "Wind", GustChance = 0.3, GustMultiplier = 0.5, GustDelay = 0.12 },
 }
 
 -- 전투 공통 수치
@@ -469,7 +486,8 @@ Config.Mobs = {
 	},
 	-- 베헤모스: 7단계라 6단계 무기로도 0.4배 (Config.TierWall). 돌진과 발구르기를 번갈아 쓴다
 	Behemoth = {
-		Hp = 700, Damage = 38, AttackInterval = 2.2, AttackRange = 14, Speed = 8, -- 몸이 길어서(반지름 약 11) 공격 거리도 길게 Aggro = 32, Gold = { 120, 180 }, Loot = { 1, 3 }, Respawn = 120, Scale = 2.0, BossScale = { 1.2, 1.4 },
+		-- 몸이 길어서(반지름 약 11) 공격 거리도 길게 (2026-10-10 고침: 이 주석이 줄 가운데 있어서 Aggro 뒤 값이 다 주석으로 빠져 있었다)
+		Hp = 700, Damage = 38, AttackInterval = 2.2, AttackRange = 14, Speed = 8, Aggro = 32, Gold = { 120, 180 }, Loot = { 1, 3 }, Respawn = 120, Scale = 2.0, BossScale = { 1.2, 1.4 },
 		Specials = {
 			{ Kind = "Charge", Trigger = 30, Cooldown = 6, Windup = 1.2, Distance = 30, Speed = 42, Width = 7, Damage = 46 },
 			{ Kind = "Stomp", Trigger = 13, Cooldown = 6, Windup = 1.2, Radius = 13, Damage = 40 },
@@ -590,6 +608,42 @@ Config.MobBoss = {
 	HpBarRangeMultiplier = 2, -- 체력바가 보이는 거리 배율
 	-- 보스만 주는 전리품 (2026-10-09): 보스의 증표 = 6단계 방어구·거인망치 재료. 어느 몹 보스든 나온다 (크기와 상관없이 Count개)
 	ExtraLoot = { { Id = "BossToken", Chance = 1, Count = { 1, 2 } } },
+	-- 원소 보스 (2026-10-10 사용자 요청): 보스 중 ElementChance 확률로 원소 속성이 붙는다 (Weight 비율로 하나). 모델 속성 Element
+	--   이름 "👑 불타는 보스 사이클롭스" (BossPrefix), 겉모습은 서버 MobService가 생길 때 붙인다 (Color 몸 빛·Glow 눈빛·Tint 몸 색을 TintAmount만큼)
+	--   Fire 불타는: 맞은 사람이 Burn.Ticks번 Interval초마다 (보스 공격 × Burn.Percent) 더 탄다
+	--   Frost 서리의: 맞은 사람이 Slow.Duration초 동안 Slow.Multiplier배 속도 (ManaService가 걷는 속도에 곱함)
+	--   Earth 딱딱한: 받는 데미지 × DamageTaken, 체력 × HpMultiplier
+	--   Wind 신속한: 이동 속도 × SpeedMultiplier, 공격 간격 × AttackIntervalMultiplier
+	--   잡으면 ElementLoot: 원소의 돌(Stone) StoneChance 확률로 StoneCount개, 원소 무기(Weapon) WeaponChance 확률로 1개
+	ElementChance = 0.35,
+	ElementOrder = { "Fire", "Frost", "Earth", "Wind" },
+	Elements = {
+		Fire = {
+			Weight = 1, Name = "불타는", BossPrefix = "👑 불타는 보스 ", NameColor = Color3.fromRGB(255, 120, 50),
+			Color = Color3.fromRGB(255, 95, 25), Glow = Color3.fromRGB(255, 180, 60), Tint = Color3.fromRGB(90, 25, 15), TintAmount = 0.3,
+			Burn = { Percent = 0.12, Ticks = 4, Interval = 0.75 },
+			Stone = "FireStone", Weapon = "FlameSword",
+		},
+		Frost = {
+			Weight = 1, Name = "서리의", BossPrefix = "👑 서리의 보스 ", NameColor = Color3.fromRGB(140, 220, 255),
+			Color = Color3.fromRGB(120, 210, 255), Glow = Color3.fromRGB(190, 245, 255), Tint = Color3.fromRGB(185, 220, 245), TintAmount = 0.35,
+			Slow = { Multiplier = 0.55, Duration = 2.5 },
+			Stone = "FrostStone", Weapon = "FrostBow",
+		},
+		Earth = {
+			Weight = 1, Name = "딱딱한", BossPrefix = "👑 딱딱한 보스 ", NameColor = Color3.fromRGB(215, 165, 95),
+			Color = Color3.fromRGB(230, 150, 50), Glow = Color3.fromRGB(255, 190, 80), Tint = Color3.fromRGB(110, 80, 50), TintAmount = 0.4,
+			DamageTaken = 0.7, HpMultiplier = 1.3,
+			Stone = "EarthStone", Weapon = "EarthHammer",
+		},
+		Wind = {
+			Weight = 1, Name = "신속한", BossPrefix = "👑 신속한 보스 ", NameColor = Color3.fromRGB(160, 255, 180),
+			Color = Color3.fromRGB(150, 255, 170), Glow = Color3.fromRGB(210, 255, 220), Tint = Color3.fromRGB(170, 230, 180), TintAmount = 0.2,
+			SpeedMultiplier = 1.35, AttackIntervalMultiplier = 0.7,
+			Stone = "WindStone", Weapon = "WindSword",
+		},
+	},
+	ElementLoot = { StoneChance = 0.5, StoneCount = { 1, 2 }, WeaponChance = 0.06 },
 }
 Config.MobAI = {
 	TickRate = 15, -- 1초에 몇 번 생각하고 움직이는지
@@ -747,6 +801,11 @@ Config.SellPrices = {
 	JellyfishJelly = 6,
 	SharkTooth = 18,
 	SharkSkin = 20,
+	-- 원소의 돌 (2026-10-10): 원소 보스 전리품. 나중에 보석 끼우기 재료, 지금은 팔 수만 있다
+	FireStone = 40,
+	FrostStone = 40,
+	EarthStone = 40,
+	WindStone = 40,
 }
 
 -- 대장장이 제련: 재료 + 수수료(골드) → 결과 1개

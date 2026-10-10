@@ -103,6 +103,12 @@ local function step(dt: number)
 			local bootsSpeed = player:GetAttribute("StatSpeed")
 			local runSpeed = if typeof(bootsSpeed) == "number" and bootsSpeed > 0 then bootsSpeed else movement.RunSpeed * movement.NoBootsMultiplier
 			local speed = if charging then Config.Charge.WalkSpeed else runSpeed
+			-- 서리의 보스에게 맞으면 잠깐 느려진다 (MobService가 속성 ElementSlow·ElementSlowUntil을 둔다, 2026-10-10)
+			local slowUntil = player:GetAttribute("ElementSlowUntil")
+			local slow = player:GetAttribute("ElementSlow")
+			if typeof(slowUntil) == "number" and typeof(slow) == "number" and workspace:GetServerTimeNow() < slowUntil then
+				speed *= slow
+			end
 			if humanoid.WalkSpeed ~= speed then
 				humanoid.WalkSpeed = speed
 			end
