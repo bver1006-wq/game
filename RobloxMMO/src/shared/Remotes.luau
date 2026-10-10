@@ -13,7 +13,8 @@ local Remotes = {}
 -- 사용하는 모든 RemoteEvent 이름
 Remotes.Names = table.freeze({
 	SwingRequest = "SwingRequest", -- 클라 → 서버: (targetRock, clientTime, isTouch)
-	HitEffect = "HitEffect", -- 서버 → 클라: (rock, judgment, hitPosition, attackerUserId, hitTime, ghostDuration, pickaxeTier, special "Lightning"|"Charged"|"Blocked"|nil)
+	HitEffect = "HitEffect", -- 서버 → 클라: (rock, judgment, hitPosition, attackerUserId, hitTime, ghostDuration, pickaxeTier, special "Charged"|"Blocked"|nil)
+	TreeTiming = "TreeTiming", -- 나무 타이밍 막대 (2026-10-10). 클라 → 서버: (tree) 막대 요청 / 서버 → 클라: (tree, startTime, period, target) 커서 시작 시각·한쪽 가는 시간·목표 위치(0~1)
 	RockBroken = "RockBroken", -- 서버 → 클라: (position, oreType, rewards {[userId 문자열]=개수}, feverMultiplier 피버 배수·아니면 1)
 	FeverStart = "FeverStart", -- 서버 → 피버 발동자: (rock, startTime)
 	FeverTap = "FeverTap", -- 클라 → 서버: 연타 1회
@@ -38,6 +39,7 @@ Remotes.Names = table.freeze({
 	MobDied = "MobDied", -- 서버 → 클라: (position, mobType, killerUserId, gold, lootId, lootCount, extras { {Id, Count} } — 두 번째·보스 전리품, 2026-10-09)
 	ReturnHome = "ReturnHome", -- 클라 → 서버: () 마을로 귀환 (다시 누르면 취소)
 	SaveHotbar = "SaveHotbar", -- 클라 → 서버: ({ itemId 또는 "" }) 빠른 칸 배치 저장 (들어올 때는 플레이어 속성 SavedHotbar로 돌려받는다)
+	QuestComplete = "QuestComplete", -- 서버 → 클라: (stepIndex, rewardText) 시작 퀘스트 한 단계 완료 (진행 상황은 플레이어 속성 QuestStep·QuestProgress, 2026-10-10)
 	DebugShopGrant = "DebugShopGrant", -- 클라 → 서버: (shopId, itemId) TODO(임시): Studio 테스트용, 상점 아이콘 3번 누르면 공짜 지급 (Config.Debug.ShopTripleClickFree)
 })
 

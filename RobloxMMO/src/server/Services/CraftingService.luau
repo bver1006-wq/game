@@ -18,6 +18,7 @@ local InventoryService = require(script.Parent.InventoryService)
 local NotifyService = require(script.Parent.NotifyService)
 local NpcService = require(script.Parent.NpcService)
 local PickaxeService = require(script.Parent.PickaxeService)
+local QuestService = require(script.Parent.QuestService)
 
 local SHOP_ID = "Blacksmith"
 local MAX_SMELT_PER_REQUEST = 50
@@ -163,6 +164,7 @@ function CraftingService.craft(player: Player, itemId: string, times: number)
 		local hint = if EquipmentDefs.Items[itemId] and not recipe.From then " 가방에서 더블클릭하면 착용해요." else ""
 		NotifyService.send(player, `{def.DisplayName}{countText} {verb}!{hint}`, "good")
 		print(`[CraftingService] {player.Name} {def.DisplayName} x{made}`)
+		QuestService.report(player, "Craft", itemId, made) -- 시작 퀘스트 (곡괭이·도끼·구리 검·뼈 갑옷·뼈 신발)
 	elseif failReason then
 		NotifyService.send(player, failReason, "bad")
 	end
@@ -249,6 +251,7 @@ local function onDebugShopGrant(player: Player, shopId: unknown, itemId: unknown
 		local countText = if given > 1 then ` {given}개` else ""
 		NotifyService.send(player, `[테스트] {def.DisplayName}{countText} 받았어요`, "good")
 		print(`[CraftingService] (테스트 지급) {player.Name} {def.DisplayName} x{given}`)
+		QuestService.report(player, "Craft", itemId, given) -- 테스트 지급도 퀘스트 만들기 단계로 센다
 	else
 		NotifyService.send(player, "[테스트] 가방에 빈 칸이 없어요.", "bad")
 	end

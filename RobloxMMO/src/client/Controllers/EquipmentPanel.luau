@@ -280,10 +280,15 @@ function EquipmentPanel.refresh()
 		view.Badge.Visible = false
 		if itemId then
 			ItemIcon.create(view.Inner, itemId)
-			if slotId == "Shield" then
+			local equipment = EquipmentDefs.Items[itemId]
+			if slotId == "Shield" and equipment and equipment.Quiver then
 				-- 화살통: 남은 화살 수 (서버가 센 속성 Arrows)
 				local arrows = localPlayer:GetAttribute("Arrows")
 				view.Badge.Text = `🏹{if typeof(arrows) == "number" then arrows else 0}`
+				view.Badge.Visible = true
+			elseif slotId == "Shield" and localPlayer:GetAttribute("ShieldOff") == true then
+				-- 방패를 찼지만 활을 들어 못 쓰는 중 (2026-10-10)
+				view.Badge.Text = "🚫활"
 				view.Badge.Visible = true
 			end
 		end
@@ -293,7 +298,9 @@ function EquipmentPanel.refresh()
 		return if typeof(value) == "number" then value else 0
 	end
 	powerLabel.Text = `⚔ 전투력 {stat("CombatPower")}`
-	statsLabel.Text = `공격 {stat("StatAtk")}  방어 {stat("StatDef")}\n체력 +{stat("StatHp")}  치명타 +{stat("StatCrit")}%`
+	local speedText = `속도 {stat("StatSpeed")}` -- 신발 속도 (2026-10-10)
+	local hint = if localPlayer:GetAttribute("ShieldOff") == true then `\n{Config.Shield.BowHint}` else ""
+	statsLabel.Text = `공격 {stat("StatAtk")}  방어 {stat("StatDef")}  {speedText}\n체력 +{stat("StatHp")}  치명타 +{stat("StatCrit")}%{hint}`
 end
 
 -- 칸 네모 하나

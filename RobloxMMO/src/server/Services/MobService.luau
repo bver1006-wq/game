@@ -13,6 +13,11 @@
 --   화살은 날아가는 시간이 있고, 도착할 때 그 자리(HitRadius)에 있어야 맞는다 → 움직이거나 구르면 피한다. 연출은 MobSpecial "Arrow"
 -- 거대 몬스터(Config.Mobs의 Specials, 2026-10-10): 큰 기술을 Windup초 동안 바닥에 표시(MobSpecial "Telegraph")한 뒤
 --   내려찍기·발구르기(원 안 모두) 또는 돌진(지나가는 길에 닿은 사람)으로 때린다 ("Impact"). 기절하면 준비하던 기술이 취소된다.
+-- 원소 보스(Config.MobBoss.Elements, 2026-10-10): 보스 중 일부는 불타는·서리의·딱딱한·신속한 속성이 붙는다 (모델 속성 Element).
+--   생길 때 몹 부품의 Slot 속성(Head·Weapon·Core·Armor·Eye, 제작 스크립트가 붙임)을 보고 불꽃·얼음 수정·바위 판·바람 꼬리를 붙인다.
+--   불 = 맞은 사람 화상, 서리 = 맞은 사람 느려짐(속성 ElementSlow·ElementSlowUntil → ManaService), 대지 = 덜 아프고 체력 많음, 바람 = 빠름.
+--   잡으면 원소의 돌(가끔)·원소 무기(아주 가끔). 원소 무기(Config.ElementWeapons)로 맞은 몹은 타거나·느려지거나·기절한다 (applyWeaponElement)
+-- 부품 속성 BossOnly = true(케르베로스 셋째 머리)는 보스일 때만 남긴다.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -31,6 +36,8 @@ local FeverService = require(script.Parent.FeverService)
 local InventoryService = require(script.Parent.InventoryService)
 local NotifyService = require(script.Parent.NotifyService)
 local OwnershipService = require(script.Parent.OwnershipService)
+local PickaxeService = require(script.Parent.PickaxeService)
+local QuestService = require(script.Parent.QuestService)
 
 -- 몹 하나의 서버 상태
 export type MobState = {
@@ -78,7 +85,18 @@ export type MobState = {
 	SpecialIndex: number, -- 다음에 쓸 기술 번호 (Config.Mobs Specials, 차례로 돈다)
 	Cast: Cast?, -- 준비 중인 기술 (At에 판정)
 	Charge: Charge?, -- 돌진 중
+	-- 원소 (2026-10-10)
+	Element: string?, -- 원소 보스면 "Fire"|"Frost"|"Earth"|"Wind" (Config.MobBoss.Elements)
+	AttackInterval: number, -- 공격 간격 (신속한 보스는 짧다)
+	DamageTaken: number, -- 받는 데미지 배율 (딱딱한 보스 0.7, 보통 1). CombatService가 곱한다
+	SlowUntil: number, -- 서리 활에 맞아 이 시각까지 느리다
+	SlowMultiplier: number,
+	Burn: Burn?, -- 불꽃 검에 맞아 타는 중
+	Center: BasePart, -- 상태 연출(불꽃·서리)을 붙일 몸 부품
 }
+
+-- 타는 중 (불꽃 검 → 몹, 불타는 보스 → 플레이어): Left번 남았고 Next 시각마다 Damage
+type Burn = { Player: Player?, Damage: number, Left: number, Interval: number, Next: number }
 
 -- 준비 중인 큰 기술: Spec = Config.Mobs Specials 한 줄, At = 판정 시각, Center = 원 가운데(내려찍기·발구르기), Dir = 돌진 방향
 type Cast = { Spec: any, At: number, Center: Vector3, Dir: Vector3 }
@@ -100,6 +118,7 @@ local diedRemote: RemoteEvent
 local specialRemote: RemoteEvent -- 바다 생물 특수 연출 (MobSpecial)
 
 local safePoints: { Vector3 } = {} -- 안전지대 가운데들 (마을 도착점·NPC)
+local playerBurns: { [Player]: Burn } = {} -- 불타는 보스에게 맞아 타는 플레이어
 
 -- 물고기 떼 (School 이름 → 같이 쓰는 목적지). Target이 없거나 Until이 지나면 떼 집 둘레에서 새로 고른다
 type School = { Home: Vector3, Target: Vector3?, Until: number }
@@ -277,6 +296,323 @@ local function entersSafeZone(from: Vector3, to: Vector3): boolean
 	return depth > 0 and depth >= safeDepth(from)
 end
 
+---------------------------------------------------------------- 원소 (2026-10-10)
+local NEON = Enum.Material.Neon
+local FIRE_TEXTURE = "rbxasset://textures/particles/fire_main.dds"
+local SPARKLE_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
+local SMOKE_TEXTURE = "rbxasset://textures/particles/smoke_main.dds"
+
+-- 원소 하나의 설정 (Config.MobBoss.Elements[id]). 없으면 nil
+local function elementSpec(id: string?): any
+	if not id then
+		return nil
+	end
+	local elements = (Config.MobBoss :: any).Elements
+	return if typeof(elements) == "table" then elements[id] else nil
+end
+
+-- 보스에게 원소를 붙일지 정한다 (ElementChance, 그다음 Weight 비율로 하나). 안 붙으면 nil
+local function rollElement(): string?
+	local boss = Config.MobBoss :: any
+	local order = boss.ElementOrder
+	if typeof(order) ~= "table" or random:NextNumber() >= (boss.ElementChance or 0) then
+		return nil
+	end
+	local total = 0
+	for _, id in order do
+		local spec = elementSpec(id)
+		total += if spec then spec.Weight or 1 else 0
+	end
+	local roll = random:NextNumber(0, total)
+	for _, id in order do
+		local spec = elementSpec(id)
+		if spec then
+			roll -= spec.Weight or 1
+			if roll <= 0 then
+				return id
+			end
+		end
+	end
+	return order[1]
+end
+
+-- 원소 입자. style: "Fire" 불꽃 / "Embers" 불티 / "Frost" 떨어지는 서리 / "Dust" 흙먼지 / "Wind" 휘도는 바람
+-- size = 입자 크기(스터드), rate = 초당 개수. 부품에 넣으면 부품 크기 안에서 뿜는다
+local function addEmitter(parent: Instance, style: string, color: Color3, size: number, rate: number): ParticleEmitter
+	local e = Instance.new("ParticleEmitter")
+	e.Name = "Element" .. style
+	e.LightEmission = 1
+	e.Rate = rate
+	e.Color = ColorSequence.new(color)
+	if style == "Fire" then
+		e.Texture = FIRE_TEXTURE
+		e.Color = ColorSequence.new(Color3.fromRGB(255, 225, 130), color)
+		e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, size), NumberSequenceKeypoint.new(1, size * 0.1) })
+		e.Transparency = NumberSequence.new(0.25, 1)
+		e.Lifetime = NumberRange.new(0.35, 0.7)
+		e.Speed = NumberRange.new(size * 0.8, size * 2)
+		e.Acceleration = Vector3.new(0, size * 4, 0)
+		e.SpreadAngle = Vector2.new(25, 25)
+		e.EmissionDirection = Enum.NormalId.Top
+		e.RotSpeed = NumberRange.new(-60, 60)
+	elseif style == "Embers" then
+		e.Texture = SPARKLE_TEXTURE
+		e.Color = ColorSequence.new(color, Color3.fromRGB(255, 220, 120))
+		e.Size = NumberSequence.new(size, 0)
+		e.Lifetime = NumberRange.new(0.6, 1.2)
+		e.Speed = NumberRange.new(size * 2, size * 5)
+		e.Acceleration = Vector3.new(0, size * 6, 0)
+		e.SpreadAngle = Vector2.new(60, 60)
+		e.EmissionDirection = Enum.NormalId.Top
+	elseif style == "Frost" then
+		e.Texture = SPARKLE_TEXTURE
+		e.Color = ColorSequence.new(Color3.fromRGB(235, 250, 255), color)
+		e.Size = NumberSequence.new(size, 0)
+		e.Lifetime = NumberRange.new(0.8, 1.5)
+		e.Speed = NumberRange.new(size * 0.5, size * 1.5)
+		e.Acceleration = Vector3.new(0, -size * 3, 0)
+		e.SpreadAngle = Vector2.new(180, 180)
+	elseif style == "Dust" then
+		e.Texture = SMOKE_TEXTURE
+		e.LightEmission = 0
+		e.Color = ColorSequence.new(color)
+		e.Size = NumberSequence.new(size * 0.6, size * 1.6)
+		e.Transparency = NumberSequence.new(0.6, 1)
+		e.Lifetime = NumberRange.new(0.8, 1.4)
+		e.Speed = NumberRange.new(size * 0.3, size)
+		e.SpreadAngle = Vector2.new(70, 70)
+		e.EmissionDirection = Enum.NormalId.Top
+	else -- Wind
+		e.Texture = SPARKLE_TEXTURE
+		e.Color = ColorSequence.new(Color3.fromRGB(240, 255, 240), color)
+		e.Size = NumberSequence.new(size, 0)
+		e.Transparency = NumberSequence.new(0.2, 1)
+		e.Lifetime = NumberRange.new(0.4, 0.8)
+		e.Speed = NumberRange.new(size * 6, size * 10)
+		e.SpreadAngle = Vector2.new(180, 15)
+		e.EmissionDirection = Enum.NormalId.Front
+		e.RotSpeed = NumberRange.new(200, 400)
+	end
+	e.Parent = parent
+	return e
+end
+
+-- 몸 부품에 장식 부품을 붙인다 (offset = 그 부품 기준 자리). 원소 장식은 이름 ElementDeco
+local function decoPart(base: BasePart, offset: CFrame, size: Vector3, color: Color3, material: Enum.Material, transparency: number?): BasePart
+	local p = Instance.new("Part")
+	p.Name = "ElementDeco"
+	p.Size = size
+	p.CFrame = base.CFrame * offset
+	p.Color = color
+	p.Material = material
+	p.Transparency = transparency or 0
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	p.Anchored = false
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.Massless = true
+	local w = Instance.new("WeldConstraint")
+	w.Part0 = base
+	w.Part1 = p
+	w.Parent = p
+	p.Parent = base.Parent
+	return p
+end
+
+-- 부품 겉면의 한 점 (dir 쪽, 타원체로 본다)에서 바깥을 보는 자리
+local function surfaceFrame(base: BasePart, dir: Vector3, inset: number): CFrame
+	local half = base.Size / 2
+	local point = Vector3.new(dir.X * half.X, dir.Y * half.Y, dir.Z * half.Z) * (1 - inset)
+	return CFrame.lookAt(point, point + dir)
+end
+
+-- 두 점 사이 꼬리(Trail)를 부품에 붙인다 (신속한 보스: 움직이면 연둣빛 바람 꼬리)
+local function addTrail(base: BasePart, color: Color3)
+	local s = base.Size
+	local axis = if s.Y >= s.X and s.Y >= s.Z then Vector3.yAxis elseif s.X >= s.Z then Vector3.xAxis else Vector3.zAxis
+	local length = math.max(s.X, s.Y, s.Z) / 2
+	local a0 = Instance.new("Attachment")
+	a0.Name = "ElementTrail0"
+	a0.Position = axis * length
+	a0.Parent = base
+	local a1 = Instance.new("Attachment")
+	a1.Name = "ElementTrail1"
+	a1.Position = -axis * length
+	a1.Parent = base
+	local t = Instance.new("Trail")
+	t.Name = "ElementTrail"
+	t.Attachment0 = a0
+	t.Attachment1 = a1
+	t.Color = ColorSequence.new(color)
+	t.Transparency = NumberSequence.new(0.35, 1)
+	t.LightEmission = 1
+	t.Lifetime = 0.35
+	t.Parent = base
+end
+
+local FROST_DIRS = { Vector3.new(0, 1, 0.2).Unit, Vector3.new(0.7, 0.7, 0.1).Unit, Vector3.new(-0.7, 0.7, 0.1).Unit }
+local EARTH_DIRS = { Vector3.new(0, 0.25, -1).Unit, Vector3.new(0.85, 0.35, -0.4).Unit, Vector3.new(-0.85, 0.35, -0.4).Unit, Vector3.new(0, 1, 0.3).Unit }
+
+-- 원소 보스 겉모습 (생길 때 서버가 한 번). 부품 속성 Slot으로 자리를 찾는다:
+--   Head 머리(여러 개 가능) / Weapon 무기·주먹·이빨 / Core 몸통 빛나는 곳(슬라임 몸·골렘 핵·해파리 갓) / Armor 장식을 붙일 몸통·어깨 / Eye 눈
+--   모든 몸 색을 Tint 쪽으로 TintAmount만큼, 눈은 Glow 빛, Core는 원소 색으로 빛난다. 그리고 원소마다:
+--   불 = 머리·무기에 불꽃, 몸에 불티 / 서리 = 어깨·몸에 얼음 수정, 무기는 얼음, 머리 서리 / 대지 = 몸·머리에 바위 판, 무기는 돌, 발밑 흙먼지 / 바람 = 몸 둘레 바람, 머리·무기 꼬리
+local function decorateElement(model: Model, id: string, spec: any)
+	local slots: { [string]: { BasePart } } = { Head = {}, Weapon = {}, Core = {}, Armor = {}, Eye = {} }
+	local biggest: BasePart? = nil
+	local biggestVolume = 0
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") and d.Name ~= "Root" and d.Transparency < 1 then
+			local slot = d:GetAttribute("Slot")
+			if typeof(slot) == "string" and slots[slot] then
+				table.insert(slots[slot], d)
+			end
+			if slot == "Eye" then
+				d.Color = spec.Glow
+				d.Material = NEON
+			elseif slot == "Core" then
+				d.Color = spec.Color
+			elseif d.Material ~= NEON then
+				d.Color = d.Color:Lerp(spec.Tint, spec.TintAmount)
+			end
+			local volume = d.Size.X * d.Size.Y * d.Size.Z
+			if volume > biggestVolume then
+				biggest, biggestVolume = d, volume
+			end
+		end
+	end
+	local body = slots.Core[1] or slots.Armor[1] or biggest
+	if not body then
+		return
+	end
+	local function sizeOf(p: BasePart): number
+		return math.max(p.Size.X, p.Size.Y, p.Size.Z)
+	end
+	local function first(list: { BasePart }, count: number): { BasePart }
+		local out = {}
+		for i = 1, math.min(count, #list) do
+			out[i] = list[i]
+		end
+		return out
+	end
+	local light = Instance.new("PointLight")
+	light.Name = "ElementLight"
+	light.Color = spec.Color
+	light.Range = math.clamp(sizeOf(body) * 3, 10, 40)
+	light.Brightness = 1.6
+	light.Parent = body
+	local armor = first(if #slots.Armor > 0 then slots.Armor else { body }, 3)
+	if id == "Fire" then
+		for _, head in first(slots.Head, 3) do
+			addEmitter(head, "Fire", spec.Color, sizeOf(head) * 0.55, 30)
+		end
+		for _, weapon in first(slots.Weapon, 3) do
+			addEmitter(weapon, "Fire", spec.Color, sizeOf(weapon) * 0.3, 35)
+			weapon.Color = weapon.Color:Lerp(Color3.fromRGB(40, 20, 15), 0.5)
+		end
+		addEmitter(body, "Embers", spec.Color, math.max(sizeOf(body) * 0.06, 0.15), 14)
+		for _, core in slots.Core do
+			core.Material = if core.Material == Enum.Material.Glass then Enum.Material.Glass else NEON
+		end
+	elseif id == "Frost" then
+		for _, base in armor do
+			local s = sizeOf(base)
+			for i, dir in FROST_DIRS do
+				local length = s * (if i == 1 then 0.55 else 0.4)
+				local offset = surfaceFrame(base, dir, 0.15) * CFrame.Angles(math.rad(-90), 0, 0) * CFrame.new(0, length / 2, 0) * CFrame.Angles(0, math.rad(45), 0)
+				decoPart(base, offset, Vector3.new(s * 0.14, length, s * 0.14), Color3.fromRGB(190, 235, 255), Enum.Material.Glass, 0.15)
+			end
+		end
+		for _, head in first(slots.Head, 3) do
+			addEmitter(head, "Frost", spec.Color, math.max(sizeOf(head) * 0.12, 0.15), 10)
+		end
+		for _, weapon in slots.Weapon do
+			weapon.Material = Enum.Material.Ice
+			weapon.Color = Color3.fromRGB(175, 225, 250)
+		end
+		addEmitter(body, "Frost", spec.Color, math.max(sizeOf(body) * 0.06, 0.15), 12)
+	elseif id == "Earth" then
+		local rock = Color3.fromRGB(120, 92, 62)
+		for _, base in armor do
+			local s = sizeOf(base)
+			for i, dir in EARTH_DIRS do
+				decoPart(base, surfaceFrame(base, dir, 0.08) * CFrame.Angles(0, 0, math.rad(i * 37)), Vector3.new(s * 0.42, s * 0.32, s * 0.1), rock:Lerp(Color3.fromRGB(80, 60, 45), (i % 2) * 0.5), Enum.Material.Slate)
+			end
+		end
+		for _, head in first(slots.Head, 3) do
+			local s = sizeOf(head)
+			decoPart(head, surfaceFrame(head, Vector3.new(0, 1, -0.3).Unit, 0.1), Vector3.new(s * 0.6, s * 0.45, s * 0.12), rock, Enum.Material.Slate)
+		end
+		for _, weapon in slots.Weapon do
+			weapon.Material = Enum.Material.Slate
+			weapon.Color = rock
+		end
+		local root = model:FindFirstChild("Root")
+		if root and root:IsA("BasePart") then
+			addEmitter(root, "Dust", Color3.fromRGB(150, 120, 85), math.max(sizeOf(body) * 0.25, 0.6), 8)
+		end
+	elseif id == "Wind" then
+		addEmitter(body, "Wind", spec.Color, math.max(sizeOf(body) * 0.05, 0.12), 30)
+		for _, part in first(slots.Head, 3) do
+			addTrail(part, spec.Color)
+		end
+		for _, part in first(slots.Weapon, 2) do
+			addTrail(part, spec.Color)
+		end
+	end
+end
+
+-- 몹·플레이어 몸에 잠깐 붙는 상태 연출 (불꽃 검 화상·서리 활 느려짐·불타는 보스 화상). 같은 것은 시간만 늘린다
+local function statusEffect(part: BasePart?, style: string, color: Color3, duration: number)
+	if not part then
+		return
+	end
+	local name = "Status" .. style
+	local emitter = part:FindFirstChild(name)
+	if not emitter then
+		local s = math.max(part.Size.X, part.Size.Y, part.Size.Z)
+		emitter = addEmitter(part, style, color, math.clamp(s * (if style == "Fire" then 0.4 else 0.1), 0.2, 3), if style == "Fire" then 25 else 15)
+		emitter.Name = name
+	end
+	local untilTime = os.clock() + duration
+	emitter:SetAttribute("Until", untilTime)
+	task.delay(duration + 0.05, function()
+		local endAt = emitter:GetAttribute("Until")
+		if emitter.Parent and (typeof(endAt) ~= "number" or os.clock() >= endAt) then
+			emitter:Destroy()
+		end
+	end)
+end
+
+-- 원소 보스에게 맞은 사람: 불 = 화상(여러 번 나눠 아픔), 서리 = 잠깐 느려짐. 실제로 아팠을 때만
+local function applyElementToPlayer(state: MobState, player: Player, damage: number, now: number)
+	local spec = elementSpec(state.Element)
+	if not spec or damage <= 0 then
+		return
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local rootPart = if root and root:IsA("BasePart") then root else nil
+	if spec.Burn then
+		local burn = spec.Burn
+		playerBurns[player] = { Player = nil, Damage = state.Damage * burn.Percent, Left = burn.Ticks, Interval = burn.Interval, Next = now + burn.Interval }
+		statusEffect(rootPart, "Fire", spec.Color, burn.Ticks * burn.Interval)
+	end
+	if spec.Slow then
+		player:SetAttribute("ElementSlow", spec.Slow.Multiplier)
+		player:SetAttribute("ElementSlowUntil", workspace:GetServerTimeNow() + spec.Slow.Duration)
+		statusEffect(rootPart, "Frost", spec.Color, spec.Slow.Duration)
+	end
+end
+
+-- 보스 이름 앞말 ("👑 보스 " / 원소 보스 "👑 불타는 보스 ")
+local function bossPrefix(state: MobState): string
+	local spec = elementSpec(state.Element)
+	return if spec then spec.BossPrefix elseif state.Boss then Config.MobBoss.NamePrefix else ""
+end
+
 -- 몹이 플레이어 하나를 때린다: 피버 중이면 무적, 방어구로 줄이고, 구르기 무적·방패 막기면 더 줄인다 (1이면 0)
 -- 연출은 MobAttack (guarded = true면 클라가 "피함!"·"막음!")
 local function hurtPlayer(state: MobState, player: Player, humanoid: Humanoid, amount: number, now: number)
@@ -290,6 +626,7 @@ local function hurtPlayer(state: MobState, player: Player, humanoid: Humanoid, a
 	end
 	if damage > 0 then
 		humanoid:TakeDamage(damage)
+		applyElementToPlayer(state, player, damage, now) -- 원소 보스: 화상·느려짐 (2026-10-10)
 	end
 	fireNearby(attackRemote, state.Position, state.Model, player.UserId, math.round(damage * 10) / 10, reduction > 0)
 end
@@ -429,8 +766,22 @@ local function spawnMob(spawnPart: BasePart)
 	-- 보스: 기준점(발밑)을 중심으로 키운다. 템플릿이 이미 Config.Mobs.Scale만큼 커져 있으니 거기에 곱한다
 	local bossScale = rollBoss(spawnPart, config)
 	local scale = bossScale or 1
+	-- 보스만 남기는 부품(속성 BossOnly, 케르베로스 셋째 머리)은 보통 몹이면 지운다 (2026-10-10)
+	if not bossScale then
+		for _, d in model:GetDescendants() do
+			if d:IsA("BasePart") and d:GetAttribute("BossOnly") == true then
+				d:Destroy()
+			end
+		end
+	end
 	if bossScale then
 		model:ScaleTo(model:GetScale() * bossScale)
+	end
+	-- 원소 보스: 원소를 고르고 겉모습을 붙인다 (2026-10-10)
+	local element = if bossScale then rollElement() else nil
+	local elementConfig = elementSpec(element)
+	if element and elementConfig then
+		decorateElement(model, element, elementConfig)
 	end
 	-- 바다 생물은 생성 자리(물 속) 높이 그대로 두되 수면 아래·바닥 위로 맞추고, 땅 몹은 땅에 붙인다
 	local swim = (config :: any).Swim == true
@@ -451,6 +802,12 @@ local function spawnMob(spawnPart: BasePart)
 	local maxHp = if bossScale then math.floor(config.Hp * bossConfig.HpPerScale * scale + 0.5) else config.Hp
 	local damage = if bossScale then config.Damage * bossConfig.DamagePerScale * scale else config.Damage
 	local speed = if bossScale then config.Speed * bossConfig.SpeedMultiplier else config.Speed
+	local attackInterval = config.AttackInterval
+	if elementConfig then
+		maxHp = math.floor(maxHp * (elementConfig.HpMultiplier or 1) + 0.5) -- 딱딱한: 체력 많음
+		speed *= elementConfig.SpeedMultiplier or 1 -- 신속한: 빠름
+		attackInterval *= elementConfig.AttackIntervalMultiplier or 1
+	end
 	-- 커진 몸만큼 공격 거리를 늘린다 (원래 반지름 = 지금 반지름 / 배율)
 	local attackRange = config.AttackRange + radius * (1 - 1 / scale)
 
@@ -460,6 +817,21 @@ local function spawnMob(spawnPart: BasePart)
 	if bossScale then
 		model:SetAttribute("Boss", true)
 		model:SetAttribute("BossScale", math.floor(bossScale * 100 + 0.5) / 100)
+	end
+	if element then
+		model:SetAttribute("Element", element)
+	end
+	-- 상태 연출(불꽃·서리)을 붙일 몸 부품: Core → Head → 가장 큰 부품
+	local center: BasePart = model.PrimaryPart or (model:FindFirstChildWhichIsA("BasePart") :: BasePart)
+	local centerVolume = 0
+	for _, d in model:GetDescendants() do
+		if d:IsA("BasePart") and d.Name ~= "Root" and d.Transparency < 1 then
+			local slot = d:GetAttribute("Slot")
+			local volume = d.Size.X * d.Size.Y * d.Size.Z * (if slot == "Core" then 100 elseif slot == "Head" then 10 else 1)
+			if volume > centerVolume then
+				center, centerVolume = d, volume
+			end
+		end
 	end
 	CollectionService:AddTag(model, MOB_TAG)
 	model.Parent = mobsFolder
@@ -521,6 +893,13 @@ local function spawnMob(spawnPart: BasePart)
 		SpecialIndex = 1,
 		Cast = nil,
 		Charge = nil,
+		Element = element,
+		AttackInterval = attackInterval,
+		DamageTaken = if elementConfig then elementConfig.DamageTaken or 1 else 1,
+		SlowUntil = 0,
+		SlowMultiplier = 1,
+		Burn = nil,
+		Center = center,
 	}
 end
 
@@ -570,7 +949,7 @@ local function stepMob(state: MobState, dt: number, now: number)
 	end
 
 	local goal: Vector3? = nil
-	local speed = state.Speed
+	local speed = state.Speed * (if now < state.SlowUntil then state.SlowMultiplier else 1) -- 서리 활에 맞으면 느리다
 	local fleeing = false
 	local retreating = false -- 활 쏘는 몹이 뒤로 물러나는 중 (막히면 도망처럼 옆으로 비킨다)
 	local charging = false -- 거대 몬스터 돌진 중
@@ -656,7 +1035,7 @@ local function stepMob(state: MobState, dt: number, now: number)
 				end
 				if distance <= ranged.Range and now >= state.NextAttack and state.Damage > 0 then
 					if shootArrow(state, state.Target :: Player, root, ranged) then
-						state.NextAttack = now + config.AttackInterval
+						state.NextAttack = now + state.AttackInterval
 					elseif not retreating then
 						goal = root.Position -- 벽에 막혀 못 쏜다 → 다가간다
 					end
@@ -666,7 +1045,7 @@ local function stepMob(state: MobState, dt: number, now: number)
 			elseif now >= state.NextAttack and state.Damage > 0 then
 				-- 공격: 앞으로 살짝 들이받고 피해를 준다 (피버 중인 플레이어는 무적)
 				-- 구르기 무적·방패 막기 중이면 피해를 줄인다 (1이면 0, guarded = true로 알려 클라가 "피함!"·"막음!")
-				state.NextAttack = now + config.AttackInterval
+				state.NextAttack = now + state.AttackInterval
 				state.LungeUntil = now + 0.15
 				hurtPlayer(state, state.Target :: Player, humanoid, state.Damage, now)
 			end
@@ -838,14 +1217,14 @@ local function stepSwimmer(state: MobState, dt: number, now: number)
 			end
 		end
 		if bestPlayer and bestHumanoid then
-			state.NextAttack = now + config.AttackInterval
+			state.NextAttack = now + state.AttackInterval
 			state.LungeUntil = now + 0.15
 			hurtPlayer(state, bestPlayer, bestHumanoid, state.Damage, now)
 		end
 	end
 
 	local goal: Vector3? = nil
-	local speed = state.Speed
+	local speed = state.Speed * (if now < state.SlowUntil then state.SlowMultiplier else 1) -- 서리 활에 맞으면 느리다
 	local fleeing = false
 	local chasing = false
 	if now < state.KnockbackUntil then
@@ -882,7 +1261,7 @@ local function stepSwimmer(state: MobState, dt: number, now: number)
 					speed *= config.ChargeSpeed -- 상어 돌진
 				end
 			elseif now >= state.NextAttack and state.Damage > 0 then
-				state.NextAttack = now + config.AttackInterval
+				state.NextAttack = now + state.AttackInterval
 				state.LungeUntil = now + 0.15
 				hurtPlayer(state, state.Target :: Player, humanoid, state.Damage, now)
 			end
@@ -1040,21 +1419,47 @@ local function die(state: MobState, killer: Player)
 	if state.Boss then
 		rollExtra((boss :: any).ExtraLoot, false)
 	end
+	-- 원소 보스 전리품 (2026-10-10): 원소의 돌(StoneChance) + 아주 가끔 원소 무기(WeaponChance, 도구라 PickaxeService.give)
+	local elementConfig = elementSpec(state.Element)
+	local elementLoot = (boss :: any).ElementLoot
+	if elementConfig and typeof(elementLoot) == "table" then
+		local stone = elementConfig.Stone
+		if stone and ItemDefs.Items[stone] and random:NextNumber() < elementLoot.StoneChance then
+			local count = random:NextInteger(elementLoot.StoneCount[1], elementLoot.StoneCount[2])
+			local got = InventoryService.add(killer, stone, count)
+			if got < count then
+				bagFull = true
+			end
+			if got > 0 then
+				table.insert(extras, { Id = stone, Count = got })
+			end
+		end
+		local weapon = elementConfig.Weapon
+		if weapon and ItemDefs.Items[weapon] and random:NextNumber() < elementLoot.WeaponChance then
+			if PickaxeService.give(killer, weapon) then
+				table.insert(extras, { Id = weapon, Count = 1 })
+				NotifyService.send(killer, `✨ 원소 무기 {ItemDefs.Items[weapon].DisplayName}을(를) 얻었어요!`, "good")
+			else
+				bagFull = true
+			end
+		end
+	end
 
 	if bagFull then
 		NotifyService.send(killer, "가방이 가득 찼어요! 마을 상인에게 팔고 오세요.", "bad")
 	end
 	if state.Boss then
-		NotifyService.send(killer, `{boss.NamePrefix}{def.DisplayName}을(를) 물리쳤어요! +{gold}G`, "good")
+		NotifyService.send(killer, `{bossPrefix(state)}{def.DisplayName}을(를) 물리쳤어요! +{gold}G`, "good")
 	end
 	-- 7번째 인자 extras: 주 전리품 말고 더 받은 전리품 목록 (예전 클라는 무시해도 된다)
 	fireNearby(diedRemote, state.Position, state.Position, state.Type, killer.UserId, gold, def.LootId, added, extras)
-	local label = if state.Boss then boss.NamePrefix .. def.DisplayName else def.DisplayName
+	local label = bossPrefix(state) .. def.DisplayName
 	local lootText = `{ItemDefs.Items[def.LootId].DisplayName} {added}개`
 	for _, extra in extras do
 		lootText ..= `, {ItemDefs.Items[extra.Id].DisplayName} {extra.Count}개`
 	end
 	print(`[MobService] {killer.Name}이(가) {label} 처치: {gold}G, {lootText}`)
+	QuestService.report(killer, "Kill", state.Type, 1) -- 시작 퀘스트 (슬라임·스켈레톤 잡기)
 
 	state.Model:Destroy()
 	local spawnPart = state.SpawnPart
@@ -1161,6 +1566,66 @@ function MobService.protect(player: Player, source: string, reduction: number, s
 	list[source] = { Reduction = math.clamp(reduction, 0, 1), Until = os.clock() + seconds }
 end
 
+-- 원소 무기가 몹을 맞혔을 때 (2026-10-10, Config.ElementWeapons). CombatService가 데미지를 준 뒤 부른다 (흠집 못 낸 타격은 안 부름)
+-- 불꽃 검 = 타기 시작(다시 맞히면 새로) / 서리 활 = 느려짐 / 대지의 망치 = StunChance로 기절. 질풍 검 추가타는 CombatService가 한다
+function MobService.applyWeaponElement(mob: Model, player: Player, weaponId: string, damage: number)
+	local state = states[mob]
+	local spec = (Config.ElementWeapons :: any)[weaponId]
+	if not state or state.Dead or not spec or damage <= 0 then
+		return
+	end
+	local now = os.clock()
+	local element = elementSpec(spec.Element)
+	local color = if element then element.Color else Color3.new(1, 1, 1)
+	if spec.Burn then
+		local burn = spec.Burn
+		state.Burn = { Player = player, Damage = math.max(math.round(damage * burn.Percent), 1), Left = burn.Ticks, Interval = burn.Interval, Next = now + burn.Interval }
+		statusEffect(state.Center, "Fire", color, burn.Ticks * burn.Interval)
+	end
+	if spec.Slow then
+		state.SlowUntil = now + spec.Slow.Duration
+		state.SlowMultiplier = spec.Slow.Multiplier
+		statusEffect(state.Center, "Frost", color, spec.Slow.Duration)
+	end
+	if spec.StunChance and random:NextNumber() < spec.StunChance then
+		MobService.stun(mob, spec.StunTime)
+		statusEffect(state.Center, "Dust", Color3.fromRGB(150, 120, 85), spec.StunTime)
+	end
+end
+
+-- 화상 처리 (매 생각마다): 타는 몹은 태운 사람이 준 피해로, 타는 플레이어는 방어구로 줄인 피해로 (피버 중이면 안 아픔)
+local function tickBurns(now: number)
+	for player, burn in playerBurns do
+		if now >= burn.Next then
+			burn.Left -= 1
+			burn.Next = now + burn.Interval
+			local _, humanoid = aliveRoot(player)
+			if humanoid and not FeverService.isActive(player) and safeDepth(player.Character and (player.Character :: Model):GetPivot().Position or Vector3.zero) <= 0 then
+				humanoid:TakeDamage(EquipmentService.reduceDamage(player, burn.Damage))
+			end
+			if burn.Left <= 0 or not humanoid then
+				playerBurns[player] = nil
+			end
+		end
+	end
+	for _, state in states do
+		local burn = state.Burn
+		if burn and not state.Dead and now >= burn.Next then
+			burn.Left -= 1
+			burn.Next = now + burn.Interval
+			if burn.Left <= 0 then
+				state.Burn = nil
+			end
+			local player = burn.Player
+			if player and player.Parent then
+				MobService.damage(state.Model, player, math.max(math.round(burn.Damage * state.DamageTaken), 1), Vector3.zero)
+			else
+				state.Burn = nil
+			end
+		end
+	end
+end
+
 -- 모든 살아 있는 몹 상태 (방망이 내려찍기처럼 둘레의 몹을 찾을 때)
 function MobService.getAllStates(): { MobState }
 	local list = {}
@@ -1176,6 +1641,7 @@ end
 function MobService.init()
 	Players.PlayerRemoving:Connect(function(player)
 		guards[player] = nil
+		playerBurns[player] = nil
 	end)
 	attackRemote = Remotes.get(Remotes.Names.MobAttack)
 	diedRemote = Remotes.get(Remotes.Names.MobDied)
@@ -1226,6 +1692,7 @@ function MobService.init()
 			refreshSafePoints()
 		end
 		local now = os.clock()
+		tickBurns(now) -- 화상 (원소, 2026-10-10)
 		local roots = {}
 		for _, player in Players:GetPlayers() do
 			local root = aliveRoot(player)

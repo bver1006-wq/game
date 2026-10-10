@@ -81,7 +81,8 @@ local function applyHit(
 	chargeMultiplier: number,
 	charged: boolean,
 	knockback: number?,
-	fromSkill: boolean
+	fromSkill: boolean,
+	noProc: boolean? -- true면 원소 무기 효과를 안 건다 (질풍 검 추가타가 또 추가타를 부르지 않게)
 ): number
 	-- 데미지: 기본 × (1 ± 흔들림), 치명타면 배수
 	local combat = Config.Combat
@@ -105,6 +106,10 @@ local function applyHit(
 	elseif gap == 1 then
 		damage = math.max(math.round(damage * Config.TierWall.OneTierLowMultiplier), 1)
 	end
+	-- 딱딱한(대지) 보스는 덜 아프다 (MobState.DamageTaken, 2026-10-10)
+	if not blocked and state.DamageTaken ~= 1 then
+		damage = math.max(math.round(damage * state.DamageTaken), 1)
+	end
 
 	local flat = (state.Position - root.Position) * Vector3.new(1, 0, 1)
 	local direction = if flat.Magnitude > 0.01 then flat.Unit else Vector3.zAxis
@@ -113,6 +118,22 @@ local function applyHit(
 	fireNearby(state.Position, mob, damage, isCrit, weapon.Kind, weapon.Tier, player.UserId, fromPosition, hitPosition, charged, blocked, fromSkill)
 	-- 흠집도 안 나면 몹 위 "흠집도 안 나!" 문구만 (알림 창은 안 띄운다, 2026-10-09)
 	MobService.damage(mob, player, damage, direction, if blocked then nil else knockback)
+	-- 원소 무기 효과 (2026-10-10, Config.ElementWeapons): 질풍 검은 가끔 바람 추가타, 나머지는 MobService가 태우기·느리게·기절
+	local element = (Config.ElementWeapons :: any)[weapon.Id]
+	if element and not blocked and damage > 0 and not noProc then
+		if element.GustChance then
+			if random:NextNumber() < element.GustChance then
+				task.delay(element.GustDelay or 0.1, function()
+					local again = MobService.getState(mob)
+					if again then
+						applyHit(player, weapon, config, mob, again, root, chargeMultiplier * element.GustMultiplier, false, nil, true, true)
+					end
+				end)
+			end
+		else
+			MobService.applyWeaponElement(mob, player, weapon.Id, damage)
+		end
+	end
 	return damage
 end
 
@@ -232,6 +253,9 @@ local function buyQuiver(player: Player, itemId: string)
 	if worn == nil or worn == "" then
 		-- 화살통을 안 끼고 있으면 바로 끼워 준다
 		EquipmentService.equip(player, itemId)
+	elseif typeof(worn) == "string" and not (Config.Quiver.Items :: any)[worn] then
+		-- 방패를 차고 있으면 그대로 둔다 (2026-10-10). 활을 쓸 때 가방에서 화살통을 끼우면 된다
+		NotifyService.send(player, `{def.DisplayName} 구매 완료! (화살 {quiver.Arrows}개) 활을 쓸 땐 방패 대신 가방에서 끼우세요.`, "good")
 	else
 		NotifyService.send(player, `{def.DisplayName} 구매 완료! (화살 {quiver.Arrows}개) 지금 화살통을 다 쓰면 저절로 바꿔 껴요.`, "good")
 	end
@@ -254,10 +278,10 @@ local function onShopAction(player: Player, shopId: unknown, action: unknown, id
 		buyQuiver(player, idArg)
 		return
 	end
-	-- 사냥꾼은 칼·활·방망이와 장비(화살통 제외)만 만든다
+	-- 사냥꾼은 칼·활·방망이와 장비(방패 포함, 화살통은 BuyQuiver)만 만든다
 	local weapon = PickaxeDefs[idArg]
 	local equipment = EquipmentDefs.Items[idArg]
-	if (weapon and WEAPON_KINDS[weapon.Kind]) or (equipment and equipment.Slot ~= "Shield") then
+	if (weapon and WEAPON_KINDS[weapon.Kind]) or (equipment and not equipment.Quiver) then
 		CraftingService.craft(player, idArg, CraftingService.readTimes(timesArg))
 	end
 end

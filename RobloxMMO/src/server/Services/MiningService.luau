@@ -5,6 +5,7 @@
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local OreDefs = require(ReplicatedStorage.Shared.OreDefs)
@@ -20,6 +21,7 @@ local NotifyService = require(script.Parent.NotifyService)
 local OreService = require(script.Parent.OreService)
 local OwnershipService = require(script.Parent.OwnershipService)
 local PickaxeService = require(script.Parent.PickaxeService)
+local QuestService = require(script.Parent.QuestService)
 local TimingService = require(script.Parent.TimingService)
 
 type RockState = OreService.RockState
@@ -29,6 +31,8 @@ local MiningService = {}
 local random = Random.new()
 local hitEffectRemote: RemoteEvent
 local rockBrokenRemote: RemoteEvent
+local treeTimingRemote: RemoteEvent
+local lastTreeRequest: { [Player]: number } = {} -- 나무 막대 요청 간격 제한 (os.clock)
 local powerArmed: { [Player]: number } = {} -- 강하게 찍기 스킬: 이 시각(os.clock)까지의 다음 한 번이 세다 (SkillService)
 
 -- 위치 근처(EffectBroadcastRange 이내)에 있는 플레이어에게 이벤트를 보낸다
@@ -76,6 +80,7 @@ local function finishRock(state: RockState, feverPlayer: Player?, feverMultiplie
 		local player = Players:GetPlayerByUserId(userId)
 		if player then
 			local added = InventoryService.add(player, state.OreType, amount)
+			QuestService.report(player, "Gather", state.OreType, added) -- 시작 퀘스트 (돌 캐기·소나무 베기)
 			if added < amount then
 				NotifyService.send(player, "가방이 가득 찼어요! 마을 상인에게 팔고 오세요.", "bad")
 			end
@@ -175,15 +180,21 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 	end
 
 	-- 판정
+	-- 바위는 잔상, 나무는 화면 아래 타이밍 막대(커서 위치)로 판정한다
 	local swingTime = TimingService.resolveSwingTime(clientTime)
-	local judgment = TimingService.judge(player, rock, swingTime, isTouch)
-	local ghostDuration = TimingService.recordHit(player, rock, swingTime)
+	local isTree = oreDef.Kind == "Tree"
+	local judgment: TimingService.Judgment
+	local ghostDuration = 0
+	if isTree then
+		judgment = TimingService.judgeTree(player, rock, swingTime, isTouch)
+	else
+		judgment = TimingService.judge(player, rock, swingTime, isTouch)
+		ghostDuration = TimingService.recordHit(player, rock, swingTime)
+	end
 	OreService.recordJudgment(rock, player, judgment)
 
 	-- 데미지: 기본 데미지 × 곡괭이 Power × 판정 배수 (Perfect 2배, Nice 1.5배)
 	local damage = Config.Mining.BaseDamage * PickaxeService.getPower(pickaxe) * Config.Judgment.DamageMultiplier[judgment]
-	-- 번개 (다이아몬드 도끼 등 LightningChance가 있는 도구로 나무를 칠 때): 남은 HP를 한 번에 깎는다
-	local toolConfig = Config.Pickaxes[pickaxe.Id]
 	local special: string? = nil
 	-- 다 모은 강타: 마나를 써서 데미지 배수 (마나가 모자라면 보통 타격)
 	if charge >= 1 and ManaService.spend(player, Config.Charge.ManaCost) then
@@ -199,15 +210,17 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 			damage *= Config.Skills.PowerStrike.Multiplier
 		end
 	end
-	if oreDef.Kind == "Tree" and toolConfig and toolConfig.LightningChance and random:NextNumber() < toolConfig.LightningChance then
-		special = "Lightning"
-		damage = math.max(damage, state.Hp)
-	end
 	local depleted = OreService.applyDamage(rock, player, damage)
 
 	local hitPosition = hitPositionFor(state, oreDef, rock, player)
 
 	fireNearby(hitEffectRemote, state.Position, rock, judgment, hitPosition, player.UserId, swingTime, ghostDuration, pickaxe.Tier, special)
+
+	-- 나무: 목표 줄·왕복 시간을 새로 정해 친 사람에게 보낸다 (커서는 끊기지 않고 이어 간다)
+	if isTree and not depleted then
+		local timing = TimingService.rerollTree(player, rock, swingTime)
+		treeTimingRemote:FireClient(player, rock, timing.StartTime, timing.Period, timing.Target)
+	end
 
 	if depleted then
 		if FeverService.roll() then
@@ -220,6 +233,45 @@ local function onSwingRequest(player: Player, rockArg: unknown, clientTimeArg: u
 	end
 end
 
+-- 나무 타이밍 막대 요청 (클라가 도끼를 들고 나무를 조준하면 보낸다).
+-- 서버가 커서 시작 시각·왕복 시간·목표를 정해(이미 있으면 그대로) 돌려준다. 인자는 의심하고 검사한다
+local function onTreeTimingRequest(player: Player, treeArg: unknown)
+	local now = os.clock()
+	if now - (lastTreeRequest[player] or 0) < 0.1 then
+		return
+	end
+	lastTreeRequest[player] = now
+	if typeof(treeArg) ~= "Instance" or not (treeArg :: Instance):IsA("Model") then
+		return
+	end
+	local tree = treeArg :: Model
+	if not CollectionService:HasTag(tree, OreService.Tag) then
+		return
+	end
+	local state = OreService.getState(tree)
+	local oreDef = state and OreDefs[state.OreType]
+	if not state or state.Depleted or not oreDef or oreDef.Kind ~= "Tree" then
+		return
+	end
+	local tool = PickaxeService.getEquipped(player)
+	if not tool or tool.Kind ~= "Axe" then
+		return
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root or not root:IsA("BasePart") then
+		return
+	end
+	if (root.Position - state.Position).Magnitude > Config.TreeTiming.RequestRange + (state.ExtraReach or 0) then
+		return
+	end
+	if not OwnershipService.canHit(state, player) then
+		return
+	end
+	local timing = TimingService.getTreeTiming(player, tree, Workspace:GetServerTimeNow())
+	treeTimingRemote:FireClient(player, tree, timing.StartTime, timing.Period, timing.Target)
+end
+
 -- 강하게 찍기 스킬: seconds초 안의 다음 휘두르기 한 번을 세게 (장비 벽에 막힌 타격은 안 쓰고 남는다)
 function MiningService.armPowerStrike(player: Player, seconds: number)
 	powerArmed[player] = os.clock() + seconds
@@ -229,9 +281,12 @@ end
 function MiningService.init()
 	Players.PlayerRemoving:Connect(function(player)
 		powerArmed[player] = nil
+		lastTreeRequest[player] = nil
 	end)
 	hitEffectRemote = Remotes.get(Remotes.Names.HitEffect)
 	rockBrokenRemote = Remotes.get(Remotes.Names.RockBroken)
+	treeTimingRemote = Remotes.get(Remotes.Names.TreeTiming)
+	treeTimingRemote.OnServerEvent:Connect(onTreeTimingRequest)
 	Remotes.get(Remotes.Names.SwingRequest).OnServerEvent:Connect(onSwingRequest)
 end
 

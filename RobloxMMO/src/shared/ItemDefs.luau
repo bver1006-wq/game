@@ -65,6 +65,11 @@ local ItemDefs: { [string]: ItemDef } = {
 	JellyfishJelly = { Id = "JellyfishJelly", DisplayName = "해파리 젤리", Category = "Etc", Stackable = true, Icon = "JellyfishJelly", Color = Color3.fromRGB(200, 170, 255) },
 	SharkTooth = { Id = "SharkTooth", DisplayName = "상어 이빨", Category = "Etc", Stackable = true, Icon = "SharkTooth", Color = Color3.fromRGB(250, 248, 235) },
 	SharkSkin = { Id = "SharkSkin", DisplayName = "상어 가죽", Category = "Etc", Stackable = true, Icon = "SharkSkin", Color = Color3.fromRGB(120, 140, 165) },
+	-- 원소의 돌 (2026-10-10): 원소 보스 전리품 (Config.MobBoss.ElementLoot). 나중에 보석 끼우기 재료, 지금은 팔 수만 있다. 아이콘은 studio/BuildWeaponsAndMobs
+	FireStone = { Id = "FireStone", DisplayName = "불의 돌", Category = "Etc", Stackable = true, Icon = "FireStone", Color = Color3.fromRGB(255, 95, 25) },
+	FrostStone = { Id = "FrostStone", DisplayName = "서리의 돌", Category = "Etc", Stackable = true, Icon = "FrostStone", Color = Color3.fromRGB(120, 210, 255) },
+	EarthStone = { Id = "EarthStone", DisplayName = "대지의 돌", Category = "Etc", Stackable = true, Icon = "EarthStone", Color = Color3.fromRGB(190, 130, 60) },
+	WindStone = { Id = "WindStone", DisplayName = "바람의 돌", Category = "Etc", Stackable = true, Icon = "WindStone", Color = Color3.fromRGB(150, 255, 170) },
 	-- 도구: 음식 (먹으면 체력·마나를 채운다, 수치는 Config.Foods)
 	Bread = { Id = "Bread", DisplayName = "빵", Category = "Tool", Stackable = true, Usable = true, Icon = "Bread", Color = Color3.fromRGB(210, 160, 90) },
 	ManaBerry = { Id = "ManaBerry", DisplayName = "마나 베리", Category = "Tool", Stackable = true, Usable = true, Icon = "ManaBerry", Color = Color3.fromRGB(90, 130, 255) },
@@ -107,6 +112,11 @@ local ItemDefs: { [string]: ItemDef } = {
 	OrichalcumBow = { Id = "OrichalcumBow", DisplayName = "오리하르콘 태양궁", Category = "Weapon", Stackable = false, Icon = "OrichalcumBow", Color = Color3.fromRGB(250, 185, 60) },
 	MithrilHammer = { Id = "MithrilHammer", DisplayName = "미스릴 전투망치", Category = "Weapon", Stackable = false, Icon = "MithrilHammer", Color = Color3.fromRGB(165, 205, 250) },
 	OrichalcumHammer = { Id = "OrichalcumHammer", DisplayName = "오리하르콘 거인망치", Category = "Weapon", Stackable = false, Icon = "OrichalcumHammer", Color = Color3.fromRGB(250, 185, 60) },
+	-- 원소 무기 (2026-10-10, 원소 보스 전리품, 모양은 studio/BuildWeaponsAndMobs)
+	FlameSword = { Id = "FlameSword", DisplayName = "불꽃 검", Category = "Weapon", Stackable = false, Icon = "FlameSword", Color = Color3.fromRGB(255, 95, 25) },
+	FrostBow = { Id = "FrostBow", DisplayName = "서리 활", Category = "Weapon", Stackable = false, Icon = "FrostBow", Color = Color3.fromRGB(120, 210, 255) },
+	EarthHammer = { Id = "EarthHammer", DisplayName = "대지의 망치", Category = "Weapon", Stackable = false, Icon = "EarthHammer", Color = Color3.fromRGB(190, 130, 60) },
+	WindSword = { Id = "WindSword", DisplayName = "질풍 검", Category = "Weapon", Stackable = false, Icon = "WindSword", Color = Color3.fromRGB(150, 255, 170) },
 }
 
 -- UI에 보여줄 순서 (무기 → 도구 → 기타)
@@ -114,6 +124,7 @@ local ORDER = {
 	"WoodenSword", "CopperSword", "IronSword", "DiamondSword", "MithrilSword", "OrichalcumSword",
 	"WoodenBow", "CopperBow", "IronBow", "DiamondBow", "MithrilBow", "OrichalcumBow",
 	"BaseballBat", "GoblinClub", "MorningStar", "DiamondMace", "MithrilHammer", "OrichalcumHammer",
+	"FlameSword", "FrostBow", "EarthHammer", "WindSword", -- 원소 무기 (2026-10-10)
 	"StonePickaxe", "CopperPickaxe", "IronPickaxe", "SteelPickaxe", "MithrilPickaxe", "OrichalcumPickaxe",
 	"StoneAxe", "CopperAxe", "IronAxe", "DiamondAxe", "MithrilAxe", "OrichalcumAxe", "Bread", "ManaBerry", "LunchBox", "FishMeat", "OctopusLeg",
 	"Stone", "Coal", "CopperOre", "IronOre", "Mithril", "Orichalcum", "CopperIngot", "IronIngot", "SteelIngot", "MithrilIngot", "OrichalcumIngot",
@@ -121,6 +132,7 @@ local ORDER = {
 	"SlimeJelly", "Bone", "OldCloth", "CerberusFang", "CerberusHide", "CyclopsEye", "CyclopsHide", "BossToken",
 	"GolemPlate", "GolemCore", "FrostHide", "FrostCrystal", "BehemothScale", "BehemothHorn",
 	"InkSac", "JellyfishJelly", "SharkTooth", "SharkSkin",
+	"FireStone", "FrostStone", "EarthStone", "WindStone", -- 원소의 돌 (2026-10-10)
 }
 
 -- 장비 아이템을 더한다 (마지막 무기 다음 순서. 무기 수를 세지 않고 찾으니 단계가 늘어도 그대로 된다)

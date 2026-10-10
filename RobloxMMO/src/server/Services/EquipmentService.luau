@@ -6,6 +6,9 @@
 -- 방패 칸의 화살통: 끼운 화살통의 남은 화살 수를 서버가 센다 (플레이어 속성 Arrows). 활 한 발에 1개 (CombatService가 useArrow)
 --   0이 되면 화살통이 가방에서 사라지고, 가방에 다른 화살통이 있으면 바꿔 낀다
 --   화살통은 개수로만 세는 아이템이라 "덜 쓴 화살통"은 종류마다 하나만 있을 수 있다 (내려놓으면 stash에 남은 수를 기억)
+-- 방패 칸의 방패 (2026-10-10): 방패 칸에는 방패 또는 화살통 하나. 두 손 무기(Config.Shield.TwoHandedKinds = 활)를 들면
+--   방패는 숨고(겉모습에서 뺌) 능력치도 빠진다. 속성 ShieldOff = 방패를 찼지만 지금 못 쓰는 중 (클라 안내)
+-- 신발 속도 (2026-10-10): 능력치 Speed = 신발 단계의 Config.Movement.BootsSpeed. 속성 StatSpeed = 지금 달리기 속도 (ManaService가 씀)
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,7 +24,7 @@ local GearVisualService = require(script.Parent.GearVisualService)
 local InventoryService = require(script.Parent.InventoryService)
 local NotifyService = require(script.Parent.NotifyService)
 
-export type Stats = { Atk: number, Def: number, Hp: number, Crit: number }
+export type Stats = { Atk: number, Def: number, Hp: number, Crit: number, Speed: number } -- Speed = 신발이 더하는 달리기 속도
 
 local EquipmentService = {}
 
@@ -32,7 +35,19 @@ local stash: { [Player]: { [string]: number } } = {} -- 내려놓은 덜 쓴 화
 local lastArrowNotice: { [Player]: number } = {}
 
 local function emptyStats(): Stats
-	return { Atk = 0, Def = 0, Hp = 0, Crit = 0 }
+	return { Atk = 0, Def = 0, Hp = 0, Crit = 0, Speed = 0 }
+end
+
+-- 화살통인지 (방패 칸이지만 능력치 없음)
+local function isQuiver(itemId: string?): boolean
+	local def = if itemId then EquipmentDefs.Items[itemId] else nil
+	return def ~= nil and def.Quiver == true
+end
+
+-- 방패(화살통 아님)인지
+local function isShield(itemId: string?): boolean
+	local def = if itemId then EquipmentDefs.Items[itemId] else nil
+	return def ~= nil and def.Slot == "Shield" and def.Quiver ~= true
 end
 
 -- 장비 아이템 하나의 능력치
@@ -40,10 +55,17 @@ function EquipmentService.itemStats(itemId: string): Stats
 	local stats = emptyStats()
 	local def = EquipmentDefs.Items[itemId]
 	if def then
+		if def.Quiver then
+			return stats -- 화살통은 능력치 없음
+		end
 		local base = (Config.Equipment.Base :: any)[def.Slot] or {}
 		local multiplier = TierDefs.pick(Config.Equipment.TierMultiplier, def.Tier) or 1 -- 표에 없는 단계는 가장 높은 아래 단계 값
 		for key in stats do
 			stats[key] = math.round((base[key] or 0) * multiplier * 10) / 10
+		end
+		if def.Slot == "Boots" then
+			-- 신발 속도는 단계 배수가 아니라 단계별 표 (Config.Movement.BootsSpeed)
+			stats.Speed = TierDefs.pick(Config.Movement.BootsSpeed, def.Tier) or 0
 		end
 		return stats
 	end
@@ -120,11 +142,36 @@ local function heldItem(player: Player): string?
 	return if typeof(id) == "string" and InventoryService.count(player, id) > 0 then id else nil
 end
 
+-- 방패를 지금 쓸 수 있는지: 방패를 찼고 두 손 무기(활)를 들고 있지 않을 때
+local function shieldUsable(player: Player, held: string?): boolean
+	local slots = equipped[player]
+	if not slots or not isShield(slots.Shield) then
+		return false
+	end
+	local tool = if held then PickaxeDefs[held] else nil
+	return not (tool and (Config.Shield.TwoHandedKinds :: any)[tool.Kind])
+end
+
+-- 신발 속도까지 넣은 달리기 속도 (신발 없음 = RunSpeed × NoBootsMultiplier)
+local function runSpeedFor(slots: { [string]: string }): number
+	local movement = Config.Movement
+	local boots = slots.Boots
+	if not boots then
+		return math.round(movement.RunSpeed * movement.NoBootsMultiplier * 10) / 10
+	end
+	return movement.RunSpeed + EquipmentService.itemStats(boots).Speed
+end
+
 -- 능력치·전투력 다시 계산해서 속성과 최대 체력에 반영
 local function recompute(player: Player)
 	local slots = equipped[player] or {}
+	local held = heldItem(player)
+	local shieldOn = shieldUsable(player, held)
 	local gear = emptyStats()
-	for _, itemId in slots do
+	for slot, itemId in slots do
+		if slot == "Shield" and not shieldOn then
+			continue -- 활을 들면 방패 능력치는 빠진다 (화살통은 원래 능력치 없음)
+		end
 		local s = EquipmentService.itemStats(itemId)
 		for key, value in s do
 			gear[key] += value
@@ -133,7 +180,6 @@ local function recompute(player: Player)
 	gearStats[player] = gear
 
 	local total = table.clone(gear)
-	local held = heldItem(player)
 	if held then
 		total.Atk += EquipmentService.itemStats(held).Atk
 	end
@@ -148,10 +194,17 @@ local function recompute(player: Player)
 	player:SetAttribute("StatDef", total.Def)
 	player:SetAttribute("StatHp", total.Hp)
 	player:SetAttribute("StatCrit", total.Crit)
+	player:SetAttribute("StatSpeed", runSpeedFor(slots))
 	player:SetAttribute("CombatPower", power)
+	player:SetAttribute("ShieldOff", isShield(slots.Shield) and not shieldOn)
 
-	-- 착용 장비를 캐릭터 모양으로 (같은 장비면 아무것도 안 한다)
-	GearVisualService.apply(player, slots, visibleArrows(player))
+	-- 착용 장비를 캐릭터 모양으로 (같은 장비면 아무것도 안 한다). 활을 들면 방패는 숨긴다
+	local visual = slots
+	if isShield(slots.Shield) and not shieldOn then
+		visual = table.clone(slots)
+		visual.Shield = nil
+	end
+	GearVisualService.apply(player, visual, visibleArrows(player))
 
 	-- 최대 체력: 비율은 유지
 	local character = player.Character
@@ -176,12 +229,20 @@ function EquipmentService.equip(player: Player, itemId: string)
 	equipped[player] = slots
 	if def.Slot == "Shield" then
 		if slots.Shield == itemId then
-			return -- 이미 끼운 화살통 (다시 끼워서 화살을 채우는 일이 없게)
+			return -- 이미 끼운 화살통·방패 (다시 끼워서 화살을 채우는 일이 없게)
 		end
-		if slots.Shield then
-			stashQuiver(player, slots.Shield)
+		if isQuiver(slots.Shield) then
+			stashQuiver(player, slots.Shield :: string)
 		end
 		slots.Shield = itemId
+		if not def.Quiver then
+			-- 방패: 화살통 자리를 차지한다 (활을 들면 못 씀)
+			setArrows(player, 0)
+			recompute(player)
+			local hint = if player:GetAttribute("ShieldOff") == true then ` ({Config.Shield.BowHint})` else ""
+			NotifyService.send(player, `{def.DisplayName} 착용{hint}`, "good")
+			return
+		end
 		loadQuiver(player, itemId)
 		recompute(player)
 		NotifyService.send(player, `{def.DisplayName} 착용 (화살 {arrows[player] or 0}개)`, "good")
@@ -196,7 +257,7 @@ end
 function EquipmentService.unequip(player: Player, slot: string)
 	local slots = equipped[player]
 	if slots and slots[slot] then
-		if slot == "Shield" then
+		if slot == "Shield" and isQuiver(slots[slot]) then
 			stashQuiver(player, slots[slot])
 		end
 		slots[slot] = nil
@@ -213,12 +274,15 @@ end
 -- 0이 되면 화살통을 가방에서 지우고, 다른 화살통이 있으면 바꿔 낀다
 function EquipmentService.useArrow(player: Player): boolean
 	local slots = equipped[player]
-	local quiver = slots and slots.Shield
+	local worn = slots and slots.Shield
+	local quiver = if isQuiver(worn) then worn else nil
 	if not slots or not quiver or (arrows[player] or 0) <= 0 then
 		local now = os.clock()
 		if now - (lastArrowNotice[player] or -math.huge) >= Config.Quiver.NoticeInterval then
 			lastArrowNotice[player] = now
-			local message = if quiver then "화살이 없어요!" else "화살통이 필요해요! 사냥꾼에게 사서 방패 칸에 끼우세요."
+			local message = if quiver then "화살이 없어요!"
+				elseif isShield(worn) then `{Config.Shield.BowHint}! 방패 칸에 방패 대신 화살통을 끼우세요.`
+				else "화살통이 필요해요! 사냥꾼에게 사서 방패 칸에 끼우세요."
 			NotifyService.send(player, message, "bad")
 		end
 		return false
@@ -252,6 +316,11 @@ end
 -- 무기 칸을 뺀 장비 능력치 (CombatService가 공격·치명타에 더한다)
 function EquipmentService.getGearStats(player: Player): Stats
 	return gearStats[player] or emptyStats()
+end
+
+-- 방패를 지금 쓰고 있는지 (방패를 찼고 활을 안 들었을 때. SkillService 방패 막기)
+function EquipmentService.hasActiveShield(player: Player): boolean
+	return shieldUsable(player, heldItem(player))
 end
 
 -- 몹에게 받는 피해를 방어로 줄인다

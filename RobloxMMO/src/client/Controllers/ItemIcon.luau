@@ -67,7 +67,7 @@ local function builtIconModel(itemId: string): Model?
 		return cached
 	end
 	local equipment = EquipmentDefs.Items[itemId]
-	if equipment and equipment.Slot == "Shield" then
+	if equipment and equipment.Quiver then -- 방패(2026-10-10)는 Studio 아이콘 모델(BuildWeaponsAndMobs)을 쓴다
 		local model = buildQuiverIcon(equipment)
 		builtIcons[itemId] = model
 		return model

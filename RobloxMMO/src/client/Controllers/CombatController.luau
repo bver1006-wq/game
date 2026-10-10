@@ -177,8 +177,12 @@ function CombatController.attack(def: PickaxeDefs.PickaxeDef, charge: number, he
 			if now - lastArrowNotice >= Config.Quiver.NoticeInterval then
 				lastArrowNotice = now
 				local worn = localPlayer:GetAttribute("Equip_Shield")
-				local hasQuiver = typeof(worn) == "string" and worn ~= ""
-				NotifyController.show(if hasQuiver then "화살이 없어요!" else "화살통이 필요해요! 사냥꾼에게 사서 방패 칸에 끼우세요.", "bad")
+				local hasQuiver = typeof(worn) == "string" and (Config.Quiver.Items :: any)[worn] ~= nil
+				local hasShield = typeof(worn) == "string" and worn ~= "" and not hasQuiver -- 방패를 찼으면 화살통 자리가 없다 (2026-10-10)
+				local message = if hasQuiver then "화살이 없어요!"
+					elseif hasShield then `{Config.Shield.BowHint}! 방패 칸에 방패 대신 화살통을 끼우세요.`
+					else "화살통이 필요해요! 사냥꾼에게 사서 방패 칸에 끼우세요."
+				NotifyController.show(message, "bad")
 			end
 			return false
 		end
@@ -727,9 +731,13 @@ local function addHpBar(mob: Instance)
 	name.Size = UDim2.fromScale(1, 0.5)
 	name.BackgroundTransparency = 1
 	name.Font = Enum.Font.FredokaOne
-	name.Text = if def then (if boss then bossConfig.NamePrefix .. def.DisplayName else def.DisplayName) else ""
+	-- 원소 보스(속성 Element, 2026-10-10)는 "👑 불타는 보스 ~" + 원소 색
+	local elementAttribute = mob:GetAttribute("Element")
+	local element = if boss and typeof(elementAttribute) == "string" then ((bossConfig :: any).Elements or {})[elementAttribute] else nil
+	local prefix = if element then element.BossPrefix elseif boss then bossConfig.NamePrefix else ""
+	name.Text = if def then prefix .. def.DisplayName else ""
 	name.TextScaled = true
-	name.TextColor3 = if boss then bossConfig.NameColor else Color3.new(1, 1, 1)
+	name.TextColor3 = if element then element.NameColor elseif boss then bossConfig.NameColor else Color3.new(1, 1, 1)
 	name.Parent = billboard
 	local nameStroke = Instance.new("UIStroke")
 	nameStroke.Thickness = 1.5

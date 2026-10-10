@@ -3,6 +3,7 @@
 -- 마나는 플레이어 속성 Mana·MaxMana로 클라이언트에 보인다. 스킬·차징 강타·구르기에 쓴다.
 -- 2026-10-09: 달리기 버튼을 없애고 항상 달린다(Movement.RunSpeed). 체력·마나는 마을(안전지대) 안에서만 서서히 찬다
 --   마을 밖에서는 음식으로만 회복. 플레이어 속성 InTown으로 클라에 알린다
+-- 2026-10-10: 달리기 속도는 신발에 따라 (EquipmentService가 정한 속성 StatSpeed. 신발 없음 = RunSpeed × NoBootsMultiplier)
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -98,7 +99,16 @@ local function step(dt: number)
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if humanoid and root and root:IsA("BasePart") and humanoid.Health > 0 then
 			local charging = player:GetAttribute("Charging") == true
-			local speed = if charging then Config.Charge.WalkSpeed else movement.RunSpeed
+			-- 신발 속도: 서버 EquipmentService가 정한 속성 StatSpeed (아직 없으면 신발 없는 속도)
+			local bootsSpeed = player:GetAttribute("StatSpeed")
+			local runSpeed = if typeof(bootsSpeed) == "number" and bootsSpeed > 0 then bootsSpeed else movement.RunSpeed * movement.NoBootsMultiplier
+			local speed = if charging then Config.Charge.WalkSpeed else runSpeed
+			-- 서리의 보스에게 맞으면 잠깐 느려진다 (MobService가 속성 ElementSlow·ElementSlowUntil을 둔다, 2026-10-10)
+			local slowUntil = player:GetAttribute("ElementSlowUntil")
+			local slow = player:GetAttribute("ElementSlow")
+			if typeof(slowUntil) == "number" and typeof(slow) == "number" and workspace:GetServerTimeNow() < slowUntil then
+				speed *= slow
+			end
 			if humanoid.WalkSpeed ~= speed then
 				humanoid.WalkSpeed = speed
 			end

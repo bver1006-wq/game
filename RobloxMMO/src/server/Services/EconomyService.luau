@@ -81,6 +81,10 @@ local function onShopAction(player: Player, shopId: unknown, action: unknown, it
 		InventoryService.add(player, goods.ItemId, amount)
 		NotifyService.send(player, `{ItemDefs.Items[goods.ItemId].DisplayName} {amount}개를 샀어요.`, "good")
 	elseif action == "BuyBag" then
+		-- 2026-10-10 사용자 요청: 가방은 우선 못 산다 (Config.Inventory.BagShopEnabled)
+		if not Config.Inventory.BagShopEnabled then
+			return
+		end
 		local level = InventoryService.getBagLevel(player)
 		local upgrade = Config.Inventory.BagUpgrades[level + 1]
 		if not upgrade then
