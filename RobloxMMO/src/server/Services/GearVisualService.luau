@@ -256,8 +256,8 @@ local SET_SHAPE: { [string]: { Bulk: number, Front: number } } = {
 	Cerberus = { Bulk = 1.04, Front = 0.12 },
 	Cyclops = { Bulk = 1.14, Front = 0.1 },
 	Golem = { Bulk = 1.12, Front = 0.2 },
-	Frost = { Bulk = 1.05, Front = 0.15 },
-	Behemoth = { Bulk = 1.06, Front = 0.16 },
+	Frost = { Bulk = 1.05, Front = 0.2 },
+	Behemoth = { Bulk = 1.06, Front = 0.2 },
 }
 
 local function setShape(setId: string?): { Bulk: number, Front: number }
@@ -847,7 +847,7 @@ local function armorBehemoth(ctx: Ctx, T: Torso, s: SetStyle)
 		end
 	end
 	ap(ctx, T.A, "LavaSeam", BLOCK, Vector3.new(T.tx * 0.08, T.ty * 0.8, T.plateT * 0.5), CFrame.new(0, -T.ty * 0.02, T.front - T.plateT * 0.15), s.Trim, s.TrimMat)
-	local core = ap(ctx, T.A, "EmberCore", BALL, Vector3.new(T.tx * 0.17, T.tx * 0.17, T.tx * 0.17), CFrame.new(0, -T.ty * 0.02, T.front - T.plateT * 0.6), s.Gem, Enum.Material.Neon)
+	local core = ap(ctx, T.A, "EmberCore", BALL, Vector3.new(T.tx * 0.13, T.tx * 0.13, T.tx * 0.13), CFrame.new(0, -T.ty * 0.02, T.front - T.plateT * 0.5), s.Gem, Enum.Material.Neon)
 	setGlow(core, s)
 	setParticles(core, s, 2)
 	for _, side in { -1, 1 } do
