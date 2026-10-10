@@ -12,10 +12,11 @@
 --   2. 몹 모델 9종 + 바다 생물 3종 →ServerStorage/Templates/Mobs/<몹> (고정된 Root 부품 + 용접된 몸, 앞 = -Z, 기준점 = 발밑)
 --   3. 아이콘 → ReplicatedStorage/ItemIcons (무기 18종 + 전리품 8종 + 바다 전리품·음식 8종 + 미스릴·오리하르콘괴 + 음식 3종 + 장비 36종)
 --   4. 몹 생성 자리 → Workspace/MobSpawns (속성 MobType·Zone·BossSpot). Config.MobZones의 구역(마을 둘레 부채꼴)마다
---      주인 몹 + Mix 확률로 이웃 단계 몹. 마을에서 멀수록 센 몹, 띠끼리 거리가 조금 겹친다.
+--      주인 몹 + Mix 확률로 이웃 단계 몹 + Extras(따로 두는 몹, 스켈레톤 궁수). 마을에서 멀수록 센 몹, 띠끼리 거리가 조금 겹친다.
+--      땅이 모자라면(맵 끝 너머) Config.MobZoneLayout.FallbackShrink 배율로 거리를 당겨 다시 찾는다 (먼 거대 몬스터 구역)
 --      마을 안전지대(TownArrival·ShopNPC 둘레 Config.MobAI.SafeZoneRadius) 바깥에만 둔다
---   5. 바다 생물 생성 자리 → Workspace/MobSpawns (속성 MobType·Zone·SwimDepth·Habitat, 물고기 떼는 School). 지형 물을 광선으로 찾아
---      Config.SeaZones 구역(얕은 바다·낙지 바위·깊은 바다)마다 둔다. 물이 없으면 Output에 경고
+--   5. 바다 생물 생성 자리 → Workspace/MobSpawns (속성 MobType·Zone·SwimDepth·Habitat, 떼는 School). 지형 물을 광선으로 찾아
+--      Config.SeaZones 구역(낙지 바위·깊은 바다)마다 둔다. 물이 없으면 Output에 경고
 
 local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -2053,7 +2054,7 @@ local seaSummary = {}
 local seaCenters = {}
 local seaPlaced = {} -- 이미 쓴 칸 (자리끼리 SpotGap)
 if #cellList == 0 then
-	warn(`[BuildWeaponsAndMobs] 바다 생물: 마을 둘레 {seaConfig.ScanRadius}스터드 안에서 헤엄칠 만한 지형 물(깊이 {seaConfig.MinDepth} 이상)을 못 찾았어요. 물고기·낙지·상어가 안 나와요. (Terrain 물인지, 마을 안전지대 밖인지 확인)`)
+	warn(`[BuildWeaponsAndMobs] 바다 생물: 마을 둘레 {seaConfig.ScanRadius}스터드 안에서 헤엄칠 만한 지형 물(깊이 {seaConfig.MinDepth} 이상)을 못 찾았어요. 낙지·해파리·상어가 안 나와요. (Terrain 물인지, 마을 안전지대 밖인지 확인)`)
 else
 	for zoneIndex, zone in Config.SeaZones do
 		-- 구역 가운데 고르기 (1: 깊이 맞음, 2: 깊이 조건 풀기)
@@ -2150,7 +2151,7 @@ else
 				end
 			end
 		end
-		-- 같은 구역에 따로 두는 몹 (복어·황금 물고기·해파리…)
+		-- 같은 구역에 따로 두는 몹 (해파리·낙지…)
 		local extrasText = {}
 		local extraIds = {}
 		for id in zone.Extras or {} do
