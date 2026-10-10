@@ -31,6 +31,7 @@ local FeverService = require(script.Parent.FeverService)
 local InventoryService = require(script.Parent.InventoryService)
 local NotifyService = require(script.Parent.NotifyService)
 local OwnershipService = require(script.Parent.OwnershipService)
+local QuestService = require(script.Parent.QuestService)
 
 -- 몹 하나의 서버 상태
 export type MobState = {
@@ -1055,6 +1056,7 @@ local function die(state: MobState, killer: Player)
 		lootText ..= `, {ItemDefs.Items[extra.Id].DisplayName} {extra.Count}개`
 	end
 	print(`[MobService] {killer.Name}이(가) {label} 처치: {gold}G, {lootText}`)
+	QuestService.report(killer, "Kill", state.Type, 1) -- 시작 퀘스트 (슬라임·스켈레톤 잡기)
 
 	state.Model:Destroy()
 	local spawnPart = state.SpawnPart

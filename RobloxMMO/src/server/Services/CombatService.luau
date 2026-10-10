@@ -254,10 +254,10 @@ local function onShopAction(player: Player, shopId: unknown, action: unknown, id
 		buyQuiver(player, idArg)
 		return
 	end
-	-- 사냥꾼은 칼·활·방망이와 장비(화살통 제외)만 만든다
+	-- 사냥꾼은 칼·활·방망이와 장비(방패 포함, 화살통은 BuyQuiver)만 만든다
 	local weapon = PickaxeDefs[idArg]
 	local equipment = EquipmentDefs.Items[idArg]
-	if (weapon and WEAPON_KINDS[weapon.Kind]) or (equipment and equipment.Slot ~= "Shield") then
+	if (weapon and WEAPON_KINDS[weapon.Kind]) or (equipment and not equipment.Quiver) then
 		CraftingService.craft(player, idArg, CraftingService.readTimes(timesArg))
 	end
 end

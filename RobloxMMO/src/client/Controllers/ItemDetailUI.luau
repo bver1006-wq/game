@@ -278,9 +278,6 @@ local function drawToolStats(tool: PickaxeDefs.PickaxeDef)
 	addStat("휘두르기 간격", `{num(Config.Mining.SwingInterval)}초`)
 	addStat("공격력 (전투력)", num(power * Config.Equipment.ToolAtkPerPower))
 	addStat("다 모은 강타", `x{num(Config.Charge.Multiplier)} (마나 {Config.Charge.ManaCost})`)
-	if config and (config :: any).LightningChance then
-		addStat("번개 확률", `{num((config :: any).LightningChance * 100)}%`, Color3.fromRGB(150, 220, 255))
-	end
 	-- 캘 수 있는 것: 노드 종류가 맞고 필요 단계 이하
 	local nodeKind = if tool.Kind == "Axe" then "Tree" else "Rock"
 	local can: { string } = {}

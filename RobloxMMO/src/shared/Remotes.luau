@@ -39,6 +39,7 @@ Remotes.Names = table.freeze({
 	MobDied = "MobDied", -- 서버 → 클라: (position, mobType, killerUserId, gold, lootId, lootCount, extras { {Id, Count} } — 두 번째·보스 전리품, 2026-10-09)
 	ReturnHome = "ReturnHome", -- 클라 → 서버: () 마을로 귀환 (다시 누르면 취소)
 	SaveHotbar = "SaveHotbar", -- 클라 → 서버: ({ itemId 또는 "" }) 빠른 칸 배치 저장 (들어올 때는 플레이어 속성 SavedHotbar로 돌려받는다)
+	QuestComplete = "QuestComplete", -- 서버 → 클라: (stepIndex, rewardText) 시작 퀘스트 한 단계 완료 (진행 상황은 플레이어 속성 QuestStep·QuestProgress, 2026-10-10)
 	DebugShopGrant = "DebugShopGrant", -- 클라 → 서버: (shopId, itemId) TODO(임시): Studio 테스트용, 상점 아이콘 3번 누르면 공짜 지급 (Config.Debug.ShopTripleClickFree)
 })
 

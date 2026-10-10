@@ -191,8 +191,12 @@ Config.TownRegen = {
 -- 이동 속도
 Config.Movement = {
 	WalkSpeed = 16, -- Roblox 기본 걷기 (지금은 안 씀)
-	RunSpeed = 24, -- 항상 이 속도로 달린다 (2026-10-09 달리기 버튼 삭제)
+	RunSpeed = 24, -- 항상 이 속도로 달린다 (2026-10-09 달리기 버튼 삭제). 2026-10-10부터 1단계 신발을 신었을 때 속도
 	MovingThreshold = 2, -- 이 속도(스터드/초)보다 빠르면 움직이는 중으로 본다
+	-- 신발 속도 (2026-10-10 사용자 요청 "신발을 신어야 지금 속도, 안 신으면 조금 느리게, 좋은 신발일수록 조금씩 빠르게")
+	-- 달리기 속도 = 신발 없음: RunSpeed × NoBootsMultiplier / 신발: RunSpeed + BootsSpeed[신발 단계] (서버 ManaService, 모으는 중엔 Charge.WalkSpeed)
+	NoBootsMultiplier = 0.85, -- 24 → 20.4
+	BootsSpeed = { 0, 0.8, 1.6, 2.5, 3.4, 4.3, 5.2 }, -- 신발 단계별 더하는 속도 (1 가죽 24 / 2 뼈 24.8 / ... / 7 베헤모스 29.2). 없는 단계는 가장 높은 아래 단계 값
 }
 
 -- 장비 능력치: 칸마다 1단계 기본값 × 단계 배수 (공격 Atk, 방어 Def, 체력 Hp, 치명타 Crit %)
@@ -207,6 +211,7 @@ Config.Equipment = {
 		Gloves = { Atk = 2, Def = 1 },
 		Necklace = { Hp = 15, Crit = 2 },
 		Bracelet = { Atk = 3, Crit = 1 },
+		Shield = { Def = 4, Hp = 8 }, -- 방패 (2026-10-10). 한손 무기(칼·방망이)·도구를 들 때만 (활을 들면 빠짐, Config.Shield). 화살통은 능력치 없음
 	},
 	TierMultiplier = { 1, 2.2, 4, 7, 11, 16, 23 }, -- 단계별 (5 미스릴·6 오리하르콘 2026-10-09, 7 베헤모스 방어구 2026-10-10). 없는 단계는 가장 높은 아래 단계 값 (TierDefs.pick)
 	ToolAtkPerPower = 6, -- 곡괭이·도끼를 들고 있으면 공격 = Power × 이 값 (무기는 Config.Weapons의 Damage)
@@ -227,6 +232,18 @@ Config.Quiver = {
 	VisibleArrows = 7, -- 등의 화살통에 꽂혀 보이는 화살 수 (남은 화살이 이보다 적으면 그만큼만)
 	NoticeInterval = 1.5, -- "화살이 없어요" 알림을 다시 띄우기까지(초)
 	Tilt = 25, -- 등에 비스듬히 메는 각도(도). 화살 끝이 오른쪽 어깨 위로 나온다
+}
+
+-- 방패 (2026-10-10 사용자 요청 "방패 추가, 한 손에만"): 방패 칸에 방패 또는 화살통 하나. 왼팔 아래팔 바깥에 찬다 (GearVisualService)
+-- 두 손 무기(TwoHandedKinds, 지금은 활)를 들면 방패가 숨고 능력치도 빠진다. 칼 "방패 막기"는 방패가 있으면 더 세다 (Config.Skills.Block Shield*)
+-- 능력치는 Config.Equipment.Base.Shield × 단계 배수, 만드는 법은 Config.Recipes (사냥꾼 "방패" 탭)
+Config.Shield = {
+	TwoHandedKinds = { Bow = true }, -- 이 종류(PickaxeDefs Kind)를 들면 방패를 못 쓴다
+	BowHint = "활을 들면 방패를 못 써요", -- 장비 창·상세 창 안내
+	Size = 2.1, -- 방패 지름(높이) = 아래팔 굵기 × 이 값 (세트마다 모양 배율을 더 곱한다)
+	Thickness = 0.16, -- 방패 판 두께 (아래팔 굵기 대비)
+	Gap = 0.08, -- 팔 바깥면(팔찌 포함)에서 띄우는 거리 (아래팔 굵기 대비)
+	Raise = 0.08, -- 아래팔 가운데에서 위(팔꿈치 쪽)로 올리는 높이 (아래팔 길이 대비)
 }
 
 -- 장비 겉모습 (GearVisualService): 끼운 장비가 캐릭터 몸에 보인다. 크기는 전부 몸 부위 크기에 대한 배율
@@ -356,27 +373,30 @@ Config.FoodCooldown = 10 -- 같은 음식을 다시 먹으려면 기다리는 �
 
 -- 무기: 데미지·쿨다운(초)·사거리(스터드). 만드는 법(가격)은 Config.Recipes (2026-10-09 조합식으로 바뀜)
 -- 칼은 빠르고, 방망이는 느리지만 세고 밀쳐 내고, 활은 약하지만 멀리서 쏜다
+-- 2026-10-10 사용자 요청 "방망이는 칼보다 조금 느리지만 더 세게, 활은 칼보다 조금 약하게" — 같은 단계 칼 기준:
+--   방망이 = 데미지 약 1.4배, 간격 약 1.25배 (칼 0.5 → 0.63, 미스릴 0.42 → 0.53) / 활 = 데미지 약 0.85배 (간격·사거리는 그대로)
+--   방망이·활은 한 번 "칼 데미지 × 배수"로 맞춘 숫자다 (칼 값을 바꾸면 같이 고칠 것)
 -- TODO(미정): 수치는 임시값. 플레이테스트로 조정
 Config.Weapons = {
 	WoodenSword = { Damage = 8, Cooldown = 0.5, Range = 7 }, -- 시작 지급
 	CopperSword = { Damage = 13, Cooldown = 0.5, Range = 7.5 },
 	IronSword = { Damage = 20, Cooldown = 0.5, Range = 8 },
 	DiamondSword = { Damage = 32, Cooldown = 0.5, Range = 9 },
-	WoodenBow = { Damage = 7, Cooldown = 0.8, Range = 40 },
-	CopperBow = { Damage = 11, Cooldown = 0.8, Range = 45 },
-	IronBow = { Damage = 17, Cooldown = 0.8, Range = 50 },
-	DiamondBow = { Damage = 27, Cooldown = 0.8, Range = 55 },
-	BaseballBat = { Damage = 12, Cooldown = 0.9, Range = 6.5, Knockback = 4 },
-	GoblinClub = { Damage = 20, Cooldown = 0.9, Range = 6.5, Knockback = 5 },
-	MorningStar = { Damage = 31, Cooldown = 0.9, Range = 7, Knockback = 6 },
-	DiamondMace = { Damage = 48, Cooldown = 0.9, Range = 7.5, Knockback = 8 },
+	WoodenBow = { Damage = 7, Cooldown = 0.8, Range = 40 }, -- 칼 8 × 0.85
+	CopperBow = { Damage = 11, Cooldown = 0.8, Range = 45 }, -- 13 × 0.85
+	IronBow = { Damage = 17, Cooldown = 0.8, Range = 50 }, -- 20 × 0.85
+	DiamondBow = { Damage = 27, Cooldown = 0.8, Range = 55 }, -- 32 × 0.85
+	BaseballBat = { Damage = 11, Cooldown = 0.63, Range = 6.5, Knockback = 4 }, -- 칼 8 × 1.4, 간격 0.5 × 1.25
+	GoblinClub = { Damage = 18, Cooldown = 0.63, Range = 6.5, Knockback = 5 }, -- 13 × 1.4
+	MorningStar = { Damage = 28, Cooldown = 0.63, Range = 7, Knockback = 6 }, -- 20 × 1.4
+	DiamondMace = { Damage = 45, Cooldown = 0.63, Range = 7.5, Knockback = 8 }, -- 32 × 1.4
 	-- 5단계 미스릴: 가볍고 빠름 (간격이 짧다) / 6단계 오리하르콘: 묵직하고 세다 (2026-10-09). TODO(미정): 임시값
 	MithrilSword = { Damage = 48, Cooldown = 0.42, Range = 9.5 },
 	OrichalcumSword = { Damage = 78, Cooldown = 0.5, Range = 10 },
-	MithrilBow = { Damage = 40, Cooldown = 0.65, Range = 62 },
-	OrichalcumBow = { Damage = 64, Cooldown = 0.8, Range = 68 },
-	MithrilHammer = { Damage = 70, Cooldown = 0.75, Range = 8, Knockback = 9 },
-	OrichalcumHammer = { Damage = 112, Cooldown = 0.95, Range = 8.5, Knockback = 11 },
+	MithrilBow = { Damage = 41, Cooldown = 0.65, Range = 62 }, -- 48 × 0.85
+	OrichalcumBow = { Damage = 66, Cooldown = 0.8, Range = 68 }, -- 78 × 0.85
+	MithrilHammer = { Damage = 67, Cooldown = 0.53, Range = 8, Knockback = 9 }, -- 48 × 1.4, 간격 0.42 × 1.25
+	OrichalcumHammer = { Damage = 109, Cooldown = 0.63, Range = 8.5, Knockback = 11 }, -- 78 × 1.4
 }
 
 -- 전투 공통 수치
@@ -613,7 +633,44 @@ Config.Save = {
 }
 
 -- 처음 들어오면 받는 도구 (2026-10-09: 돌 곡괭이 하나만. 나머지는 돌을 캐서 팔고 직접 산다)
-Config.StarterTools = { "StonePickaxe" }
+Config.StarterTools = { "WoodenSword" } -- 2026-10-10 시작 퀘스트: 나무 검 하나로 시작 → 슬라임 젤리로 곡괭이 (Config.Quest)
+
+-- 시작 퀘스트 (2026-10-10 사용자 요청): 처음 하는 사람을 차례로 안내한다 (서버 QuestService, 화면 QuestHUD)
+-- Kind: "Kill" = Targets 몹을 Count마리 처치 / "Gather" = Targets 광석·통나무를 캐서 Count개 / "Craft" = Targets 아이템을 만들기(사기)
+--   Craft는 이미 가방에 있으면 바로 완료 (예전 저장에서 이어 하는 사람)
+-- Npc: 가야 할 상점 ShopId (화면에 NPC 이름, 그 NPC 머리 위에 ❗). Reward: Gold + Items { [아이템 Id] = 개수 }
+-- 조합식(Config.Recipes)은 화면이 자동으로 "필요: ..."에 붙여 보여 준다
+export type QuestStep = {
+	Kind: string,
+	Targets: { string },
+	Count: number,
+	Title: string,
+	Hint: string,
+	Npc: string?,
+	Reward: { Gold: number, Items: { [string]: number }? },
+}
+local QUEST_STEPS: { QuestStep } = {
+	{ Kind = "Kill", Targets = { "Slime" }, Count = 5, Title = "슬라임 5마리 잡기", Hint = "마을 밖 들판의 슬라임을 나무 검으로 잡아요. 슬라임 젤리가 나와요!", Reward = { Gold = 10 } },
+	{ Kind = "Craft", Targets = { "StonePickaxe" }, Count = 1, Title = "곡괭이 만들기", Hint = "대장장이에게 가서 슬라임 젤리로 돌 곡괭이를 만들어요.", Npc = "Blacksmith", Reward = { Gold = 10 } },
+	{ Kind = "Gather", Targets = { "Stone" }, Count = 10, Title = "돌 10개 캐기", Hint = "곡괭이를 들고 마을 근처 회색 바위를 캐요.", Reward = { Gold = 10 } },
+	{ Kind = "Craft", Targets = { "StoneAxe" }, Count = 1, Title = "도끼 만들기", Hint = "대장장이의 도끼 탭에서 돌로 돌 도끼를 만들어요.", Npc = "Blacksmith", Reward = { Gold = 10 } },
+	{ Kind = "Gather", Targets = { "Pine" }, Count = 10, Title = "소나무 10개 베기", Hint = "도끼를 들고 뾰족한 소나무를 베어요. 칼 만들 때 써요.", Reward = { Gold = 20 } },
+	{ Kind = "Craft", Targets = { "CopperSword" }, Count = 1, Title = "더 큰 칼 만들기", Hint = "사냥꾼에게 나무 검을 하나 더 사서, 두 개를 합쳐 구리 검을 만들어요.", Npc = "Hunter", Reward = { Gold = 20, Items = { Bread = 3 } } },
+	{ Kind = "Kill", Targets = { "Skeleton", "SkeletonArcher" }, Count = 5, Title = "스켈레톤 5마리 잡기", Hint = "멀리 무덤의 스켈레톤을 구리 검으로! 나무 검은 잘 안 들어요. 체력이 줄면 빵을 먹어요.", Reward = { Gold = 20, Items = { Bone = 3 } } },
+	{ Kind = "Craft", Targets = { "BoneArmor" }, Count = 1, Title = "뼈 갑옷 만들기", Hint = "사냥꾼의 갑옷 탭에서 뼈다귀로 만들고, 가방에서 두 번 눌러 입어요.", Npc = "Hunter", Reward = { Gold = 20 } },
+	{ Kind = "Craft", Targets = { "BoneBoots" }, Count = 1, Title = "뼈 신발 만들기", Hint = "사냥꾼의 신발 탭에서 만들어 신어요. 신발을 신으면 더 빨리 달려요!", Npc = "Hunter", Reward = { Gold = 50, Items = { LunchBox = 1 } } },
+}
+Config.Quest = {
+	Steps = QUEST_STEPS,
+	FinishMessage = "기본 퀘스트 완료! 이제 자유롭게 모험해요",
+	-- 화면 (QuestHUD): 왼쪽 위 가방 그림 아래
+	HudPosition = UDim2.fromOffset(16, 104),
+	HudWidth = 250,
+	CompactScreenHeight = 520, -- 화면 높이가 이보다 낮으면(휴대폰) 설명 줄을 숨겨 작게 (누르면 펼치기·접기)
+	CelebrateTime = 3, -- 단계 완료 축하 창이 떠 있는 시간(초)
+	FinishHideDelay = 10, -- 마지막 단계 뒤 이 초가 지나면 창을 숨긴다
+	NpcMarker = "❗", -- 가야 할 NPC 머리 위 표시
+}
 
 Config.Debug = {
 	-- 2026-10-09 사용자 요청: 테스트도 처음부터 직접 구해서 하도록 테스트 지급을 전부 끔 (다시 켜려면 true / 숫자)
@@ -719,14 +776,14 @@ Config.Smelting = {
 export type Recipe = { From: { Id: string, Count: number }?, Items: { [string]: number }, Gold: number }
 local RECIPES: { [string]: Recipe } = {
 	-- 곡괭이 (돌 → 구리 → 철 → 다이아몬드 → 미스릴 → 오리하르콘)
-	StonePickaxe = { Gold = 5, Items = { Stone = 3, Pine = 2 } },
+	StonePickaxe = { Gold = 0, Items = { SlimeJelly = 5 } }, -- 2026-10-10 시작 퀘스트: 처음엔 나무 검뿐이라 슬라임 젤리로 (골드 없이)
 	CopperPickaxe = { From = { Id = "StonePickaxe", Count = 2 }, Gold = 30, Items = { Stone = 10, Oak = 4 } },
 	IronPickaxe = { From = { Id = "CopperPickaxe", Count = 2 }, Gold = 150, Items = { CopperIngot = 6, Coal = 8, Birch = 4 } },
 	SteelPickaxe = { From = { Id = "IronPickaxe", Count = 2 }, Gold = 600, Items = { SteelIngot = 5, IronIngot = 8, Coal = 15, Maple = 6 } },
 	MithrilPickaxe = { From = { Id = "SteelPickaxe", Count = 2 }, Gold = 1800, Items = { MithrilIngot = 6, SteelIngot = 6, Coal = 20, Ebony = 3 } },
 	OrichalcumPickaxe = { From = { Id = "MithrilPickaxe", Count = 2 }, Gold = 4500, Items = { OrichalcumIngot = 4, MithrilIngot = 8, SteelIngot = 6, Ebony = 6 } },
 	-- 도끼
-	StoneAxe = { Gold = 5, Items = { Stone = 5 } }, -- 처음엔 곡괭이만 있으니 통나무 없이 (돌 캐서 팔고 → 도끼)
+	StoneAxe = { Gold = 0, Items = { Stone = 6 } }, -- 처음엔 곡괭이만 있으니 통나무 없이. 2026-10-10 시작 퀘스트: 골드 없이 돌 6
 	CopperAxe = { From = { Id = "StoneAxe", Count = 2 }, Gold = 30, Items = { CopperIngot = 2, Oak = 6 } },
 	IronAxe = { From = { Id = "CopperAxe", Count = 2 }, Gold = 150, Items = { IronIngot = 4, Birch = 8, Coal = 5 } },
 	DiamondAxe = { From = { Id = "IronAxe", Count = 2 }, Gold = 600, Items = { SteelIngot = 5, IronIngot = 6, Maple = 10, Birch = 10 } },
@@ -734,7 +791,7 @@ local RECIPES: { [string]: Recipe } = {
 	OrichalcumAxe = { From = { Id = "MithrilAxe", Count = 2 }, Gold = 4500, Items = { OrichalcumIngot = 3, MithrilIngot = 6, Ebony = 10, Maple = 15 } },
 	-- 칼 (광물 + 통나무, 높은 단계는 귀한 몹 부위 조금)
 	WoodenSword = { Gold = 5, Items = { Pine = 4 } },
-	CopperSword = { From = { Id = "WoodenSword", Count = 2 }, Gold = 40, Items = { CopperIngot = 3, Oak = 3 } },
+	CopperSword = { From = { Id = "WoodenSword", Count = 2 }, Gold = 20, Items = { Stone = 4, Pine = 4 } }, -- 2026-10-10 시작 퀘스트 "더 큰 칼": 구리 곡괭이 전이라 구리괴 대신 돌·소나무
 	IronSword = { From = { Id = "CopperSword", Count = 2 }, Gold = 180, Items = { IronIngot = 5, CopperIngot = 2, Birch = 4 } },
 	DiamondSword = { From = { Id = "IronSword", Count = 2 }, Gold = 700, Items = { SteelIngot = 6, IronIngot = 6, CerberusFang = 4, CyclopsEye = 2 } },
 	MithrilSword = { From = { Id = "DiamondSword", Count = 2 }, Gold = 2000, Items = { MithrilIngot = 6, SteelIngot = 4, Ebony = 2, CerberusFang = 2, SharkTooth = 4 } }, -- 상어 이빨 (2026-10-09)
@@ -767,7 +824,7 @@ local RECIPES: { [string]: Recipe } = {
 	BehemothHelmet = { From = { Id = "FrostHelmet", Count = 2 }, Gold = 9000, Items = { BehemothScale = 14, BehemothHorn = 2, FrostHide = 4, BossToken = 1, OrichalcumIngot = 1 } },
 	-- 갑옷
 	LeatherArmor = { Gold = 12, Items = { SlimeJelly = 5 } },
-	BoneArmor = { From = { Id = "LeatherArmor", Count = 2 }, Gold = 50, Items = { Bone = 16, OldCloth = 4 } },
+	BoneArmor = { Gold = 15, Items = { Bone = 6 } }, -- 2026-10-10 시작 퀘스트: 가죽 갑옷 없이 뼈다귀로 바로 (From 없음 = 사기)
 	CerberusArmor = { From = { Id = "BoneArmor", Count = 2 }, Gold = 220, Items = { CerberusHide = 12, CerberusFang = 4, OldCloth = 4, IronIngot = 1 } },
 	CyclopsArmor = { From = { Id = "CerberusArmor", Count = 2 }, Gold = 850, Items = { CyclopsHide = 14, CyclopsEye = 2, CerberusHide = 4, SteelIngot = 1 } },
 	GolemArmor = { From = { Id = "CyclopsArmor", Count = 2 }, Gold = 2200, Items = { GolemPlate = 14, GolemCore = 2, CyclopsHide = 5, MithrilIngot = 1 } },
@@ -775,7 +832,7 @@ local RECIPES: { [string]: Recipe } = {
 	BehemothArmor = { From = { Id = "FrostArmor", Count = 2 }, Gold = 11000, Items = { BehemothScale = 18, BehemothHorn = 3, FrostHide = 5, BossToken = 2, OrichalcumIngot = 1 } },
 	-- 신발
 	LeatherBoots = { Gold = 8, Items = { SlimeJelly = 3 } },
-	BoneBoots = { From = { Id = "LeatherBoots", Count = 2 }, Gold = 40, Items = { Bone = 10, OldCloth = 3 } },
+	BoneBoots = { Gold = 10, Items = { Bone = 4 } }, -- 2026-10-10 시작 퀘스트: 가죽 신발 없이 뼈다귀로 바로
 	CerberusBoots = { From = { Id = "BoneBoots", Count = 2 }, Gold = 180, Items = { CerberusHide = 8, CerberusFang = 2, Bone = 3, IronIngot = 1 } },
 	CyclopsBoots = { From = { Id = "CerberusBoots", Count = 2 }, Gold = 700, Items = { CyclopsHide = 9, CyclopsEye = 1, CerberusHide = 3, SteelIngot = 1 } },
 	GolemBoots = { From = { Id = "CyclopsBoots", Count = 2 }, Gold = 1800, Items = { GolemPlate = 9, GolemCore = 1, CyclopsHide = 3, MithrilIngot = 1 } },
@@ -803,6 +860,14 @@ local RECIPES: { [string]: Recipe } = {
 	DiamondBracelet = { From = { Id = "IronBracelet", Count = 2 }, Gold = 700, Items = { SteelIngot = 3, IronIngot = 4, Ebony = 2 } },
 	MithrilBracelet = { From = { Id = "DiamondBracelet", Count = 2 }, Gold = 1800, Items = { MithrilIngot = 3, SteelIngot = 3, Ebony = 3 } },
 	OrichalcumBracelet = { From = { Id = "MithrilBracelet", Count = 2 }, Gold = 4500, Items = { OrichalcumIngot = 2, MithrilIngot = 4, Ebony = 4 } },
+	-- 방패 (2026-10-10, 사냥꾼 "방패" 탭): 방어구 세트처럼 그 몹 재료 + 판을 대는 통나무·괴
+	WoodShield = { Gold = 10, Items = { Pine = 6, SlimeJelly = 2 } },
+	BoneShield = { From = { Id = "WoodShield", Count = 2 }, Gold = 45, Items = { Bone = 10, OldCloth = 2, Oak = 4 } },
+	CerberusShield = { From = { Id = "BoneShield", Count = 2 }, Gold = 200, Items = { CerberusHide = 6, CerberusFang = 3, IronIngot = 2, Birch = 4 } },
+	CyclopsShield = { From = { Id = "CerberusShield", Count = 2 }, Gold = 750, Items = { CyclopsHide = 8, CyclopsEye = 2, SteelIngot = 2, Maple = 4 } },
+	GolemShield = { From = { Id = "CyclopsShield", Count = 2 }, Gold = 1900, Items = { GolemPlate = 10, GolemCore = 1, CyclopsHide = 3, MithrilIngot = 1 } },
+	FrostShield = { From = { Id = "GolemShield", Count = 2 }, Gold = 4800, Items = { FrostHide = 8, FrostCrystal = 3, GolemPlate = 3, MithrilIngot = 2 } },
+	BehemothShield = { From = { Id = "FrostShield", Count = 2 }, Gold = 9500, Items = { BehemothScale = 12, BehemothHorn = 2, FrostHide = 3, BossToken = 1, OrichalcumIngot = 1 } },
 }
 Config.Recipes = RECIPES
 Config.Crafting = {
@@ -1148,6 +1213,8 @@ Config.Skills = {
 		Cooldown = 10, -- 2026-10-10 사용자 요청: 스킬 쿨타임 10초
 		Duration = 1.5,
 		Reduction = 0.8, -- 0.8 = 피해 80% 줄임
+		ShieldReduction = 0.95, -- 방패를 차고 있으면 (2026-10-10) 피해 95% 줄임
+		ShieldDuration = 2.2, -- 방패를 차고 있으면 이 시간(초) 동안
 		Color = Color3.fromRGB(110, 190, 255),
 	},
 	-- 방망이: 내려찍기. 둘레 Radius 안 몹에게 무기 데미지 × DamageMultiplier + 기절 StunTime초 + 밀쳐 내기

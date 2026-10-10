@@ -1,6 +1,7 @@
 --!strict
 -- 바위 위 BillboardGui: 체력바, 판정 말풍선(Perfect!/Nice!), 획득량 숫자.
 -- 전부 로컬 연출이고, 값은 서버가 바위 속성(Hp/MaxHp)과 RemoteEvent로 알려준 것만 쓴다.
+-- 나무 체력바는 나무 위 대신 화면 아래 판(TreeTimingHUD, 타이밍 막대와 함께)에 띄운다 (2026-10-10). 말풍선은 나무 위 그대로
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,6 +12,7 @@ local Workspace = game:GetService("Workspace")
 local Config = require(ReplicatedStorage.Shared.Config)
 local PickaxeDefs = require(ReplicatedStorage.Shared.PickaxeDefs)
 local TargetController = require(script.Parent.TargetController)
+local TreeTimingHUD = require(script.Parent.TreeTimingHUD)
 
 local WEAPON_KINDS: { [string]: boolean } = { Sword = true, Bow = true, Club = true }
 
@@ -118,6 +120,10 @@ end
 -- 매 프레임: 가장 가까운 바위로 체력바를 옮기고 HP를 반영한다
 local function updateHpBar()
 	local rock = if holdingWeapon() then nil else TargetController.getNearestRock(Config.HitFeel.HpBarRange)
+	local nearestDef = rock and TargetController.getDef(rock)
+	if nearestDef and nearestDef.Kind == "Tree" then
+		rock = nil -- 나무는 화면 아래 판(TreeTimingHUD)이 맡는다
+	end
 	if rock ~= currentRock then
 		currentRock = rock
 		shownHp = -1
@@ -125,12 +131,7 @@ local function updateHpBar()
 			local adornee = rock.PrimaryPart or rock:FindFirstChildWhichIsA("BasePart", true)
 			hpBillboard.Adornee = adornee
 			local def = TargetController.getDef(rock)
-			if def and def.Kind == "Tree" and adornee then
-				-- 나무는 붙인 부품 위치와 상관없이 줄기 타격 높이 위에 띄운다
-				hpBillboard.StudsOffsetWorldSpace = hudPosition(rock) - (adornee :: BasePart).Position
-			else
-				hpBillboard.StudsOffsetWorldSpace = Vector3.new(0, rockTopOffset(rock) + 0.9, 0)
-			end
+			hpBillboard.StudsOffsetWorldSpace = Vector3.new(0, rockTopOffset(rock) + 0.9, 0)
 			local name = if def then def.DisplayName else ""
 			local isBoss = rock:GetAttribute("Boss") == true
 			hpLabel.Text = if isBoss then `👑 보스 {name}` else name
@@ -313,6 +314,7 @@ function RockHUD.init()
 
 	createHpBar()
 	RunService.Heartbeat:Connect(updateHpBar)
+	TreeTimingHUD.init() -- 나무 체력바 + 타이밍 막대 (화면 아래)
 end
 
 return RockHUD

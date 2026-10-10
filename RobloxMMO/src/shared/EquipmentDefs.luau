@@ -2,7 +2,8 @@
 -- 장비 칸과 장비 아이템 정의 (이름·칸·단계·색). 능력치·가격 수치는 Config.Equipment에 있다.
 -- 칸: 무기(손에 든 도구·무기) / 방패 / 헬멧 / 갑옷 / 신발 / 장갑 / 목걸이 / 팔찌
 -- 무기 칸은 따로 끼우지 않고 지금 손에 든 도구·무기가 들어간다.
--- 방패 칸에는 지금은 화살통만 들어간다 (활을 쏘려면 화살이 든 화살통이 필요. 화살 수는 Config.Quiver).
+-- 방패 칸에는 방패 또는 화살통 하나가 들어간다 (활을 쏘려면 화살이 든 화살통이 필요. 화살 수는 Config.Quiver).
+--   방패(2026-10-10): 한손 무기(칼·방망이)와 같이 쓴다. 활(두 손)을 들면 숨고 능력치도 빠진다 (Config.Shield)
 -- 장비 아이템은 ItemDefs에도 등록된다 (분류 "방어구", 화살통은 "무기").
 -- 단계 색·이름은 TierDefs. 단계 수를 가정하지 않으니 장신구 7단계부터는 NAMES 각 줄에, 방어구는 ARMOR_SETS에 하나씩 더하면 된다
 
@@ -16,7 +17,8 @@ export type EquipmentDef = {
 	Slot: Slot,
 	Tier: number,
 	Color: Color3,
-	Set: string?, -- 방어구 세트 Id (Leather·Bone·Cerberus·Cyclops·Golem·Frost·Behemoth). 장신구·화살통은 nil
+	Set: string?, -- 방어구 세트 Id (Leather·Bone·Cerberus·Cyclops·Golem·Frost·Behemoth). 방패도 세트 모양. 장신구·화살통은 nil
+	Quiver: boolean?, -- 화살통이면 true (방패 칸이지만 능력치 없음, 화살 수는 Config.Quiver)
 }
 
 -- 칸 순서와 이름
@@ -89,14 +91,35 @@ local QUIVERS: { { any } } = {
 }
 local quiverOrder: { string } = {}
 for _, entry in QUIVERS do
-	items[entry[1]] = { Id = entry[1], DisplayName = entry[2], Slot = "Shield", Tier = entry[3], Color = entry[4] }
+	items[entry[1]] = { Id = entry[1], DisplayName = entry[2], Slot = "Shield", Tier = entry[3], Color = entry[4], Quiver = true }
 	table.insert(quiverOrder, entry[1])
+end
+
+-- 방패 (방패 칸, 왼팔 아래팔 바깥에 찬다, 2026-10-10 사용자 요청). 단계 = 방어구 세트 단계, 모양·색은 세트마다 (GearVisualService buildShield)
+-- 1단계만 나무 방패 (세트는 가죽 = 가죽 끈). Order에 넣어서 가방 "방어구"·사냥꾼 "방패" 탭·장비 아이콘이 같이 다룬다. 수치 Config.Equipment.Base.Shield
+local SHIELDS: { { string } } = {
+	{ "WoodShield", "나무 방패" },
+	{ "BoneShield", "뼈 방패" },
+	{ "CerberusShield", "케르베로스 송곳니 방패" },
+	{ "CyclopsShield", "사이클롭스 외눈 방패" },
+	{ "GolemShield", "바위 골렘 방패" },
+	{ "FrostShield", "서리 거인 얼음 방패" },
+	{ "BehemothShield", "베헤모스 비늘 방패" },
+}
+local shieldOrder: { string } = {}
+for tier, entry in SHIELDS do
+	local set = ARMOR_SETS[tier]
+	local color = if tier == 1 then Color3.fromRGB(160, 112, 66) else set.Color
+	items[entry[1]] = { Id = entry[1], DisplayName = entry[2], Slot = "Shield", Tier = tier, Color = color, Set = set.Id }
+	table.insert(order, entry[1])
+	table.insert(shieldOrder, entry[1])
 end
 
 return table.freeze({
 	Slots = table.freeze(SLOTS),
 	Items = table.freeze(items),
-	Order = table.freeze(order), -- 헬멧 1~7단계, 갑옷 1~7단계 ... 목걸이 1~6단계 순서 (화살통은 빠짐)
+	Order = table.freeze(order), -- 헬멧 1~7단계, 갑옷 1~7단계 ... 목걸이 1~6단계, 방패 1~7단계 순서 (화살통은 빠짐)
 	Renamed = table.freeze(RENAMED), -- 예전 방어구 Id → 새 Id (2026-10-10)
 	QuiverOrder = table.freeze(quiverOrder), -- 화살통 (작은 것부터)
+	ShieldOrder = table.freeze(shieldOrder), -- 방패 1~7단계 (Order에도 들어 있다)
 })

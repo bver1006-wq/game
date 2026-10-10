@@ -121,14 +121,17 @@ local function onRoll(player: Player, directionArg: unknown)
 	fireNearby(root.Position, player, "Roll", player.UserId, root.Position, direction)
 end
 
--- 방패 막기 (칼)
+-- 방패 막기 (칼). 방패를 차고 있으면 더 많이·더 오래 막는다 (Config.Skills.Block ShieldReduction·ShieldDuration, 2026-10-10)
 local function useBlock(player: Player, root: BasePart): boolean
 	local def = Config.Skills.Block
 	if not ManaService.spend(player, def.ManaCost) then
 		return false
 	end
-	MobService.protect(player, "Block", def.Reduction, def.Duration)
-	fireNearby(root.Position, nil, "Block", player.UserId, root.Position, def.Duration)
+	local withShield = EquipmentService.hasActiveShield(player)
+	local reduction = if withShield then def.ShieldReduction else def.Reduction
+	local duration = if withShield then def.ShieldDuration else def.Duration
+	MobService.protect(player, "Block", reduction, duration)
+	fireNearby(root.Position, nil, "Block", player.UserId, root.Position, duration)
 	return true
 end
 
