@@ -72,8 +72,37 @@ local function send(action: string, ...: any)
 end
 
 -- 아이템 상세 창을 상점 창 오른쪽에 붙여 연다 (자리가 없으면 ItemDetailUI가 상점 창을 왼쪽으로 조금 밀거나 창 안에 겹친다)
+-- TODO(임시, 테스트 끝나면 지우기): Studio 테스트용. 같은 아이템 아이콘(결과 아이콘·재료 그림)을 ShopTripleClickWindow초 안에 3번 누르면
+-- 서버에 DebugShopGrant를 보내 공짜로 받는다 (서버가 Studio·Config.Debug.ShopTripleClickFree·NPC 거리를 다시 확인). 한 번 누름(상세 창)은 그대로
+local debugClicks: { Id: string, Times: { number } } = { Id = "", Times = {} }
+local function countDebugClick(itemId: string)
+	local shop = currentShop
+	if not (RunService:IsStudio() and Config.Debug.ShopTripleClickFree) or not shop then
+		return
+	end
+	local now = os.clock()
+	if debugClicks.Id ~= itemId then
+		debugClicks.Id = itemId
+		debugClicks.Times = {}
+	end
+	local recent: { number } = {}
+	for _, t in debugClicks.Times do
+		if now - t <= Config.Debug.ShopTripleClickWindow then
+			table.insert(recent, t)
+		end
+	end
+	table.insert(recent, now)
+	if #recent >= 3 then
+		debugClicks.Times = {} -- 지급 뒤 다시 3번 눌러야 또 받는다
+		Remotes.get(Remotes.Names.DebugShopGrant):FireServer(shop.Id, itemId)
+	else
+		debugClicks.Times = recent
+	end
+end
+
 local function openDetail(itemId: string)
 	ItemDetailUI.open(itemId, panel)
+	countDebugClick(itemId) -- TODO(임시): 테스트 끝나면 이 줄과 위 함수를 지우기
 end
 
 -- 아이콘 상자 (itemId가 nil이면 가방 그림). 아이템이면 누르면 상세 창이 뜬다

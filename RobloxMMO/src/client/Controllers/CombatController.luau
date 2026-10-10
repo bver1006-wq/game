@@ -449,9 +449,155 @@ end
 
 -- 서버의 MobSpecial: 바다 생물 특수 연출 (2026-10-09)
 -- "Ink": 낙지가 먹물을 뿜었다 → 그 자리에 검은 먹물 구름, 맞은 사람(나)이면 화면이 data초 동안 어두워졌다 밝아짐
--- "Puff": 복어가 부풀었다 → "뿅" 소리와 가시 조각 (크기는 서버가 Model:ScaleTo로 바꾼다)
-local function onMobSpecial(mob: Model?, kind: string, targetUserId: number, position: Vector3, data: number?)
+-- "Puff": 복어가 부풀었다 → "뿅" 소리와 가시 조각 (크기는 서버가 Model:ScaleTo로 바꾼다, 지금은 쓰는 몹 없음)
+-- 2026-10-10 몹 공격 연출 (판정은 서버 MobService):
+-- "Arrow": 스켈레톤 궁수 화살. position = 쏜 곳, data = { To, Time } → Time초 동안 To로 날아간다 (그 자리를 피하면 안 맞음)
+-- "Telegraph": 거대 몬스터 큰 기술 경고. position = 가운데, data = { Kind, Shape "Circle"|"Line", Radius, Length, Width, Dir, Time }
+--   → 바닥에 빨간 원·직선이 Time초 동안 진해진다 (그 안에서 나가거나 구르면 피함)
+-- "Impact": 기술 판정 순간. data = { Kind, Radius } → 충격파 고리·흙먼지·쾅·화면 흔들림 (돌진은 흙먼지만)
+-- "Cancel": 기절로 기술 취소 → 그 몹의 경고 표시를 지운다
+local telegraphs: { [Model]: { Instance } } = {} -- 몹마다 떠 있는 경고 표시
+
+-- 바닥에 붙는 납작한 경고 부품 하나 (원 = 원통을 눕힘, 직선 = 판)
+local function telegraphPart(cframe: CFrame, size: Vector3, cylinder: boolean): Part
+	local fx = Config.MobAttackEffects
+	local p = Instance.new("Part")
+	p.Name = "Telegraph"
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Material = Enum.Material.Neon
+	p.Color = fx.TelegraphColor
+	p.Transparency = fx.TelegraphTransparency
+	if cylinder then
+		p.Shape = Enum.PartType.Cylinder
+	end
+	p.Size = size
+	p.CFrame = cframe
+	p.Parent = effectsFolder
+	return p
+end
+
+local function onMobAttackFx(mob: Model?, kind: string, position: Vector3, data: any)
+	local fx = Config.MobAttackEffects
+	local mobType = if mob then mob:GetAttribute("MobType") else nil
+	local color = (if typeof(mobType) == "string" then (fx.Colors :: any)[mobType] else nil) or Color3.fromRGB(200, 190, 170)
+	if kind == "Arrow" then
+		if typeof(data) ~= "table" or typeof(data.To) ~= "Vector3" or typeof(data.Time) ~= "number" then
+			return
+		end
+		HitFeelController.playSound(fx.ArrowSound, position, fx.ArrowPitch, 0.6)
+		-- 플레이어 화살 모양(shootArrow)을 빌려 쓰고 색만 바꾼다. 날아가는 시간은 서버가 정한 값
+		local to: Vector3 = data.To
+		local arrow = Instance.new("Part")
+		arrow.Size = Vector3.new(0.14, 0.14, 2.2)
+		arrow.Material = Enum.Material.SmoothPlastic
+		arrow.Color = fx.ArrowColor
+		arrow.Anchored = true
+		arrow.CanCollide = false
+		arrow.CanQuery = false
+		arrow.CanTouch = false
+		arrow.CastShadow = false
+		arrow.CFrame = CFrame.lookAt(position, to)
+		arrow.Parent = effectsFolder
+		local a0 = Instance.new("Attachment")
+		a0.Position = Vector3.new(0, 0.12, 1.1)
+		a0.Parent = arrow
+		local a1 = Instance.new("Attachment")
+		a1.Position = Vector3.new(0, -0.12, 1.1)
+		a1.Parent = arrow
+		local trail = Instance.new("Trail")
+		trail.Attachment0 = a0
+		trail.Attachment1 = a1
+		trail.Color = ColorSequence.new(fx.ArrowTrail)
+		trail.Transparency = NumberSequence.new(0.2, 1)
+		trail.Lifetime = 0.25
+		trail.LightEmission = 0.8
+		trail.Parent = arrow
+		local direction = if (to - position).Magnitude > 0.01 then (to - position).Unit else Vector3.zAxis
+		TweenService:Create(arrow, TweenInfo.new(data.Time, Enum.EasingStyle.Linear), { CFrame = CFrame.lookAt(to, to + direction) }):Play()
+		task.delay(data.Time, function()
+			arrow:Destroy()
+			HitFeelController.emitDebris(to, fx.ArrowColor, 4, 0.5)
+		end)
+	elseif kind == "Telegraph" then
+		if typeof(data) ~= "table" or typeof(data.Time) ~= "number" then
+			return
+		end
+		local time: number = data.Time
+		local made: { Instance } = {}
+		local up = 0.15
+		if data.Shape == "Line" and typeof(data.Dir) == "Vector3" and typeof(data.Length) == "number" and typeof(data.Width) == "number" then
+			local dir: Vector3 = data.Dir
+			local mid = position + dir * (data.Length / 2) + Vector3.new(0, up, 0)
+			table.insert(made, telegraphPart(CFrame.lookAt(mid, mid + dir), Vector3.new(data.Width, 0.12, data.Length), false))
+		elseif typeof(data.Radius) == "number" and data.Radius > 0 then
+			local base = CFrame.new(position + Vector3.new(0, up, 0)) * CFrame.Angles(0, 0, math.rad(90))
+			local outer = telegraphPart(base, Vector3.new(0.1, data.Radius * 2, data.Radius * 2), true)
+			table.insert(made, outer)
+			-- 가운데에서 바깥으로 차오르는 안쪽 원 (다 차면 쾅)
+			local inner = telegraphPart(base, Vector3.new(0.14, 0.5, 0.5), true)
+			inner.Transparency = 0.3
+			TweenService:Create(inner, TweenInfo.new(time, Enum.EasingStyle.Linear), { Size = Vector3.new(0.14, data.Radius * 2, data.Radius * 2) }):Play()
+			table.insert(made, inner)
+		end
+		for _, p in made do
+			if p:IsA("BasePart") and p.Name == "Telegraph" then
+				TweenService:Create(p, TweenInfo.new(time, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 0.25 }):Play()
+			end
+		end
+		if mob then
+			telegraphs[mob] = made
+		end
+		HitFeelController.playSound(fx.WarnSound, position, fx.WarnPitch, 0.7)
+		task.delay(time + 0.1, function()
+			for _, p in made do
+				p:Destroy()
+			end
+			if mob and telegraphs[mob] == made then
+				telegraphs[mob] = nil
+			end
+		end)
+	elseif kind == "Cancel" then
+		local made = if mob then telegraphs[mob] else nil
+		if mob and made then
+			for _, p in made do
+				p:Destroy()
+			end
+			telegraphs[mob] = nil
+		end
+	elseif kind == "Impact" then
+		local radius = if typeof(data) == "table" and typeof(data.Radius) == "number" then data.Radius else 6
+		local impactKind = if typeof(data) == "table" then data.Kind else nil
+		HitFeelController.emitDebris(position + Vector3.new(0, 1, 0), color, if impactKind == "Charge" then 14 else 30, if impactKind == "Charge" then 1 else 1.8)
+		HitFeelController.playSound(fx.ImpactSound, position, fx.ImpactPitch, 1)
+		if impactKind ~= "Charge" then
+			-- 바깥으로 퍼지는 충격파 고리
+			local ring = telegraphPart(CFrame.new(position + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.rad(90)), Vector3.new(0.3, 1, 1), true)
+			ring.Color = color
+			ring.Transparency = 0.2
+			TweenService:Create(ring, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(0.3, radius * 2.2, radius * 2.2), Transparency = 1 }):Play()
+			task.delay(0.4, function()
+				ring:Destroy()
+			end)
+		end
+		local character = localPlayer.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if root and root:IsA("BasePart") and (root.Position - position).Magnitude <= fx.ImpactShakeRange then
+			local shake = Config.HitFeel.CameraShake
+			HitFeelController.cameraShake(shake.Magnitude * fx.ImpactShake, shake.Duration * 2)
+		end
+	end
+end
+
+local function onMobSpecial(mob: Model?, kind: string, targetUserId: number, position: Vector3, data: any)
 	if typeof(position) ~= "Vector3" then
+		return
+	end
+	if kind == "Arrow" or kind == "Telegraph" or kind == "Impact" or kind == "Cancel" then
+		onMobAttackFx(mob, kind, position, data)
 		return
 	end
 	local sea = Config.SeaEffects

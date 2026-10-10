@@ -182,7 +182,7 @@ Config.Equipment = {
 		Necklace = { Hp = 15, Crit = 2 },
 		Bracelet = { Atk = 3, Crit = 1 },
 	},
-	TierMultiplier = { 1, 2.2, 4, 7, 11, 16 }, -- 단계별 (5 미스릴·6 오리하르콘 2026-10-09). 없는 단계는 가장 높은 아래 단계 값 (TierDefs.pick)
+	TierMultiplier = { 1, 2.2, 4, 7, 11, 16, 23 }, -- 단계별 (5 미스릴·6 오리하르콘 2026-10-09, 7 베헤모스 방어구 2026-10-10). 없는 단계는 가장 높은 아래 단계 값 (TierDefs.pick)
 	ToolAtkPerPower = 6, -- 곡괭이·도끼를 들고 있으면 공격 = Power × 이 값 (무기는 Config.Weapons의 Damage)
 	PowerWeights = { Atk = 3, Def = 4, Hp = 1, Crit = 15 },
 	BaseMaxHealth = 100,
@@ -209,17 +209,15 @@ Config.GearVisual = {
 	HelmetScale = 1.18, -- 투구 둥근 껍데기 지름 = 머리 크기 × 이 값
 	ArmorDepth = 1.25, -- 갑옷 몸통 덮개의 앞뒤 두께 = 몸통 두께 × 이 값
 	PlateThickness = 0.12, -- 가슴판 두께 (몸통 두께 대비)
-	PauldronScale = { 1.45, 1.75, 1.85, 2.0 }, -- 어깨 보호대 지름 (팔 굵기 대비): 3단계, 4단계, 5단계, 6단계 (더 높은 단계는 마지막 값)
 	CuffScale = 1.3, -- 장갑·장화 목 둘레 지름 (팔다리 굵기 대비)
 	BraceletScale = 1.45, -- 팔찌 지름 (팔 굵기 대비). 장갑 목보다 커야 바깥에 보인다
 	NecklaceGap = 0.05, -- 목걸이를 갑옷(또는 가슴) 앞으로 띄우는 거리 (몸통 두께 대비)
 	GemSize = 0.12, -- 보석 크기 (부위 너비 대비)
-	GemColor = Color3.fromRGB(120, 240, 255), -- 다이아몬드 장비의 빛나는 보석 색
-	GlowBrightness = 0.6, -- 다이아몬드 투구·갑옷 보석의 은은한 빛 밝기
+	GemColor = Color3.fromRGB(120, 240, 255), -- 다이아몬드 장신구의 빛나는 보석 색
+	GlowBrightness = 0.6, -- 장신구 보석의 은은한 빛 밝기
 	GlowRange = 5, -- 그 빛이 닿는 거리(스터드)
-	DiamondSparkles = false, -- true면 다이아몬드 갑옷에 반짝이 효과도 붙인다
 	HideHairWithHelmet = true, -- 투구를 쓰면 머리카락·모자 액세서리를 숨긴다 (벗으면 되돌림)
-	-- 5단계 이상 겉모습 (2026-10-09). 몸통 색은 장비 Color(TierDefs), 여기는 테두리·장식·보석·빛. 없는 단계는 가장 높은 아래 단계 값
+	-- 장신구(목걸이·팔찌) 5단계 이상 겉모습 (2026-10-09). 몸통 색은 장비 Color(TierDefs), 여기는 테두리·장식·보석·빛. 없는 단계는 가장 높은 아래 단계 값
 	-- Trim 테두리(챙·허리띠·줄), Accent 작은 장식, Gem 보석·빛 색, Wings 투구 큰 날개, Sparkle 반짝이 입자 수(1초에), Shoulder 어깨 뿔
 	HighTiers = {
 		[5] = { -- 미스릴: 은빛 파란 금속 + 파랗게 빛나는 테두리 (가볍고 날렵)
@@ -243,6 +241,53 @@ Config.GearVisual = {
 			Shoulder = true,
 			GlowBrightness = 1.2,
 			GlowRange = 8,
+		},
+	},
+	-- 방어구 세트 색·재질 (2026-10-10, 헬멧·갑옷·신발·장갑. 세트 Id = EquipmentDefs.Set). HighTiers는 이제 장신구만 쓴다
+	-- Main 주 재질, Trim 띠·테두리, Accent 작은 장식(송곳니·징·뿔·수정), Gem 빛나는 부분(눈·핵·금), Glow 빛 밝기(0이면 없음)·GlowRange, Sparkle 반짝이·불티 입자 수(1초에)
+	Sets = {
+		Leather = { -- 가죽(슬라임): 갈색 가죽 + 천 테두리 + 금색 단추
+			Main = Color3.fromRGB(140, 95, 60), MainMat = Enum.Material.Leather,
+			Trim = Color3.fromRGB(95, 62, 38), TrimMat = Enum.Material.Fabric,
+			Accent = Color3.fromRGB(225, 185, 95), AccentMat = Enum.Material.SmoothPlastic,
+			Gem = Color3.fromRGB(225, 185, 95), Glow = 0, GlowRange = 0, Sparkle = 0,
+		},
+		Bone = { -- 뼈(스켈레톤): 상아색 뼈 + 가죽 끈 + 해골 눈구멍의 초록 빛
+			Main = Color3.fromRGB(235, 228, 205), MainMat = Enum.Material.SmoothPlastic,
+			Trim = Color3.fromRGB(92, 70, 50), TrimMat = Enum.Material.Leather,
+			Accent = Color3.fromRGB(40, 30, 35), AccentMat = Enum.Material.SmoothPlastic,
+			Gem = Color3.fromRGB(120, 255, 140), Glow = 0.4, GlowRange = 4, Sparkle = 0,
+		},
+		Cerberus = { -- 케르베로스: 짙은 털가죽 + 하얀 송곳니 장식 + 빨간 눈
+			Main = Color3.fromRGB(70, 52, 60), MainMat = Enum.Material.Fabric,
+			Trim = Color3.fromRGB(40, 30, 34), TrimMat = Enum.Material.Leather,
+			Accent = Color3.fromRGB(250, 245, 230), AccentMat = Enum.Material.SmoothPlastic,
+			Gem = Color3.fromRGB(255, 60, 40), Glow = 0.5, GlowRange = 4, Sparkle = 0,
+		},
+		Cyclops = { -- 사이클롭스: 두껍게 기운 올리브색 거대 가죽 + 굵은 바느질 + 투구의 큰 외눈
+			Main = Color3.fromRGB(150, 138, 92), MainMat = Enum.Material.Leather,
+			Trim = Color3.fromRGB(100, 84, 55), TrimMat = Enum.Material.Leather,
+			Accent = Color3.fromRGB(235, 220, 175), AccentMat = Enum.Material.Fabric,
+			Patch = Color3.fromRGB(180, 165, 110), -- 덧댄 가죽 조각
+			Gem = Color3.fromRGB(255, 165, 40), Glow = 0.5, GlowRange = 5, Sparkle = 0,
+		},
+		Golem = { -- 바위 골렘: 회색 돌판 + 이끼 + 금 사이로 빛나는 초록빛 핵
+			Main = Color3.fromRGB(122, 116, 108), MainMat = Enum.Material.Slate,
+			Trim = Color3.fromRGB(80, 76, 72), TrimMat = Enum.Material.Rock,
+			Accent = Color3.fromRGB(95, 140, 70), AccentMat = Enum.Material.Grass,
+			Gem = Color3.fromRGB(80, 255, 170), Glow = 0.9, GlowRange = 6, Sparkle = 0,
+		},
+		Frost = { -- 서리 거인: 하얀 털 + 얼음 판 + 뾰족한 얼음 수정, 푸른 서리 빛·눈송이
+			Main = Color3.fromRGB(232, 240, 250), MainMat = Enum.Material.Fabric,
+			Trim = Color3.fromRGB(150, 205, 245), TrimMat = Enum.Material.Ice,
+			Accent = Color3.fromRGB(175, 230, 255), AccentMat = Enum.Material.Glass,
+			Gem = Color3.fromRGB(110, 200, 255), Glow = 1.0, GlowRange = 7, Sparkle = 4,
+		},
+		Behemoth = { -- 베헤모스: 검붉은 비늘 + 큰 뿔 + 갈라진 틈의 용암 불빛·불티
+			Main = Color3.fromRGB(125, 26, 32), MainMat = Enum.Material.Slate,
+			Trim = Color3.fromRGB(40, 14, 16), TrimMat = Enum.Material.CrackedLava,
+			Accent = Color3.fromRGB(235, 215, 175), AccentMat = Enum.Material.SmoothPlastic, -- 뿔
+			Gem = Color3.fromRGB(255, 110, 25), Glow = 1.3, GlowRange = 8, Sparkle = 6,
 		},
 	},
 }
@@ -278,7 +323,7 @@ Config.Foods = {
 	ManaBerry = { Mana = 30 },
 	LunchBox = { Hp = 60, Mana = 60 },
 	-- 바다에서 잡는 음식 (2026-10-09): 마을 밖은 체력이 안 차니 사냥하다 먹는다
-	FishMeat = { Hp = 20 }, -- 생선 (물고기)
+	FishMeat = { Hp = 20 }, -- 생선 (상어가 가끔 준다. 물고기는 2026-10-10 삭제)
 	OctopusLeg = { Hp = 35, Mana = 10 }, -- 낙지 다리 (낙지)
 }
 Config.FoodCooldown = 10 -- 같은 음식을 다시 먹으려면 기다리는 시간(초). 칸 위에 시계 방향 덮개로 보인다 (2026-10-09)
@@ -345,12 +390,45 @@ Config.Mobs = {
 	Zombie = { Hp = 55, Damage = 10, AttackInterval = 1.6, AttackRange = 4, Speed = 6, Aggro = 20, Gold = { 7, 12 }, Loot = { 1, 2 }, Respawn = 18, Scale = 1 },
 	Cerberus = {
 		Hp = 90, Damage = 14, AttackInterval = 1.2, AttackRange = 4.5, Speed = 13, Aggro = 26, Gold = { 14, 24 }, Loot = { 1, 2 }, Respawn = 30, Scale = 1.1,
-		ExtraLoot = { { Id = "CerberusHide", Chance = 0.85, Count = { 1, 2 } } },
+		ExtraLoot = { { Id = "CerberusHide", Chance = 0.85, Count = { 1, 2 } } }, -- 2026-10-10 사용자 요청 "케르베로스 가죽도" 확인: 털가죽 85%로 1~2장, 주 전리품 송곳니는 그대로
 	},
 	-- 사이클롭스: 플레이어 키의 약 1.9배 (모델 높이 약 7.2 × Scale 1.4 ≈ 10스터드)
 	Cyclops = {
 		Hp = 160, Damage = 18, AttackInterval = 1.8, AttackRange = 6.5, Speed = 9, Aggro = 26, Gold = { 25, 40 }, Loot = { 1, 3 }, Respawn = 45, Scale = 1.4,
 		ExtraLoot = { { Id = "CyclopsHide", Chance = 0.85, Count = { 1, 3 } } },
+	},
+	-- 스켈레톤 궁수 (2026-10-10): Ranged가 있으면 활을 쏘는 몹. 가까이 오면 뒤로 물러나고(KeepAway), Range 안에서 AttackInterval마다 쏜다
+	--   Ranged: Range 쏘는 거리, KeepAway 이보다 가까우면 물러남, ArrowSpeed 화살 속도(스터드/초, 날아가는 동안 피할 수 있다),
+	--   HitRadius 화살이 떨어질 때 이 반경 안에 있으면 맞음, Lead 움직이는 사람 앞을 노리는 정도(0 = 지금 자리, 1 = 도착할 자리),
+	--   RetreatSpeed 물러날 때 속도 배율. 데미지는 Damage (구르기 무적이면 "피함!")
+	SkeletonArcher = {
+		Hp = 32, Damage = 7, AttackInterval = 2.2, AttackRange = 4, Speed = 8, Aggro = 32, Gold = { 6, 11 }, Loot = { 1, 2 }, Respawn = 22, Scale = 1,
+		Ranged = { Range = 30, KeepAway = 12, ArrowSpeed = 45, HitRadius = 3.5, Lead = 0.5, RetreatSpeed = 0.9 },
+		ExtraLoot = { { Id = "WoodQuiver", Chance = 0.05, Count = { 1, 1 } } }, -- 아주 가끔 나무 화살통
+	},
+	-- 거대 몬스터 (2026-10-10): 사이클롭스(플레이어 키 약 1.9배)보다 크다 = 골렘 약 2.3배 / 서리 거인 약 2.7배 / 베헤모스 약 3.2배
+	-- Specials: 큰 기술 목록 (차례로 돌아가며 쓴다). 대상이 Trigger 거리 안이고 Cooldown이 지났으면 Windup초 동안 바닥에 빨간 표시 → 그 뒤 판정
+	--   Kind "Slam" 대상 자리 내려찍기(둘레 Radius) / "Stomp" 내 둘레 발구르기(Radius) / "Charge" 대상 쪽으로 Distance만큼 Speed로 돌진(폭 Width, 닿으면 Damage)
+	--   BossScale: 이 몹이 보스가 될 때 크기 범위 (없으면 Config.MobBoss.Scale. 거인은 이미 커서 작게)
+	--   Damage는 보스면 크기만큼, Radius·Width·Distance도 크기만큼. 기절(방망이 내려찍기)하면 준비하던 기술이 취소된다. 구르기 무적이면 피한다
+	StoneGolem = {
+		Hp = 380, Damage = 26, AttackInterval = 2.0, AttackRange = 8, Speed = 7, Aggro = 28, Gold = { 50, 80 }, Loot = { 1, 3 }, Respawn = 70, Scale = 1.6, BossScale = { 1.2, 1.5 },
+		Specials = { { Kind = "Slam", Trigger = 18, Cooldown = 7, Windup = 1.1, Radius = 9, Damage = 34 } },
+		ExtraLoot = { { Id = "GolemCore", Chance = 0.3, Count = { 1, 1 } } },
+	},
+	FrostGiant = {
+		Hp = 560, Damage = 32, AttackInterval = 2.0, AttackRange = 9, Speed = 8, Aggro = 30, Gold = { 80, 120 }, Loot = { 1, 3 }, Respawn = 90, Scale = 1.8, BossScale = { 1.2, 1.5 },
+		Specials = { { Kind = "Stomp", Trigger = 14, Cooldown = 8, Windup = 1.3, Radius = 14, Damage = 40 } },
+		ExtraLoot = { { Id = "FrostCrystal", Chance = 0.3, Count = { 1, 1 } } },
+	},
+	-- 베헤모스: 7단계라 6단계 무기로도 0.4배 (Config.TierWall). 돌진과 발구르기를 번갈아 쓴다
+	Behemoth = {
+		Hp = 700, Damage = 38, AttackInterval = 2.2, AttackRange = 14, Speed = 8, -- 몸이 길어서(반지름 약 11) 공격 거리도 길게 Aggro = 32, Gold = { 120, 180 }, Loot = { 1, 3 }, Respawn = 120, Scale = 2.0, BossScale = { 1.2, 1.4 },
+		Specials = {
+			{ Kind = "Charge", Trigger = 30, Cooldown = 6, Windup = 1.2, Distance = 30, Speed = 42, Width = 7, Damage = 46 },
+			{ Kind = "Stomp", Trigger = 13, Cooldown = 6, Windup = 1.2, Radius = 13, Damage = 40 },
+		},
+		ExtraLoot = { { Id = "BehemothHorn", Chance = 0.25, Count = { 1, 1 } } },
 	},
 	-- 바다 생물 (2026-10-09): Swim = true면 지형 물 속을 헤엄친다 (헤엄 수치 Config.SeaAI, 사는 곳 Config.SeaZones)
 	--   Retaliate = true: 먼저 덤비지 않지만 맞으면 쫓아와 때린다 (낙지)
@@ -358,16 +436,7 @@ Config.Mobs = {
 	--   Prick: 맞으면 PuffTime초 동안 PuffScale배로 부풀고, Range 안(칼·방망이 거리)에서 때린 사람을 Damage만큼 찌른다 (Cooldown초마다, 복어)
 	--   Ink: 맞으면 Chance 확률로 먹물을 뿜는다 (Cooldown초마다, 때린 사람 화면이 Blind초 동안 어두워짐, 낙지)
 	--   ChargeSpeed·ChargeRange: 대상이 ChargeRange 안이면 속도 ChargeSpeed배로 돌진 (상어)
-	Fish = { Hp = 15, Damage = 0, AttackInterval = 1.5, AttackRange = 3, Speed = 8, Aggro = 15, Gold = { 1, 4 }, Loot = { 1, 2 }, Respawn = 12, Scale = 1, Passive = true, FleeTime = 3, FleeSpeed = 1.8, Swim = true },
-	Pufferfish = {
-		Hp = 35, Damage = 0, AttackInterval = 1.5, AttackRange = 3, Speed = 5, Aggro = 15, Gold = { 4, 8 }, Loot = { 1, 2 }, Respawn = 20, Scale = 1, Passive = true, FleeTime = 3, FleeSpeed = 1.3, Swim = true,
-		Prick = { Damage = 4, Range = 9, PuffScale = 1.6, PuffTime = 1.5, Cooldown = 0.8 },
-		ExtraLoot = { { Id = "FishMeat", Chance = 0.5, Count = { 1, 1 } } },
-	},
-	-- 황금 물고기: 드물고(얕은 바다에 한 마리, 다시 나오기 느림) 빠르게 도망치지만 골드를 잔뜩 준다
-	GoldenFish = {
-		Hp = 25, Damage = 0, AttackInterval = 1.5, AttackRange = 3, Speed = 12, Aggro = 18, Gold = { 40, 70 }, Loot = { 1, 2 }, Respawn = 120, Scale = 1, Passive = true, FleeTime = 6, FleeSpeed = 2.2, Swim = true,
-	},
+	-- (물고기·복어·황금 물고기는 2026-10-10 사용자 요청으로 삭제. Prick은 지금 쓰는 몹이 없다)
 	Octopus = {
 		Hp = 70, Damage = 9, AttackInterval = 1.3, AttackRange = 5, Speed = 7, Aggro = 22, Gold = { 10, 18 }, Loot = { 1, 3 }, Respawn = 25, Scale = 1, Swim = true, Retaliate = true,
 		Ink = { Chance = 0.35, Cooldown = 6, Blind = 1.5 },
@@ -387,7 +456,7 @@ Config.Mobs = {
 -- Radius 구역 반경, Count 주인 몹 자리 수. Schools·SchoolSize가 있으면 Count 대신 떼(자리 하나에 SchoolSize마리, 같이 헤엄침)
 -- Extras 같은 구역에 따로 두는 몹 { 몹 = 마리 }, BossSpots 보스가 잘 나오는 자리 수 (Config.MobBoss.SpotChance)
 Config.SeaZones = {
-	{ Name = "얕은 바다", MobType = "Fish", Schools = 4, SchoolSize = { 3, 5 }, Extras = { Pufferfish = 3, GoldenFish = 1 }, Distance = { 55, 220 }, Depth = { 4, 14 }, Radius = 40, BossSpots = 0 },
+	-- (얕은 바다 = 물고기 떼·복어·황금 물고기 구역은 2026-10-10 물고기 삭제와 함께 뺐다)
 	{ Name = "낙지 바위", MobType = "Octopus", Count = 4, Extras = { Jellyfish = 3 }, Distance = { 80, 280 }, Depth = { 6, 40 }, Radius = 35, BossSpots = 1 },
 	{ Name = "깊은 바다", MobType = "Shark", Count = 3, Extras = { Octopus = 1 }, Distance = { 140, 450 }, Depth = { 10, 999 }, Radius = 45, BossSpots = 1 },
 }
@@ -437,17 +506,24 @@ Config.MobZones = {
 	{ Name = "슬라임 언덕", MobType = "Slime", Count = 10, Distance = { 80, 150 }, Arc = 65, BossSpots = 1, Mix = { Zombie = 0.04 } },
 	{ Name = "슬라임 연못", MobType = "Slime", Count = 9, Distance = { 85, 155 }, Arc = 60, BossSpots = 1, Mix = { Skeleton = 0.04 } },
 	-- 중간 띠: 스켈레톤·좀비 (가끔 슬라임, 아주 가끔 케르베로스)
-	{ Name = "스켈레톤 무덤", MobType = "Skeleton", Count = 9, Distance = { 135, 210 }, Arc = 60, BossSpots = 1, Mix = { Zombie = 0.15, Slime = 0.08, Cerberus = 0.04 } },
+	-- Extras: 구역 안에 따로 두는 몹 { 몹 = 마리 } (Mix와 상관없이 그 수만큼, 2026-10-10 스켈레톤 궁수)
+	{ Name = "스켈레톤 무덤", MobType = "Skeleton", Count = 9, Distance = { 135, 210 }, Arc = 60, BossSpots = 1, Mix = { Zombie = 0.15, Slime = 0.08, Cerberus = 0.04 }, Extras = { SkeletonArcher = 4 } },
 	{ Name = "좀비 숲", MobType = "Zombie", Count = 9, Distance = { 135, 210 }, Arc = 60, BossSpots = 1, Mix = { Skeleton = 0.15, Slime = 0.08, Cerberus = 0.04 } },
 	-- 먼 띠: 케르베로스·사이클롭스 (가끔 스켈레톤·좀비)
 	{ Name = "케르베로스 굴", MobType = "Cerberus", Count = 5, Distance = { 195, 280 }, Arc = 55, BossSpots = 1, Mix = { Skeleton = 0.08, Zombie = 0.08, Cyclops = 0.06 } },
 	{ Name = "사이클롭스 골짜기", MobType = "Cyclops", Count = 4, Distance = { 215, 300 }, Arc = 55, BossSpots = 1, Mix = { Cerberus = 0.2 } },
+	-- 아주 먼 띠 (2026-10-10): 거대 몬스터. 사이클롭스보다 멀리, 몇 마리만. 땅이 모자라면 제작 스크립트가 거리를 조금씩 당겨 다시 찾는다 (FallbackShrink)
+	{ Name = "바위 골렘 돌무덤", MobType = "StoneGolem", Count = 3, Distance = { 280, 350 }, Arc = 45, BossSpots = 0 },
+	{ Name = "서리 거인 얼음벌판", MobType = "FrostGiant", Count = 3, Distance = { 320, 400 }, Arc = 45, BossSpots = 0 },
+	{ Name = "베헤모스 둥지", MobType = "Behemoth", Count = 2, Distance = { 370, 450 }, Arc = 40, BossSpots = 0 },
 }
 Config.MobZoneLayout = {
 	ArcGap = 12, -- 같은 띠 구역끼리 방향 사이 여유(도). 서로 안 겹치게
 	SpawnGap = 14, -- 생성 자리끼리 최소 거리 (2026-10-09: 7 → 14, 몹이 너무 붙어 있어서)
 	ObstacleGap = 25, -- 광산 입구 같은 시설에서 떨어질 거리
 	NodeGap = 5, -- 나무·바위 생성 자리에서 떨어질 거리
+	-- 구역 자리를 다 못 채우면(맵 끝 너머라 땅이 없음) 거리를 이 배율로 차례로 당겨 다시 찾는다 (2026-10-10, 먼 거대 몬스터 구역용)
+	FallbackShrink = { 0.92, 0.85, 0.78 },
 }
 
 -- 보스 몹 (2026-10-09): 생성(다시 생성 포함)될 때마다 Chance 확률로 보스가 된다. 보스 자리는 SpotChance
@@ -500,7 +576,7 @@ Config.Inventory = {
 -- 저장 (DataService, 2026-10-09)
 Config.Save = {
 	StoreName = "PlayerData_v1", -- 실제 게임 저장소 이름
-	StudioStoreName = "PlayerData_Studio_v2", -- Studio 테스트 저장소 (테스트 지급이 실제 저장에 섞이지 않게). 2026-10-09 v1 → v2: 새로 시작
+	StudioStoreName = "PlayerData_Studio_v3", -- Studio 테스트 저장소 (테스트 지급이 실제 저장에 섞이지 않게). 2026-10-09 v1 → v2: 새로 시작. 2026-10-10 v2 → v3: 테스트 아이템이 쌓여서 돌 곡괭이 하나로 새로 시작
 	AutoSaveInterval = 60, -- 자동 저장 간격(초)
 	Retries = 3, -- 실패하면 다시 시도하는 횟수
 	LockTimeout = 90, -- 다른 서버의 잠금이 이 초보다 오래됐으면 버려진 것으로 본다
@@ -516,9 +592,14 @@ Config.Debug = {
 	-- 2026-10-09 사용자 요청: 테스트도 처음부터 직접 구해서 하도록 테스트 지급을 전부 끔 (다시 켜려면 true / 숫자)
 	GiveAllPickaxes = false, -- true면 들어올 때 도구·무기를 전부 지급 (테스트용)
 	StartSlots = 100, -- Studio 테스트 때 가방 칸 수 (도구·무기 30 + 장비 36 + 화살통·음식을 전부 받으면 70칸이 넘는다, 2026-10-09 60 → 100)
-	GiveAllEquipment = false, -- Studio에서 들어오면 장비(칸 6개 × 6단계 = 36종)를 전부 지급 (테스트용)
+	GiveAllEquipment = false, -- Studio에서 들어오면 장비(방어구 4칸 × 7세트 + 장신구 2칸 × 6단계 = 40종)를 전부 지급 (테스트용)
 	GiveFoods = 0, -- Studio에서 들어오면 음식을 종류마다 이만큼 지급. 테스트 끝나면 0
 	GiveQuivers = 0, -- Studio에서 처음 들어오면 화살통을 종류마다 이만큼 지급. 테스트 끝나면 0
+	-- TODO(임시, 테스트 끝나면 지우기): 상점 아이콘(또는 재료 그림)을 빨리 3번 누르면 그 아이템을 공짜로 받는다 (Studio 전용, 2026-10-10 사용자 요청)
+	-- 클라 ShopUI가 세 번 누름을 알아채 DebugShopGrant를 보내고, 서버 CraftingService가 Studio·이 값·NPC 거리를 확인한 뒤 준다
+	ShopTripleClickFree = true,
+	ShopTripleClickWindow = 0.8, -- 이 초 안에 3번 눌러야 한다
+	ShopFreeStackAmount = 10, -- 쌓이는 아이템(광석·괴·재료·음식)은 한 번에 이만큼, 도구·무기·장비는 1개
 }
 
 -- 화면 가장자리 작은 버튼 위치 (QuickButtonsHUD)
@@ -569,9 +650,14 @@ Config.SellPrices = {
 	CerberusHide = 14, -- 두 번째 전리품 (2026-10-09)
 	CyclopsHide = 22,
 	BossToken = 50, -- 보스만 준다
-	FishMeat = 3, -- 바다 생물 전리품 (2026-10-09)
-	PufferSpine = 6,
-	GoldenScale = 60, -- 황금 물고기: 드물어서 비싸다
+	FishMeat = 3, -- 바다 생물 전리품 (2026-10-09). 생선은 지금 상어가 준다
+	-- 거대 몬스터 전리품 (2026-10-10): 방어구 재료 (주 전리품 / 두 번째 전리품)
+	GolemPlate = 30,
+	GolemCore = 70,
+	FrostHide = 45,
+	FrostCrystal = 100,
+	BehemothScale = 65,
+	BehemothHorn = 150,
 	OctopusLeg = 8,
 	InkSac = 10,
 	JellyfishJelly = 6,
@@ -599,7 +685,7 @@ Config.Smelting = {
 --   From.Count: 2·3단계는 3개, 4단계(다이아)부터는 2개 (2026-10-09 사용자 결정: 6단계 하나에 1단계 243개 → 108개)
 -- 재료 원칙 (2026-10-09 사용자 결정):
 --   도구·무기·장신구(목걸이·팔찌) = 광물(광석·괴) + 통나무 (+ 무기는 가끔 귀한 몹 부위: 송곳니·눈알·보스의 증표)
---   방어구(헬멧·갑옷·신발·장갑) = 몹 전리품이 주재료 (젤리 → 뼈·천 → 케르베로스 털가죽·사이클롭스 가죽 → 보스의 증표) + 묶는 괴 조금
+--   방어구(헬멧·갑옷·신발·장갑) = 몹 세트 (2026-10-10): 가죽 → 뼈 → 케르베로스 → 사이클롭스 → 바위 골렘 → 서리 거인 → 베헤모스(7단계), 그 몹 재료가 주재료
 -- 재료는 그 단계 직전 도구·무기로 구할 수 있는 것 위주 (예: 미스릴 곡괭이에는 다이아몬드 곡괭이로 캐는 미스릴괴, 오리하르콘은 미스릴 곡괭이로 캔다)
 -- 대장장이가 곡괭이·도끼, 사냥꾼이 칼·활·방망이·장비를 만든다. 화살통은 Config.Quiver
 -- TODO(미정): 숫자는 임시값. 플레이테스트로 조정
@@ -640,34 +726,42 @@ local RECIPES: { [string]: Recipe } = {
 	DiamondMace = { From = { Id = "MorningStar", Count = 2 }, Gold = 700, Items = { SteelIngot = 7, IronIngot = 5, CyclopsEye = 3, Maple = 6 } },
 	MithrilHammer = { From = { Id = "DiamondMace", Count = 2 }, Gold = 2000, Items = { MithrilIngot = 7, SteelIngot = 5, Maple = 8, CyclopsEye = 3 } },
 	OrichalcumHammer = { From = { Id = "MithrilHammer", Count = 2 }, Gold = 5000, Items = { OrichalcumIngot = 4, MithrilIngot = 6, Ebony = 6, BossToken = 2 } },
-	-- 헬멧 (몹 전리품 주재료 + 묶는 괴 조금)
+	-- 방어구 세트 (2026-10-10 사용자 요청): 단계마다 그 몹의 재료로 만든다 (EquipmentDefs ARMOR_SETS)
+	--   1 가죽(슬라임 젤리) / 2 뼈(뼈다귀 + 낡은 천) / 3 케르베로스(털가죽 + 송곳니) / 4 사이클롭스(거대한 가죽 + 눈알)
+	--   5 바위 골렘(바위 판 + 골렘 핵) / 6 서리 거인(서리 털가죽 + 서리 수정) / 7 베헤모스(비늘 + 뿔 + 보스의 증표)
+	--   주재료 많이 + 두 번째 재료 조금 + 바로 아래 세트 재료 조금 + 묶는 괴 1개(3단계부터)
+	-- 헬멧
 	LeatherHelmet = { Gold = 8, Items = { SlimeJelly = 3 } },
-	CopperHelmet = { From = { Id = "LeatherHelmet", Count = 3 }, Gold = 40, Items = { SlimeJelly = 8, CopperIngot = 1 } },
-	IronHelmet = { From = { Id = "CopperHelmet", Count = 3 }, Gold = 180, Items = { Bone = 10, OldCloth = 4, IronIngot = 1 } },
-	DiamondHelmet = { From = { Id = "IronHelmet", Count = 2 }, Gold = 700, Items = { CerberusHide = 8, Bone = 10, CyclopsEye = 1, SteelIngot = 1 } },
-	MithrilHelmet = { From = { Id = "DiamondHelmet", Count = 2 }, Gold = 1800, Items = { CyclopsHide = 10, CerberusHide = 10, CyclopsEye = 2, MithrilIngot = 1 } },
-	OrichalcumHelmet = { From = { Id = "MithrilHelmet", Count = 2 }, Gold = 4500, Items = { CyclopsHide = 18, CerberusHide = 14, BossToken = 2, OrichalcumIngot = 1 } },
+	BoneHelmet = { From = { Id = "LeatherHelmet", Count = 3 }, Gold = 40, Items = { Bone = 12, OldCloth = 2 } },
+	CerberusHelmet = { From = { Id = "BoneHelmet", Count = 3 }, Gold = 180, Items = { CerberusHide = 8, CerberusFang = 3, Bone = 4, IronIngot = 1 } },
+	CyclopsHelmet = { From = { Id = "CerberusHelmet", Count = 2 }, Gold = 700, Items = { CyclopsHide = 10, CyclopsEye = 2, CerberusHide = 3, SteelIngot = 1 } },
+	GolemHelmet = { From = { Id = "CyclopsHelmet", Count = 2 }, Gold = 1800, Items = { GolemPlate = 10, GolemCore = 1, CyclopsHide = 4, MithrilIngot = 1 } },
+	FrostHelmet = { From = { Id = "GolemHelmet", Count = 2 }, Gold = 4500, Items = { FrostHide = 12, FrostCrystal = 2, GolemPlate = 4, MithrilIngot = 1 } },
+	BehemothHelmet = { From = { Id = "FrostHelmet", Count = 2 }, Gold = 9000, Items = { BehemothScale = 14, BehemothHorn = 2, FrostHide = 4, BossToken = 1, OrichalcumIngot = 1 } },
 	-- 갑옷
 	LeatherArmor = { Gold = 12, Items = { SlimeJelly = 5 } },
-	CopperArmor = { From = { Id = "LeatherArmor", Count = 3 }, Gold = 50, Items = { SlimeJelly = 10, OldCloth = 2, CopperIngot = 1 } },
-	IronArmor = { From = { Id = "CopperArmor", Count = 3 }, Gold = 220, Items = { OldCloth = 10, Bone = 6, IronIngot = 2 } },
-	DiamondArmor = { From = { Id = "IronArmor", Count = 2 }, Gold = 850, Items = { CerberusHide = 8, SharkSkin = 3, CyclopsHide = 4, OldCloth = 10, SteelIngot = 2 } }, -- 상어 가죽 (2026-10-09)
-	MithrilArmor = { From = { Id = "DiamondArmor", Count = 2 }, Gold = 2200, Items = { CyclopsHide = 14, CerberusHide = 12, CerberusFang = 4, MithrilIngot = 2 } },
-	OrichalcumArmor = { From = { Id = "MithrilArmor", Count = 2 }, Gold = 5500, Items = { CyclopsHide = 24, CerberusHide = 18, BossToken = 3, OrichalcumIngot = 1 } },
+	BoneArmor = { From = { Id = "LeatherArmor", Count = 3 }, Gold = 50, Items = { Bone = 16, OldCloth = 4 } },
+	CerberusArmor = { From = { Id = "BoneArmor", Count = 3 }, Gold = 220, Items = { CerberusHide = 12, CerberusFang = 4, OldCloth = 4, IronIngot = 1 } },
+	CyclopsArmor = { From = { Id = "CerberusArmor", Count = 2 }, Gold = 850, Items = { CyclopsHide = 14, CyclopsEye = 2, CerberusHide = 4, SteelIngot = 1 } },
+	GolemArmor = { From = { Id = "CyclopsArmor", Count = 2 }, Gold = 2200, Items = { GolemPlate = 14, GolemCore = 2, CyclopsHide = 5, MithrilIngot = 1 } },
+	FrostArmor = { From = { Id = "GolemArmor", Count = 2 }, Gold = 5500, Items = { FrostHide = 16, FrostCrystal = 3, GolemPlate = 5, MithrilIngot = 2 } },
+	BehemothArmor = { From = { Id = "FrostArmor", Count = 2 }, Gold = 11000, Items = { BehemothScale = 18, BehemothHorn = 3, FrostHide = 5, BossToken = 2, OrichalcumIngot = 1 } },
 	-- 신발
 	LeatherBoots = { Gold = 8, Items = { SlimeJelly = 3 } },
-	CopperBoots = { From = { Id = "LeatherBoots", Count = 3 }, Gold = 40, Items = { SlimeJelly = 8, CopperIngot = 1 } },
-	IronBoots = { From = { Id = "CopperBoots", Count = 3 }, Gold = 180, Items = { OldCloth = 8, Bone = 4, IronIngot = 1 } },
-	DiamondBoots = { From = { Id = "IronBoots", Count = 2 }, Gold = 700, Items = { CerberusHide = 8, OldCloth = 8, CerberusFang = 2, SteelIngot = 1 } },
-	MithrilBoots = { From = { Id = "DiamondBoots", Count = 2 }, Gold = 1800, Items = { CerberusHide = 14, CyclopsHide = 6, CerberusFang = 3, MithrilIngot = 1 } },
-	OrichalcumBoots = { From = { Id = "MithrilBoots", Count = 2 }, Gold = 4500, Items = { CerberusHide = 22, CyclopsHide = 10, BossToken = 2, OrichalcumIngot = 1 } },
+	BoneBoots = { From = { Id = "LeatherBoots", Count = 3 }, Gold = 40, Items = { Bone = 10, OldCloth = 3 } },
+	CerberusBoots = { From = { Id = "BoneBoots", Count = 3 }, Gold = 180, Items = { CerberusHide = 8, CerberusFang = 2, Bone = 3, IronIngot = 1 } },
+	CyclopsBoots = { From = { Id = "CerberusBoots", Count = 2 }, Gold = 700, Items = { CyclopsHide = 9, CyclopsEye = 1, CerberusHide = 3, SteelIngot = 1 } },
+	GolemBoots = { From = { Id = "CyclopsBoots", Count = 2 }, Gold = 1800, Items = { GolemPlate = 9, GolemCore = 1, CyclopsHide = 3, MithrilIngot = 1 } },
+	FrostBoots = { From = { Id = "GolemBoots", Count = 2 }, Gold = 4500, Items = { FrostHide = 10, FrostCrystal = 2, GolemPlate = 3, MithrilIngot = 1 } },
+	BehemothBoots = { From = { Id = "FrostBoots", Count = 2 }, Gold = 9000, Items = { BehemothScale = 12, BehemothHorn = 1, FrostHide = 3, BossToken = 1, OrichalcumIngot = 1 } },
 	-- 장갑
 	LeatherGloves = { Gold = 8, Items = { SlimeJelly = 3 } },
-	CopperGloves = { From = { Id = "LeatherGloves", Count = 3 }, Gold = 40, Items = { SlimeJelly = 8, CopperIngot = 1 } },
-	IronGloves = { From = { Id = "CopperGloves", Count = 3 }, Gold = 180, Items = { OldCloth = 6, Bone = 6, IronIngot = 1 } },
-	DiamondGloves = { From = { Id = "IronGloves", Count = 2 }, Gold = 700, Items = { CerberusHide = 6, CyclopsHide = 3, Bone = 8, SteelIngot = 1 } },
-	MithrilGloves = { From = { Id = "DiamondGloves", Count = 2 }, Gold = 1800, Items = { CyclopsHide = 10, CerberusHide = 6, CerberusFang = 4, MithrilIngot = 1 } },
-	OrichalcumGloves = { From = { Id = "MithrilGloves", Count = 2 }, Gold = 4500, Items = { CyclopsHide = 16, CerberusHide = 10, BossToken = 2, OrichalcumIngot = 1 } },
+	BoneGloves = { From = { Id = "LeatherGloves", Count = 3 }, Gold = 40, Items = { Bone = 10, OldCloth = 2 } },
+	CerberusGloves = { From = { Id = "BoneGloves", Count = 3 }, Gold = 180, Items = { CerberusHide = 6, CerberusFang = 4, Bone = 3, IronIngot = 1 } },
+	CyclopsGloves = { From = { Id = "CerberusGloves", Count = 2 }, Gold = 700, Items = { CyclopsHide = 8, CyclopsEye = 1, CerberusHide = 3, SteelIngot = 1 } },
+	GolemGloves = { From = { Id = "CyclopsGloves", Count = 2 }, Gold = 1800, Items = { GolemPlate = 8, GolemCore = 1, CyclopsHide = 3, MithrilIngot = 1 } },
+	FrostGloves = { From = { Id = "GolemGloves", Count = 2 }, Gold = 4500, Items = { FrostHide = 9, FrostCrystal = 2, GolemPlate = 3, MithrilIngot = 1 } },
+	BehemothGloves = { From = { Id = "FrostGloves", Count = 2 }, Gold = 9000, Items = { BehemothScale = 11, BehemothHorn = 1, FrostHide = 3, BossToken = 1, OrichalcumIngot = 1 } },
 	-- 목걸이 (광물 + 통나무)
 	BoneNecklace = { Gold = 8, Items = { Stone = 4, Pine = 2 } },
 	CopperNecklace = { From = { Id = "BoneNecklace", Count = 3 }, Gold = 40, Items = { CopperIngot = 3, Stone = 6 } },
@@ -1161,10 +1255,12 @@ Config.MobDeathSounds = {
 	Zombie = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 0.55, Volume = 0.9 }, -- 우어어...
 	Cerberus = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 1.9, Volume = 0.8, Repeat = 0.16 }, -- 깨갱!
 	Cyclops = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 0.42, Volume = 1 }, -- 쿠어어엉!
-	-- 바다 생물 (2026-10-09): 물고기·복어·해파리는 뽀글(splat 높게), 낙지는 뿌직, 상어는 낮게 크앙
-	Fish = { Id = "rbxasset://sounds/splat.wav", Pitch = 2.1, Volume = 0.7 },
-	Pufferfish = { Id = "rbxasset://sounds/splat.wav", Pitch = 1.4, Volume = 0.9, Repeat = 0.12 },
-	GoldenFish = { Id = "rbxasset://sounds/splat.wav", Pitch = 2.4, Volume = 0.8, Repeat = 0.1 },
+	SkeletonArcher = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 0.9, Volume = 0.8 }, -- 으억! (스켈레톤보다 조금 높게, 2026-10-10)
+	-- 거대 몬스터 (2026-10-10): 아주 낮게 두 번 끊어 쿠웅… 크아앙
+	StoneGolem = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 0.32, Volume = 1, Repeat = 0.35 },
+	FrostGiant = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 0.36, Volume = 1, Repeat = 0.3 },
+	Behemoth = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 0.27, Volume = 1, Repeat = 0.4 },
+	-- 바다 생물 (2026-10-09): 해파리는 뽀글(splat 높게), 낙지는 뿌직, 상어는 낮게 크앙
 	Octopus = { Id = "rbxasset://sounds/splat.wav", Pitch = 0.9, Volume = 1 },
 	Jellyfish = { Id = "rbxasset://sounds/splat.wav", Pitch = 1.9, Volume = 0.6 },
 	Shark = { Id = "rbxasset://sounds/uuhhh.mp3", Pitch = 0.5, Volume = 1 },
@@ -1178,6 +1274,28 @@ Config.SeaEffects = {
 	InkScreen = 0.35, -- 먹물을 맞은 사람 화면 어두움 (0 = 깜깜, 1 = 그대로)
 	PuffSound = "rbxasset://sounds/splat.wav", -- 복어가 부풀 때 "뿅"
 	PuffPitch = 0.8,
+}
+
+-- 몹 화살·큰 기술 연출 (클라이언트 CombatController, 리모트 MobSpecial "Arrow"·"Telegraph"·"Impact", 2026-10-10)
+Config.MobAttackEffects = {
+	ArrowColor = Color3.fromRGB(205, 195, 170), -- 스켈레톤 궁수 화살 (뼈 색)
+	ArrowTrail = Color3.fromRGB(255, 120, 90), -- 화살 꼬리 (빨갛게 → 날아오는 게 잘 보이게)
+	ArrowSound = "rbxasset://sounds/swordslash.wav", -- 쏠 때 "휘익" (플레이어 활과 같은 소리, 낮게)
+	ArrowPitch = 0.8,
+	TelegraphColor = Color3.fromRGB(255, 60, 40), -- 바닥 경고 표시 색
+	TelegraphTransparency = 0.55, -- 처음 투명도 (판정 직전 0.25까지 진해진다)
+	WarnSound = "rbxasset://sounds/uuhhh.mp3", -- 기술 준비 "흐으읍"
+	WarnPitch = 0.45,
+	ImpactSound = "rbxassetid://9118608146", -- 쾅! (방망이 내려찍기와 같은 Rock Hits Rock을 더 낮게)
+	ImpactPitch = 0.35,
+	ImpactShakeRange = 40, -- 이 거리 안이면 화면이 흔들린다
+	ImpactShake = 2.5, -- 흔들림 배수 (Config.HitFeel.CameraShake 기준)
+	-- 거인마다 충격파 색
+	Colors = {
+		StoneGolem = Color3.fromRGB(150, 140, 125),
+		FrostGiant = Color3.fromRGB(170, 225, 255),
+		Behemoth = Color3.fromRGB(170, 80, 120),
+	},
 }
 
 -- 사운드 에셋 ID (Creator Store 무료 사운드). 빈 값이면 재생하지 않는다
