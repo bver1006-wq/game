@@ -5,7 +5,8 @@
 -- 판정 자체는 서버(TimingService)가 한다.
 -- 잔상의 시작 시각과 줄어드는 시간(타격마다 랜덤)은 서버가 HitEffect로 알려준 값(GetServerTimeNow 기준)을 쓴다.
 -- (Highlight 테두리는 반투명 물체에는 그려지지 않아서 쓰지 않는다)
--- 나무는 통째로 키우면 화면을 가리므로, 줄기 둘레의 고리가 줄기 굵기로 줄어든다
+-- 테두리가 잘 보이게 껍데기를 Config.Timing.GhostLayers겹(조금씩 크게) 겹쳐 굵게 보인다 (2026-10-10)
+-- 나무는 잔상 대신 화면 아래 타이밍 막대(TreeTimingHUD)를 쓴다 (2026-10-10)
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -23,13 +24,14 @@ local localPlayer = Players.LocalPlayer
 local FLASH_TIME = 0.1 -- 바위 크기에 닿는 순간 번쩍이는 시간(초)
 
 type GhostPart = { Part: BasePart, BaseTransparency: number }
+-- 겹친 껍데기 한 겹: 바위 복제본과 바위 대비 추가 크기 배수
+type GhostLayer = { Model: Model, BaseScale: number, Multiplier: number }
 type Ghost = {
-	Model: Model,
 	Rock: Model,
 	HitTime: number,
 	Duration: number, -- 바위 크기가 되기까지 걸리는 시간 (서버가 정한 값)
-	BaseScale: number,
 	Pivot: CFrame,
+	Layers: { GhostLayer },
 	Parts: { GhostPart },
 }
 
@@ -41,7 +43,9 @@ local current: Ghost? = nil
 -- 지금 보이는 잔상을 지운다
 local function clearGhost()
 	if current then
-		current.Model:Destroy()
+		for _, layer in current.Layers do
+			layer.Model:Destroy()
+		end
 		current = nil
 	end
 end
@@ -58,27 +62,10 @@ local function setGhostLook(ghost: Ghost, flash: boolean, fade: number)
 	end
 end
 
--- 나무용 잔상: 타격 높이에서 줄기를 감싸는 원통 고리. 크기 1일 때 줄기 굵기(HitRadius)와 같다
-local function createTreeGhostModel(rock: Model, radius: number): Model
-	local model = Instance.new("Model")
-	model.Name = "TreeGhost"
-	local ring = Instance.new("Part")
-	ring.Name = "Ring"
-	ring.Shape = Enum.PartType.Cylinder
-	ring.Size = Vector3.new(Config.HitFeel.Tree.GhostRingHeight, radius * 2, radius * 2) -- 원통은 X축이 높이
-	-- 원통을 세운다 (X축 → 위쪽)
-	ring.CFrame = CFrame.new(TargetController.focusPosition(rock, HitFeelController.getRestPivot(rock))) * CFrame.Angles(0, 0, math.rad(90))
-	ring.Parent = model
-	model.PrimaryPart = ring
-	return model
-end
-
--- 바위를 복제해서 충돌·조준에 안 걸리는 돌 모양 잔상을 만든다 (나무는 줄기 고리)
-local function createGhost(rock: Model, hitTime: number, duration: number): Ghost
+-- 바위를 복제해서 충돌·조준에 안 걸리는 돌 모양 껍데기 한 겹을 만든다. 부품은 parts에 모은다
+local function createLayerModel(rock: Model, parts: { GhostPart }): Model
 	local timing = Config.Timing
-	local def = TargetController.getDef(rock)
-	local isTree = def ~= nil and def.Kind == "Tree"
-	local model = if isTree then createTreeGhostModel(rock, TargetController.hitRadius(rock)) else rock:Clone()
+	local model = rock:Clone()
 	-- 자동 조준(OreNode 태그·Hp 속성)에 걸리지 않게 지운다
 	-- (RBX_로 시작하는 엔진 속성은 스크립트가 못 지우므로 우리 속성만 지운다)
 	CollectionService:RemoveTag(model, "OreNode")
@@ -86,7 +73,6 @@ local function createGhost(rock: Model, hitTime: number, duration: number): Ghos
 		model:SetAttribute(name, nil)
 	end
 
-	local parts: { GhostPart } = {}
 	for _, descendant in model:GetDescendants() do
 		if descendant:IsA("BasePart") then
 			descendant.Anchored = true
@@ -113,18 +99,32 @@ local function createGhost(rock: Model, hitTime: number, duration: number): Ghos
 			descendant:Destroy()
 		end
 	end
+	return model
+end
+
+-- 잔상을 만든다: 껍데기를 GhostLayers겹, 겹마다 GhostLayerStep만큼 크게 겹쳐 테두리를 굵게 보이게 한다
+local function createGhost(rock: Model, hitTime: number, duration: number): Ghost
+	local timing = Config.Timing
+	local layerCount = math.clamp(math.floor(timing.GhostLayers or 1), 1, 6) -- 부품 수가 너무 늘지 않게 최대 6겹
+	local parts: { GhostPart } = {}
+	local layers: { GhostLayer } = {}
+	for i = 0, layerCount - 1 do
+		local model = createLayerModel(rock, parts)
+		table.insert(layers, { Model = model, BaseScale = model:GetScale(), Multiplier = 1 + i * (timing.GhostLayerStep or 0) })
+	end
 
 	local ghost: Ghost = {
-		Model = model,
 		Rock = rock,
 		HitTime = hitTime,
 		Duration = duration,
-		BaseScale = model:GetScale(),
-		Pivot = if isTree then model:GetPivot() else HitFeelController.getRestPivot(rock),
+		Pivot = HitFeelController.getRestPivot(rock),
+		Layers = layers,
 		Parts = parts,
 	}
 	setGhostLook(ghost, false, 0)
-	model.Parent = folder
+	for _, layer in layers do
+		layer.Model.Parent = folder
+	end
 	return ghost
 end
 
@@ -150,8 +150,10 @@ local function update()
 
 	local progress = math.clamp(elapsed / ghost.Duration, 0, 1)
 	local scale = timing.GhostStartScale + (1 - timing.GhostStartScale) * progress -- 일정한 속도로 줄어야 타이밍을 읽기 쉽다
-	ghost.Model:ScaleTo(ghost.BaseScale * scale)
-	ghost.Model:PivotTo(ghost.Pivot)
+	for _, layer in ghost.Layers do
+		layer.Model:ScaleTo(layer.BaseScale * scale * layer.Multiplier)
+		layer.Model:PivotTo(ghost.Pivot)
+	end
 
 	-- 바위 크기에 닿은 순간 흰색으로 번쩍여서 "지금!"을 알려주고, 남은 Nice 시간 동안 서서히 사라진다
 	local sinceTarget = elapsed - ghost.Duration
@@ -186,6 +188,10 @@ local function onHitEffect(
 	local hp = rock:GetAttribute("Hp")
 	if typeof(hp) == "number" and hp <= 0 then
 		return -- 마지막 일격이면 잔상이 필요 없다
+	end
+	local def = TargetController.getDef(rock)
+	if def and def.Kind == "Tree" then
+		return -- 나무는 화면 아래 타이밍 막대(TreeTimingHUD)로 맞춘다
 	end
 	current = createGhost(rock, hitTime, ghostDuration)
 end

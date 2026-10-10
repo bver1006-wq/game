@@ -49,6 +49,33 @@ Config.Timing = {
 	},
 }
 
+-- 나무 타이밍 막대 (2026-10-10 사용자 요청): 나무는 잔상 대신 화면 아래 작은 막대에서 커서가 좌우로 왕복한다.
+-- 커서가 금색 세로줄(목표)에 있을 때 치면 Perfect, 근처(하늘색)면 Nice. 위치는 막대 왼쪽 0 ~ 오른쪽 1
+-- 왕복 시간·목표 위치는 서버(TimingService)가 정하고 타격마다 바꾼다. 판정도 서버가 휘두른 시각의 커서 위치로 한다
+Config.TreeTiming = {
+	PeriodMin = 0.85, -- 커서가 한쪽 끝에서 반대쪽 끝까지 가는 시간 최소(초)
+	PeriodMax = 1.2, -- 최대(초)
+	TargetMin = 0.18, -- 목표 세로줄 위치 범위 (0~1)
+	TargetMax = 0.82,
+	MinTargetShift = 0.2, -- 타격 뒤 목표가 적어도 이만큼은 옮겨 간다
+	RequestRange = 16, -- 클라가 막대를 요청할 때 서버가 인정하는 나무 거리(스터드, 보스 ExtraReach 더함)
+	-- 기기별 판정 범위: 목표 줄에서 양옆으로 허용하는 거리 (막대 길이 = 1)
+	Windows = {
+		PC = { Perfect = 0.05, Nice = 0.14 },
+		Mobile = { Perfect = 0.07, Nice = 0.18 },
+	},
+	-- 화면 아래 판(나무 이름 + 체력바 + 타이밍 막대). 빠른 칸·모으기 게이지 위
+	PanelWidth = 300, -- 판 너비(픽셀)
+	BottomOffset = 122, -- 화면 아래에서 판 아래쪽까지(픽셀)
+	HpBarHeight = 14,
+	TimingBarHeight = 16,
+	CursorWidth = 4,
+	TargetColor = Color3.fromRGB(255, 205, 40), -- 목표 줄·Perfect 구역 (금색)
+	NiceColor = Color3.fromRGB(110, 200, 255), -- Nice 구역 (하늘색)
+	CursorColor = Color3.fromRGB(255, 255, 255),
+	ZoneTransparency = 0.55, -- 구역 표시는 은은하게
+}
+
 -- 약점 수치 (7단계, 아직 미구현)
 Config.Weakpoint = {
 	SpawnChance = 0.25, -- 휘두를 때마다 약점이 새로 생길 확률. TODO: 조정
@@ -143,12 +170,9 @@ Config.Pickaxes = {
 	StoneAxe = { Power = 1 }, -- 시작 지급
 	CopperAxe = { Power = 1.5 },
 	IronAxe = { Power = 2 },
-	DiamondAxe = {
-		Power = 3,
-		LightningChance = 0.2, -- 나무를 칠 때 이 확률로 번개가 내려쳐 한 방에 벤다 (2026-10-09 사용자 요청)
-	},
-	MithrilAxe = { Power = 4, LightningChance = 0.25 },
-	OrichalcumAxe = { Power = 5.5, LightningChance = 0.3 },
+	DiamondAxe = { Power = 3 }, -- 번개(LightningChance)는 2026-10-10 사용자 요청으로 뺐다
+	MithrilAxe = { Power = 4 },
+	OrichalcumAxe = { Power = 5.5 },
 }
 
 -- 마나: 스킬·차징 스매시·달리기에 쓴다 (스킬·차징은 나중에). 플레이어 속성 Mana·MaxMana·Sprinting
