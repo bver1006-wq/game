@@ -10,7 +10,7 @@
 --      돌 곡괭이 Tool의 쥐는 각도(Grip)를 그대로 쓰고 모양은 숨긴 뒤, 부품으로 칼·활·방망이를 짓는다.
 --      좌표: x = 앞(곡괭이 머리 방향), y = 자루를 따라 위, 원점 = 손이 쥐는 점
 --   2. 몹 모델 9종 + 바다 생물 3종 →ServerStorage/Templates/Mobs/<몹> (고정된 Root 부품 + 용접된 몸, 앞 = -Z, 기준점 = 발밑)
---   3. 아이콘 → ReplicatedStorage/ItemIcons (무기 18종 + 전리품 8종 + 바다 전리품·음식 8종 + 미스릴·오리하르콘괴 + 음식 3종 + 장비 36종)
+--   3. 아이콘 → ReplicatedStorage/ItemIcons (무기 18종 + 전리품 8종 + 바다 전리품·음식 8종 + 미스릴·오리하르콘괴 + 음식 3종 + 장비 40종 = 방어구 세트 7 × 4칸 + 장신구 12)
 --   4. 몹 생성 자리 → Workspace/MobSpawns (속성 MobType·Zone·BossSpot). Config.MobZones의 구역(마을 둘레 부채꼴)마다
 --      주인 몹 + Mix 확률로 이웃 단계 몹 + Extras(따로 두는 몹, 스켈레톤 궁수). 마을에서 멀수록 센 몹, 띠끼리 거리가 조금 겹친다.
 --      땅이 모자라면(맵 끝 너머) Config.MobZoneLayout.FallbackShrink 배율로 거리를 당겨 다시 찾는다 (먼 거대 몬스터 구역)
@@ -1561,35 +1561,8 @@ for id, build in LOOT_ICONS do
 	m.Parent = iconFolder
 end
 
----------------------------------------------------------------- 3-2. 장비 아이콘 (칸마다 모양, 단계마다 색)
-local EQUIPMENT_ICONS = {
-	Helmet = function(m, color, accent)
-		local dome = part({ Name = "Dome", Size = Vector3.new(1.6, 1.3, 1.6), Color = color, Material = METAL }, m)
-		Instance.new("SpecialMesh", dome).MeshType = Enum.MeshType.Sphere
-		part({ Name = "Brim", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 1.75, 1.75), CFrame = CFrame.new(0, -0.35, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = accent, Material = METAL }, m)
-		part({ Name = "Crest", Size = Vector3.new(0.15, 0.5, 1.1), CFrame = CFrame.new(0, 0.6, 0), Color = accent, Material = METAL }, m)
-	end,
-	Armor = function(m, color, accent)
-		part({ Name = "Chest", Size = Vector3.new(1.6, 1.7, 0.6), Color = color, Material = METAL }, m)
-		for _, x in { 0.95, -0.95 } do
-			local pad = part({ Name = "Shoulder", Size = Vector3.new(0.7, 0.45, 0.8), CFrame = CFrame.new(x, 0.7, 0), Color = accent, Material = METAL }, m)
-			Instance.new("SpecialMesh", pad).MeshType = Enum.MeshType.Sphere
-		end
-		part({ Name = "Belt", Size = Vector3.new(1.65, 0.22, 0.65), CFrame = CFrame.new(0, -0.55, 0), Color = Color3.fromRGB(90, 60, 35), Material = Enum.Material.Leather }, m)
-	end,
-	Boots = function(m, color, accent)
-		for _, x in { 0.45, -0.45 } do
-			part({ Name = "Leg", Size = Vector3.new(0.55, 1.0, 0.6), CFrame = CFrame.new(x, 0.3, 0.1), Color = color, Material = METAL }, m)
-			part({ Name = "Foot", Size = Vector3.new(0.6, 0.4, 1.0), CFrame = CFrame.new(x, -0.3, -0.15), Color = accent, Material = METAL }, m)
-		end
-	end,
-	Gloves = function(m, color, accent)
-		part({ Name = "Palm", Size = Vector3.new(0.9, 1.0, 0.4), Color = color, Material = Enum.Material.Leather }, m)
-		for i = -1, 2 do
-			part({ Name = "Finger", Size = Vector3.new(0.2, 0.5, 0.3), CFrame = CFrame.new(-0.3 + i * 0.22, 0.7, 0), Color = color, Material = Enum.Material.Leather }, m)
-		end
-		part({ Name = "Cuff", Size = Vector3.new(1.0, 0.35, 0.5), CFrame = CFrame.new(0, -0.6, 0), Color = accent, Material = METAL }, m)
-	end,
+---------------------------------------------------------------- 3-2. 장비 아이콘 (장신구는 칸마다 모양·단계마다 색, 방어구는 세트마다 모양 2026-10-10)
+local EQUIPMENT_ICONS = { -- 장신구 (목걸이·팔찌). 방어구 4칸은 아래 ARMOR_ICONS
 	Necklace = function(m, color, accent)
 		for i = 0, 11 do
 			local angle = i / 12 * math.pi * 2
@@ -1601,6 +1574,255 @@ local EQUIPMENT_ICONS = {
 		for i = 0, 13 do
 			local angle = i / 14 * math.pi * 2
 			part({ Name = "Link", Size = Vector3.new(0.3, 0.3, 0.45), CFrame = CFrame.new(math.cos(angle) * 0.7, math.sin(angle) * 0.7, 0) * CFrame.Angles(0, 0, angle), Color = if i % 3 == 0 then accent else color, Material = METAL }, m)
+		end
+	end,
+}
+-- 방어구 세트 아이콘 (2026-10-10): 헬멧·갑옷·신발·장갑은 세트(EquipmentDefs.Set)마다 모양을 다르게 짓는다
+-- 색·재질은 캐릭터 겉모습과 같은 Config.GearVisual.Sets. 아이콘 카메라는 +Z 쪽에서 보므로 얼굴·앞 장식은 +Z
+local ICON_SETS = Config.GearVisual.Sets
+local BALL = Enum.PartType.Ball
+local CYL = Enum.PartType.Cylinder
+local UPRIGHT = CFrame.Angles(0, 0, math.rad(90)) -- 원기둥 축을 위로
+local function iball(m, name, d, cf, color, mat)
+	return part({ Name = name, Shape = BALL, Size = Vector3.new(d, d, d), CFrame = cf, Color = color, Material = mat }, m)
+end
+local function iblock(m, name, size, cf, color, mat, alpha)
+	return part({ Name = name, Size = size, CFrame = cf, Color = color, Material = mat, Transparency = alpha or 0 }, m)
+end
+-- 가시: 밑동 가운데 base에서 dir 쪽으로 length, 밑동 너비 width (앞 +Z에서 보이는 삼각형)
+local function ispike(m, base, dir, length, width, color, mat)
+	local side = dir:Cross(Vector3.new(0, 0, 1))
+	if side.Magnitude < 1e-3 then
+		side = Vector3.new(1, 0, 0)
+	end
+	side = side.Unit * width / 2
+	triangle(m, base - side, base + side, base + dir.Unit * length, 0.08, color, mat, nil, true)
+end
+-- 얼음 수정 (마름모 기둥)
+local function icrystal(m, base, tilt, length, width, s)
+	iblock(m, "Crystal", Vector3.new(width, length, width), base * tilt * CFrame.new(0, length / 2, 0) * CFrame.Angles(0, math.rad(45), 0), s.Trim, s.TrimMat, 0.15)
+end
+-- 휜 뿔 (원기둥 마디)
+local function ihorn(m, base, length, thick, segments, bend, color, mat)
+	local cf = base
+	local seg = length / segments
+	for i = 1, segments do
+		local w = thick * (1 - (i - 1) / segments * 0.7)
+		part({ Name = "Horn", Shape = CYL, Size = Vector3.new(seg * 1.15, w, w), CFrame = cf * CFrame.new(0, seg / 2, 0) * UPRIGHT, Color = color, Material = mat }, m)
+		cf = cf * CFrame.new(0, seg, 0) * bend
+	end
+end
+
+local ARMOR_ICONS = {
+	Helmet = function(m, set, s)
+		if set == "Golem" then
+			-- 네모난 돌 투구 + 이마 돌판 + 이끼 + 빛나는 금·핵
+			iblock(m, "Box", Vector3.new(1.7, 1.15, 1.7), CFrame.Angles(0, 0, math.rad(2)), s.Main, s.MainMat)
+			iblock(m, "Brow", Vector3.new(1.85, 0.25, 0.3), CFrame.new(0, -0.45, 0.8), s.Trim, s.TrimMat)
+			iblock(m, "Moss", Vector3.new(1.0, 0.12, 0.9), CFrame.new(0.2, 0.62, 0.1), s.Accent, s.AccentMat)
+			iblock(m, "Crack", Vector3.new(0.06, 0.5, 0.05), CFrame.new(-0.45, 0.15, 0.86) * CFrame.Angles(0, 0, 0.5), s.Gem, NEON)
+			iblock(m, "Crack", Vector3.new(0.06, 0.45, 0.05), CFrame.new(0.5, 0.05, 0.86) * CFrame.Angles(0, 0, -0.6), s.Gem, NEON)
+			iblock(m, "Core", Vector3.new(0.32, 0.32, 0.15), CFrame.new(0, 0.1, 0.88) * CFrame.Angles(0, 0, math.rad(45)), s.Gem, NEON)
+			return
+		end
+		local dome = iblock(m, "Dome", Vector3.new(1.6, 1.3, 1.6), CFrame.identity, s.Main, s.MainMat)
+		Instance.new("SpecialMesh", dome).MeshType = Enum.MeshType.Sphere
+		part({ Name = "Brim", Shape = CYL, Size = Vector3.new(0.2, 1.75, 1.75), CFrame = CFrame.new(0, -0.35, 0) * UPRIGHT, Color = if set == "Frost" then s.Main:Lerp(Color3.new(1, 1, 1), 0.3) else s.Trim, Material = if set == "Frost" then s.MainMat else s.TrimMat }, m)
+		if set == "Leather" then
+			iball(m, "Knob", 0.3, CFrame.new(0, 0.66, 0), s.Trim, s.TrimMat)
+		elseif set == "Bone" then
+			for _, x in { -0.32, 0.32 } do
+				iball(m, "Socket", 0.42, CFrame.new(x, 0.12, 0.6), s.Accent, s.AccentMat)
+				iball(m, "Eye", 0.14, CFrame.new(x, 0.12, 0.82), s.Gem, NEON)
+			end
+			for i = -2, 1 do
+				iblock(m, "Tooth", Vector3.new(0.15, 0.18, 0.1), CFrame.new((i + 0.5) * 0.2, -0.22, 0.74), s.Main, s.MainMat)
+			end
+		elseif set == "Cerberus" then
+			iblock(m, "Snout", Vector3.new(0.55, 0.35, 0.6), CFrame.new(0, 0.12, 0.85), s.Main, s.MainMat)
+			iball(m, "Nose", 0.2, CFrame.new(0, 0.24, 1.15), C(25, 20, 22), Enum.Material.SmoothPlastic)
+			for _, x in { -1, 1 } do
+				iball(m, "Eye", 0.15, CFrame.new(x * 0.26, 0.36, 0.7), s.Gem, NEON)
+				ispike(m, Vector3.new(x * 0.18, -0.05, 1.12), Vector3.new(0, -1, 0), 0.28, 0.12, s.Accent, s.AccentMat)
+				ispike(m, Vector3.new(x * 0.42, 0.45, 0.05), Vector3.new(x * 0.35, 1, 0), 0.6, 0.4, s.Main, s.MainMat)
+			end
+		elseif set == "Cyclops" then
+			iball(m, "EyeWhite", 0.7, CFrame.new(0, 0.12, 0.58), C(250, 248, 238), Enum.Material.SmoothPlastic)
+			iball(m, "Iris", 0.4, CFrame.new(0, 0.12, 0.84), s.Gem, NEON)
+			iball(m, "Pupil", 0.2, CFrame.new(0, 0.12, 1.0), C(20, 15, 18), Enum.Material.SmoothPlastic)
+			part({ Name = "Horn", Shape = CYL, Size = Vector3.new(0.35, 0.25, 0.25), CFrame = CFrame.new(0, 0.78, 0) * UPRIGHT, Color = s.Trim, Material = s.TrimMat }, m)
+			iblock(m, "Patch", Vector3.new(0.1, 0.5, 0.55), CFrame.new(0.78, 0.15, 0) * CFrame.Angles(0.2, 0, 0.1), s.Patch or s.Main, s.MainMat)
+		elseif set == "Frost" then
+			part({ Name = "Band", Shape = CYL, Size = Vector3.new(0.07, 1.8, 1.8), CFrame = CFrame.new(0, -0.22, 0) * UPRIGHT, Color = s.Gem, Material = NEON }, m)
+			for k = -2, 2 do
+				local theta = k * 0.5
+				icrystal(m, CFrame.new(math.sin(theta) * 0.5, 0.42, math.cos(theta) * 0.5), CFrame.Angles(math.cos(theta) * 0.35, 0, -math.sin(theta) * 0.45), if k == 0 then 0.9 elseif math.abs(k) == 1 then 0.65 else 0.45, 0.18, s)
+			end
+		elseif set == "Behemoth" then
+			part({ Name = "Brow", Shape = CYL, Size = Vector3.new(0.2, 1.78, 1.78), CFrame = CFrame.new(0, -0.2, 0) * UPRIGHT, Color = s.Trim, Material = s.TrimMat }, m)
+			for _, x in { -1, 1 } do
+				iblock(m, "EmberEye", Vector3.new(0.32, 0.07, 0.07), CFrame.new(x * 0.26, 0.0, 0.76) * CFrame.Angles(0, 0, x * -0.28), s.Gem, NEON)
+				ihorn(m, CFrame.new(x * 0.7, 0.1, 0) * CFrame.Angles(0, 0, -x * 1.25), 1.4, 0.36, 4, CFrame.Angles(0.1, 0, x * 0.42), s.Accent, s.AccentMat)
+			end
+			for _, z in { -0.4, 0, 0.4 } do
+				ispike(m, Vector3.new(0, 0.6, z), Vector3.new(0, 1, z * 0.6), 0.35, 0.3, s.Trim, Enum.Material.Slate)
+			end
+		end
+	end,
+	Armor = function(m, set, s)
+		local bulk = if set == "Cyclops" or set == "Golem" then 1.12 else 1
+		iblock(m, "Chest", Vector3.new(1.6 * bulk, 1.7, 0.6 * bulk), CFrame.identity, if set == "Bone" then s.Trim elseif set == "Golem" then s.Main:Lerp(Color3.new(0, 0, 0), 0.15) else s.Main, if set == "Bone" then s.TrimMat else s.MainMat)
+		local fz = 0.3 * bulk + 0.04
+		local shoulderScale = if set == "Cyclops" then 1.35 else 1
+		for _, x in { -1, 1 } do
+			if set == "Golem" then
+				iblock(m, "Boulder", Vector3.new(0.65, 0.5, 0.65), CFrame.new(x * 1.0, 0.72, 0) * CFrame.Angles(0.25, x * 0.5, x * 0.15), s.Main, s.MainMat)
+				iblock(m, "Moss", Vector3.new(0.4, 0.1, 0.4), CFrame.new(x * 1.0, 1.0, 0), s.Accent, s.AccentMat)
+			elseif set == "Bone" then
+				part({ Name = "ShoulderBone", Shape = CYL, Size = Vector3.new(0.8, 0.14, 0.14), CFrame = CFrame.new(x * 0.58, 0.88, 0) * CFrame.Angles(0, math.rad(90), 0), Color = s.Main, Material = s.MainMat }, m)
+				for _, z in { -0.4, 0.4 } do
+					iball(m, "BoneEnd", 0.2, CFrame.new(x * 0.58, 0.88, z), s.Main, s.MainMat)
+				end
+			else
+				local pad = iblock(m, "Shoulder", Vector3.new(0.7, 0.45, 0.8) * shoulderScale, CFrame.new(x * 0.95 * (if set == "Cyclops" then 1.1 else 1), 0.7, 0), if set == "Frost" then s.Main:Lerp(Color3.new(1, 1, 1), 0.2) else s.Main, s.MainMat)
+				Instance.new("SpecialMesh", pad).MeshType = Enum.MeshType.Sphere
+			end
+		end
+		iblock(m, "Belt", Vector3.new(1.65 * bulk, 0.22, 0.65 * bulk), CFrame.new(0, -0.55, 0), if set == "Bone" then s.Trim:Lerp(Color3.new(0, 0, 0), 0.3) else s.Trim, s.TrimMat)
+		if set == "Leather" then
+			for _, y in { 0.25, -0.15 } do
+				iball(m, "Button", 0.14, CFrame.new(0.1, y, fz), s.Accent, s.AccentMat)
+			end
+		elseif set == "Bone" then
+			iblock(m, "Sternum", Vector3.new(0.16, 1.1, 0.1), CFrame.new(0, 0.1, fz), s.Main, s.MainMat)
+			for i = 1, 4 do
+				local y = 0.5 - (i - 1) * 0.25
+				for _, x in { -1, 1 } do
+					iblock(m, "Rib", Vector3.new(0.55, 0.1, 0.08), CFrame.new(x * 0.36, y, fz) * CFrame.Angles(0, 0, -x * 0.3), s.Main, s.MainMat)
+				end
+			end
+		elseif set == "Cerberus" then
+			part({ Name = "Collar", Shape = CYL, Size = Vector3.new(0.3, 1.3, 1.3), CFrame = CFrame.new(0, 0.78, 0) * UPRIGHT, Color = s.Main:Lerp(Color3.new(1, 1, 1), 0.15), Material = s.MainMat }, m)
+			for i = -2, 2 do
+				ispike(m, Vector3.new(i * 0.2, 0.62, fz + 0.06), Vector3.new(0, -1, 0), if i == 0 then 0.38 else 0.28, 0.13, s.Accent, s.AccentMat)
+			end
+			for _, x in { -1, 1 } do
+				ispike(m, Vector3.new(x * 1.0, 0.85, 0.1), Vector3.new(x * 0.6, 1, 0), 0.38, 0.18, s.Accent, s.AccentMat)
+			end
+		elseif set == "Cyclops" then
+			for _, info in { { -0.35, 0.3, 0.12, 0.6 }, { 0.38, -0.2, -0.15, 0.5 } } do
+				local cf = CFrame.new(info[1], info[2], fz) * CFrame.Angles(0, 0, info[3])
+				iblock(m, "Patch", Vector3.new(info[4], info[4] * 0.85, 0.06), cf, s.Patch or s.Main, s.MainMat)
+				for _, cross in { 0.75, -0.75 } do
+					iblock(m, "Stitch", Vector3.new(info[4] * 0.55, 0.05, 0.04), cf * CFrame.new(0, 0, 0.04) * CFrame.Angles(0, 0, cross), s.Accent, s.AccentMat)
+				end
+			end
+		elseif set == "Golem" then
+			for i, info in { { -0.4, 0.38, 0.05 }, { 0.4, 0.4, -0.04 }, { -0.38, -0.18, -0.06 }, { 0.4, -0.16, 0.07 } } do
+				iblock(m, "Slab", Vector3.new(0.7, 0.55, 0.12), CFrame.new(info[1], info[2], fz) * CFrame.Angles(0, 0, info[3]), if i % 2 == 0 then s.Main else s.Main:Lerp(Color3.new(1, 1, 1), 0.08), s.MainMat)
+			end
+			iblock(m, "Core", Vector3.new(0.32, 0.32, 0.14), CFrame.new(0, 0.1, fz + 0.1) * CFrame.Angles(0, 0, math.rad(45)), s.Gem, NEON)
+			for _, angle in { 0.6, 2.5, 4.2 } do
+				local dir = Vector3.new(-math.sin(angle), math.cos(angle), 0)
+				iblock(m, "Crack", Vector3.new(0.05, 0.42, 0.04), CFrame.new(Vector3.new(0, 0.1, fz + 0.08) + dir * 0.32) * CFrame.Angles(0, 0, angle), s.Gem, NEON)
+			end
+		elseif set == "Frost" then
+			iblock(m, "IcePlate", Vector3.new(1.3, 1.0, 0.1), CFrame.new(0, 0.15, fz), s.Trim, s.TrimMat, 0.2)
+			iblock(m, "Gem", Vector3.new(0.28, 0.28, 0.12), CFrame.new(0, 0.1, fz + 0.08) * CFrame.Angles(0, 0, math.rad(45)), s.Gem, NEON)
+			for _, x in { -1, 1 } do
+				for k, len in { 0.7, 0.5, 0.42 } do
+					icrystal(m, CFrame.new(x * (0.95 + (k - 1) * 0.08), 0.85, (k - 2) * 0.15), CFrame.Angles(0, 0, -x * (0.15 + (k - 1) * 0.35)), len, 0.16, s)
+				end
+			end
+		elseif set == "Behemoth" then
+			iblock(m, "LavaSeam", Vector3.new(0.14, 1.4, 0.06), CFrame.new(0, 0, fz), s.Trim, s.TrimMat)
+			for _, y in { 0.45, 0.1 } do
+				for _, x in { -0.45, 0.45 } do
+					iblock(m, "Scale", Vector3.new(0.34, 0.34, 0.08), CFrame.new(x, y, fz) * CFrame.Angles(0, 0, math.rad(45)), s.Main:Lerp(Color3.new(1, 1, 1), 0.12), s.MainMat)
+				end
+			end
+			iball(m, "EmberCore", 0.3, CFrame.new(0, -0.2, fz + 0.06), s.Gem, NEON)
+			for _, x in { -1, 1 } do
+				ihorn(m, CFrame.new(x * 1.05, 0.85, 0) * CFrame.Angles(0, 0, -x * 0.6), 0.75, 0.22, 3, CFrame.Angles(0, 0, x * 0.35), s.Accent, s.AccentMat)
+			end
+		end
+	end,
+	Boots = function(m, set, s)
+		local big = if set == "Cyclops" or set == "Golem" then 1.15 else 1
+		for _, x in { 0.45, -0.45 } do
+			iblock(m, "Leg", Vector3.new(0.55, 1.0, 0.6) * big, CFrame.new(x * big, 0.3, -0.1), if set == "Bone" then s.Trim else s.Main, if set == "Bone" then s.TrimMat else s.MainMat)
+			iblock(m, "Foot", Vector3.new(0.6, 0.4, 1.0) * big, CFrame.new(x * big, -0.3, 0.15), if set == "Bone" then s.Trim else s.Main, if set == "Bone" then s.TrimMat else s.MainMat)
+			iblock(m, "Sole", Vector3.new(0.64, if set == "Golem" or set == "Cyclops" then 0.2 else 0.12, 1.04) * big, CFrame.new(x * big, -0.52 * big, 0.15), s.Trim, s.TrimMat)
+			if set == "Bone" then
+				part({ Name = "ShinBone", Shape = CYL, Size = Vector3.new(0.75, 0.16, 0.16), CFrame = CFrame.new(x, 0.35, 0.24) * UPRIGHT, Color = s.Main, Material = s.MainMat }, m)
+				for _, y in { -0.02, 0.72 } do
+					iball(m, "BoneEnd", 0.2, CFrame.new(x, y, 0.24), s.Main, s.MainMat)
+				end
+				iblock(m, "Toe", Vector3.new(0.62, 0.3, 0.2), CFrame.new(x, -0.3, 0.6), s.Main, s.MainMat)
+			elseif set == "Cerberus" or set == "Frost" then
+				part({ Name = "FurCuff", Shape = CYL, Size = Vector3.new(0.28, 0.85, 0.85), CFrame = CFrame.new(x, 0.75, -0.1) * UPRIGHT, Color = s.Main:Lerp(Color3.new(1, 1, 1), if set == "Frost" then 0.4 else 0.15), Material = s.MainMat }, m)
+				if set == "Cerberus" then
+					for _, k in { -0.15, 0.15 } do
+						ispike(m, Vector3.new(x + k, -0.4, 0.62), Vector3.new(0, 0, 1), 0.3, 0.14, s.Accent, s.AccentMat)
+					end
+				else
+					icrystal(m, CFrame.new(x, 0.3, 0.22), CFrame.Angles(-0.55, 0, 0), 0.5, 0.15, s)
+				end
+			elseif set == "Cyclops" then
+				for _, y in { 0.1, 0.4 } do
+					iblock(m, "Wrap", Vector3.new(0.66, 0.08, 0.72), CFrame.new(x * big, y, -0.1), s.Trim, s.TrimMat)
+				end
+			elseif set == "Golem" then
+				iblock(m, "Crack", Vector3.new(0.06, 0.45, 0.04), CFrame.new(x * big, 0.35, 0.26), s.Gem, NEON)
+			elseif set == "Behemoth" then
+				for _, k in { -0.16, 0.16 } do
+					ispike(m, Vector3.new(x + k, -0.35, 0.64), Vector3.new(0, 0.2, 1), 0.38, 0.16, s.Accent, s.AccentMat)
+				end
+				ispike(m, Vector3.new(x, 0.55, 0.2), Vector3.new(0, 0.6, 1), 0.4, 0.22, s.Accent, s.AccentMat)
+			end
+		end
+	end,
+	Gloves = function(m, set, s)
+		local scale = if set == "Golem" then 1.3 elseif set == "Cyclops" then 1.2 else 1
+		local main = if set == "Bone" then s.Trim else s.Main
+		local mainMat = if set == "Bone" then s.TrimMat else s.MainMat
+		iblock(m, "Palm", Vector3.new(0.9, 1.0, 0.4) * scale, CFrame.identity, main, mainMat)
+		if set == "Cyclops" or set == "Golem" then
+			-- 벙어리장갑·돌 주먹: 손가락 대신 한 덩어리
+			iblock(m, "Mitt", Vector3.new(0.95, 0.5, 0.42) * scale, CFrame.new(0, 0.7 * scale, 0), main, mainMat)
+		else
+			for i = -1, 2 do
+				iblock(m, "Finger", Vector3.new(0.2, 0.5, 0.3), CFrame.new(-0.3 + i * 0.22, 0.7, 0), main, mainMat)
+			end
+		end
+		iblock(m, "Cuff", Vector3.new(1.0, 0.35, 0.5) * scale, CFrame.new(0, -0.6 * scale, 0), if set == "Cerberus" or set == "Frost" then s.Main:Lerp(Color3.new(1, 1, 1), 0.3) else s.Trim, if set == "Cerberus" or set == "Frost" then s.MainMat else s.TrimMat)
+		if set == "Bone" then
+			for i = -1, 2 do
+				iball(m, "Knuckle", 0.2, CFrame.new(-0.3 + i * 0.22, 0.42, 0.22), s.Main, s.MainMat)
+			end
+		elseif set == "Cerberus" then
+			for i = -1, 2 do
+				ispike(m, Vector3.new(-0.3 + i * 0.22, 0.95, 0.05), Vector3.new(0, 1, 0), 0.25, 0.14, s.Accent, s.AccentMat)
+			end
+		elseif set == "Cyclops" then
+			local cf = CFrame.new(0, 0.05, 0.25)
+			iblock(m, "Patch", Vector3.new(0.55, 0.5, 0.05), cf * CFrame.Angles(0, 0, 0.15), s.Patch or s.Main, s.MainMat)
+			for _, cross in { 0.75, -0.75 } do
+				iblock(m, "Stitch", Vector3.new(0.4, 0.05, 0.04), cf * CFrame.new(0, 0, 0.04) * CFrame.Angles(0, 0, cross), s.Accent, s.AccentMat)
+			end
+		elseif set == "Golem" then
+			iblock(m, "KnuckleSlab", Vector3.new(1.25, 0.25, 0.6), CFrame.new(0, 0.95, 0), s.Trim, s.TrimMat)
+			iblock(m, "Core", Vector3.new(0.3, 0.3, 0.12), CFrame.new(0, 0.1, 0.3) * CFrame.Angles(0, 0, math.rad(45)), s.Gem, NEON)
+		elseif set == "Frost" then
+			iblock(m, "IceKnuckles", Vector3.new(0.95, 0.22, 0.45), CFrame.new(0, 0.45, 0), s.Trim, s.TrimMat, 0.2)
+			for _, x in { -0.2, 0.2 } do
+				icrystal(m, CFrame.new(x, 0.1, 0.2), CFrame.Angles(-0.9, 0, x), 0.5, 0.14, s)
+			end
+		elseif set == "Behemoth" then
+			for i = -1, 1 do
+				ispike(m, Vector3.new(i * 0.28, 0.45, 0.2), Vector3.new(0, 0.3, 1), 0.32, 0.16, s.Accent, s.AccentMat)
+			end
+			iblock(m, "Ember", Vector3.new(0.26, 0.26, 0.06), CFrame.new(0, 0.05, 0.22) * CFrame.Angles(0, 0, math.rad(45)), s.Gem, NEON)
 		end
 	end,
 }
@@ -1616,8 +1838,13 @@ for _, id in EquipmentDefs.Order do
 	m.Name = id
 	local high = HIGH_ACCENTS[math.min(def.Tier, 6)]
 	local accent = if def.Tier >= 5 and high then high elseif def.Tier >= 3 then GOLD else def.Color:Lerp(Color3.new(0, 0, 0), 0.3)
-	EQUIPMENT_ICONS[def.Slot](m, def.Color, accent)
-	if def.Tier >= 5 then
+	local armorIcon = def.Set and ARMOR_ICONS[def.Slot]
+	if armorIcon then
+		armorIcon(m, def.Set, ICON_SETS[def.Set] or ICON_SETS.Leather)
+	else
+		EQUIPMENT_ICONS[def.Slot](m, def.Color, accent)
+	end
+	if def.Tier >= 5 and not armorIcon then
 		-- 장식 부품(장식 색)을 빛나게
 		for _, p in m:GetChildren() do
 			if p:IsA("BasePart") and math.abs(p.Color.R - accent.R) + math.abs(p.Color.G - accent.G) + math.abs(p.Color.B - accent.B) < 0.02 then

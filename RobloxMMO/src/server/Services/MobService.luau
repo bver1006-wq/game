@@ -769,7 +769,7 @@ local function randomSwimPoint(center: Vector3, radius: number, height: number):
 end
 
 -- 바다 생물 하나의 생각·헤엄 (dt초만큼, 2026-10-09). 땅 몹(stepMob)과 순서는 같지만 3D로 움직이고 물 밖으로는 안 나간다
--- 물고기·복어·황금 물고기(Passive): 맞으면 도망 / 낙지(Retaliate): 맞으면 쫓아와 때림 / 해파리(Drift): 둥둥, 닿으면 쏨 / 상어: 물에 들어온 사람에게 돌진
+-- 얌전한 바다 몹(Passive, 지금은 없음): 맞으면 도망 / 낙지(Retaliate): 맞으면 쫓아와 때림 / 해파리(Drift): 둥둥, 닿으면 쏨 / 상어: 물에 들어온 사람에게 돌진
 local function stepSwimmer(state: MobState, dt: number, now: number)
 	local config = Config.Mobs[state.Type] :: any
 	local sea = Config.SeaAI

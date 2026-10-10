@@ -51,13 +51,14 @@ local ShopDefs: { [string]: ShopDef } = {
 		Greeting = "들판에 귀여운 녀석들이 늘었어. 얕보면 큰코다치니 무기 하나 챙겨 가게.",
 		Tabs = {
 			-- 사냥과 전투는 2026-10-09 사용자 결정으로 앞당김. 장비는 칸마다 탭 (장신구 = 목걸이 + 팔찌)
+			-- 방어구 탭은 몹 세트 7단계(가죽 → 뼈 → 케르베로스 → 사이클롭스 → 바위 골렘 → 서리 거인 → 베헤모스, 2026-10-10)가 EquipmentDefs 순서대로 나온다
 			{ Id = "Sword", Title = "칼", Icon = "IronSword" },
 			{ Id = "Bow", Title = "활", Icon = "IronBow" },
 			{ Id = "Club", Title = "방망이", Icon = "GoblinClub" },
-			{ Id = "Helmet", Title = "투구", Icon = "IronHelmet" },
-			{ Id = "Armor", Title = "갑옷", Icon = "IronArmor" },
-			{ Id = "Boots", Title = "신발", Icon = "IronBoots" },
-			{ Id = "Gloves", Title = "장갑", Icon = "IronGloves" },
+			{ Id = "Helmet", Title = "투구", Icon = "CerberusHelmet" },
+			{ Id = "Armor", Title = "갑옷", Icon = "BoneArmor" },
+			{ Id = "Boots", Title = "신발", Icon = "CerberusBoots" },
+			{ Id = "Gloves", Title = "장갑", Icon = "GolemGloves" },
 			{ Id = "Accessory", Title = "장신구", Icon = "IronNecklace" },
 		},
 	},
