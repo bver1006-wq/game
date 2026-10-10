@@ -292,7 +292,7 @@ src/
   - 연출: "퍽" 소리(Sounds.WoodChop), 나뭇조각·떨어지는 잎(OreDefs.LeafColor), 덜 흔들림. 잔상은 줄기 둘레 고리가 줄어든다. 다 베면 Sounds.TreeBreak와 함께 친 사람 반대쪽으로 쓰러진다(클라 복제본). 체력바·말풍선은 타격 높이 위 (Config.HitFeel.Tree)
   - Studio 제작: Rojo가 `studio/`를 ServerStorage/StudioTools로 넣는다. 템플릿이 없으면 게임 시작 때 서버가 자동 실행한다(저장 안 됨). 편집 상태 명령 모음에서 `require(game.ServerStorage.StudioTools.BuildTreesAndAxes:Clone())` 실행하면 도끼 Tool(같은 티어 곡괭이 손잡이 재사용)·나무 템플릿 5종x3모양·아이콘·스폰 자리를 만든다. 다시 실행하면 새로 만든다
 - [x] 사냥과 전투 (2026-10-09 사용자 결정으로 7장 제외 항목에서 앞당김)
-  - 몹 5종: 귀여운 슬라임·스켈레톤·좀비·케르베로스·사이클롭스 (MobDefs, 수치 Config.Mobs). 마을에서 멀수록 센 몹
+  - 몹 5종: 귀여운 슬라임·스켈레톤·좀비·케르베로스·사이클롭스 (MobDefs, 수치 Config.Mobs). 마을에서 멀수록 센 몹 (2026-10-10 스켈레톤 궁수·거대 몬스터 3종 더함, 아래 "스켈레톤 궁수·거대 몬스터")
     - 모델은 제작 스크립트 `studio/BuildWeaponsAndMobs.luau`가 부품으로 짓는다 (Templates/Mobs, 고정 Root + 용접, 앞 = -Z, 기준점 = 발밑). 생성 자리는 Workspace/MobSpawns (속성 MobType)
     - 서버 MobService가 TickRate번/초로 생각·이동(PivotTo): 어슬렁 → 가까운 플레이어 쫓기 → 공격(Humanoid:TakeDamage), 집에서 Leash 넘게 멀어지면 포기. 슬라임은 통통 튐. 피버 중 플레이어는 무적
     - 처치하면 처치한 사람에게 골드 + 전리품(슬라임 젤리·뼈다귀·낡은 천·케르베로스 송곳니·사이클롭스 눈알, 상인에게 판매). Respawn초 뒤 같은 자리에 다시
@@ -319,11 +319,11 @@ src/
 - [x] 음식 쿨타임 10초 (Config.FoodCooldown, 음식마다 따로). 서버가 ItemCooldown으로 알리면 가방 칸·빠른 칸 위 어두운 덮개가 12시부터 시계 방향으로 걷힌다 (CooldownController)
   - TODO: 칼·활·방망이 전용 소리 (지금은 있는 소리 음높이만 바꿈), 몹 애니메이션, 방어구
 - [x] 장비와 전투력 (2026-10-09): 칸 7개 = 무기(손에 든 도구·무기) / 헬멧 / 갑옷 / 신발 / 장갑 / 목걸이 / 팔찌 (EquipmentDefs, 서버 EquipmentService)
-  - 장비 24종(칸 6개 × 4단계: 가죽·뼈·나무 / 구리 / 철 / 다이아몬드, 2026-10-09 미스릴·오리하르콘 더해 36종), 사냥꾼 "방어구"·"장신구" 탭에서 구매. 능력치 = 칸 기본값 × 단계 배수 (Config.Equipment)
+  - 장비 24종(칸 6개 × 4단계: 가죽·뼈·나무 / 구리 / 철 / 다이아몬드, 2026-10-09 미스릴·오리하르콘 더해 36종, 2026-10-10 방어구 4칸은 몹 세트 7단계로 바뀌어 40종 — 아래 "몹 방어구 세트"), 사냥꾼 "방어구"·"장신구" 탭에서 구매. 능력치 = 칸 기본값 × 단계 배수 (Config.Equipment)
   - 능력치: 공격(무기 데미지에 더함)·방어(몹 피해 × 100/(100+방어))·체력(최대 체력에 더함)·치명타%(확률에 더함)
   - 전투력 = 공격×3 + 방어×4 + 체력×1 + 치명타×15, 착용 장비 합산(손에 든 무기 포함). 플레이어 속성 CombatPower → 모든 플레이어 머리 위 "⚔ 전투력" (CombatPowerHUD)
   - 가방에서 장착 아이템(도구·무기·장비)은 더블클릭해야 장착, 빠른 칸은 한 번 클릭. 가방 창 왼쪽에 장비 창(EquipmentPanel, 2026-10-09 새로 그림: 내 캐릭터를 입은 장비 모양 그대로 복제해 가운데 세우고 카메라가 천천히 둘레를 돈다(Config.EquipFigure.SpinSeconds, 안 되면 노란 머리·파란 몸·초록 다리 블록 사람), 양옆에 칸 네모(2026-10-09 이음선 삭제) — 헬멧=머리·목걸이=목·갑옷=가슴·방패(화살통)=등·장갑=왼손·팔찌=오른 손목·무기=오른손·신발=발. 칸 한 번 = 상세 창, 두 번 = 빼기. 아래 전투력·능력치. 가방+장비 창을 묶어 화면 가운데에, 수치 Config.EquipFigure). 끼운 아이템은 가방에서 금색 테두리 + E
-  - 장비 모양은 서버 GearVisualService가 부품으로 지어 캐릭터에 용접한다 (폴더 GearVisuals, 모두에게 보임, 크기는 몸 부품 비율, 수치 Config.GearVisual). 단계가 높을수록 조각이 늘어남(투구 코·볼 가리개·볏, 갑옷 어깨 보호대·보석 등). 헬멧을 쓰면 머리카락·모자 숨김 (2026-10-09)
+  - 장비 모양은 서버 GearVisualService가 부품으로 지어 캐릭터에 용접한다 (폴더 GearVisuals, 모두에게 보임, 크기는 몸 부품 비율, 수치 Config.GearVisual). 장신구는 단계가 높을수록 조각이 늘어나고, 방어구는 세트마다 모양이 다르다(2026-10-10). 헬멧을 쓰면 머리카락·모자 숨김 (2026-10-09)
 - [x] 자연 회복·장비 벽 (2026-10-09)
   - 바위·나무·몹은 Regen.Delay초 동안 안 맞으면 최대 체력의 일정 비율씩 천천히 찬다 (Config.Regen. 몹은 쫓는 중엔 안 참)
   - 장비 벽: 도구 단계 < 필요 단계면 때릴 수는 있지만 체력이 안 닳는다 (HitEffect special "Blocked": 둔한 소리·"단단해!"). 몹은 MobDefs.Tier보다 무기가 2단계 이상 낮으면 0, 1단계 낮으면 0.4배 (Config.TierWall, CombatEffect blocked)
@@ -371,7 +371,7 @@ src/
   - 나무: 맵 나무 자리(속성 MapTreeSpot) + 빈 풀밭(길·건물·물·마을 안전지대·NPC·광산 입구 피함)에 더 심어 맵 나무 수의 약 2.5배(TreeDensity, 90~200그루). 종류는 거리 띠 가중치(Trees): 근처 소나무·참나무(자작 5%) / 중간 자작나무 위주(참나무·단풍 조금) / 멀리 단풍나무 위주(자작 조금). 흑단나무는 먼 곳의 가장 먼 후보 6곳 중 2그루
   - 편집 상태에서 다시 실행해도 전에 만든 맵 나무 자리·맵 나무 모양 템플릿(속성 FromMapTree)을 그대로 쓴다
   - 지상 돌: 마을 근처(Stone.Distance)에 MinCount개가 안 되면 제작 스크립트가 채운다. 광산 층 광석은 층별 그대로
-  - 몹: 구역 = 마을 둘레 부채꼴(Distance·Arc). 슬라임 3구역(80~155) / 스켈레톤·좀비(135~210) / 케르베로스·사이클롭스(195~300). 자리마다 Mix 확률로 이웃 단계 몹. 생성 자리 간격 SpawnGap 14 (예전 7), 같은 띠 구역은 방향이 안 겹치게(ArcGap), 나무 자리와 NodeGap
+  - 몹: 구역 = 마을 둘레 부채꼴(Distance·Arc). 슬라임 3구역(80~155) / 스켈레톤·좀비(135~210) / 케르베로스·사이클롭스(195~300) / 거대 몬스터(280~450, 2026-10-10). 자리마다 Mix 확률로 이웃 단계 몹. 생성 자리 간격 SpawnGap 14 (예전 7), 같은 띠 구역은 방향이 안 겹치게(ArcGap), 나무 자리와 NodeGap
   - Output에 띠마다 나무 종류·몹 수 요약
 - [x] 밤낮·먼 곳 안개 (2026-10-09): 서버 DayNightService가 Lighting.ClockTime을 돌림(낮 12분·밤 6분, Config.DayNight). 클라 DayNightController가 시각을 보고 밝기·주변광·Atmosphere를 낮↔밤 사이로(밤은 더 깜깜), 마을에서 멀수록 안개 짙게(Fog.ClearRadius~FullRadius). 광산 안은 MineAtmosphere가 맡고, 나올 때 MineAtmosphereController.outdoorTargets(밤낮 값)로 돌아감. 부엉이(OwlSound)는 Id를 못 찾아 빈 값
 - [x] 조합식·상점 아이콘 탭·아이템 상세창 (2026-10-09)
@@ -417,19 +417,52 @@ src/
   - 조합식 재료 원칙(사용자 결정, Config.Recipes 1~6단계 전부 고침): 도구·무기·장신구 = 광물(괴)·통나무 (+ 무기는 가끔 송곳니·눈알·보스의 증표) / 방어구(헬멧·갑옷·신발·장갑) = 몹 전리품 주재료(젤리 → 뼈·낡은 천 → 케르베로스 털가죽·사이클롭스 가죽 → 보스의 증표) + 묶는 괴 1~2개
   - 몹 두 번째 전리품: Config.Mobs[몹].ExtraLoot { Id, Chance, Count } (케르베로스 털가죽 85%, 사이클롭스 가죽 85%, 보스는 크기만큼 더). 보스는 Config.MobBoss.ExtraLoot로 보스의 증표 1~2개. MobDied 7번째 인자 extras로 클라가 줍기 연출·획득 알림. 상세 창 "얻는 법"도 ExtraLoot·보스 전리품을 본다
   - 모양: 도끼(BuildTreesAndAxes: 미스릴 초승달 도끼 / 오리하르콘 태양 도끼), 곡괭이 5·6단계는 같은 스크립트가 Studio 다이아몬드 곡괭이 Tool을 복제해 머리·자루 색·재질을 바꾸고 빛·반짝이(오리하르콘은 불티)를 붙여 1.06 / 1.15배로. 무기 6종·괴·털가죽·가죽·보스의 증표 아이콘은 BuildWeaponsAndMobs
-  - 장비 겉모습(GearVisualService, Config.GearVisual.HighTiers): 미스릴 = 은빛 파란 금속 + 파랗게 빛나는 테두리·가슴 V자 빛줄·이마 빛줄, 오리하르콘 = 금빛 + 주황 보석·큰 볏·투구 큰 날개 두 겹·어깨 뿔·발목 날개·반짝이
+  - 2026-10-10 다시 디자인 (사용자 요청 "다이아보다 더 크고 강해 보이게, 빛도 나게"): 5단계 = 다이아의 약 1.25배, 6단계 = 약 1.45배. 모두 빛나는(Neon) 테두리·룬·보석 + PointLight + 반짝이, 미스릴은 천천히 떨어지는 파란 서리 반짝이, 오리하르콘은 금빛 불꽃(fire_main)·불티. 아이콘은 Tool 모양에서 자동으로 새로 만들어짐
+    - 곡괭이: 색만 바꾸던 복제 대신 도끼처럼 다이아 곡괭이 Tool의 쥐는 각도만 쓰고 부품으로 새로 짓는다 (buildAxe Design MoonPick·SunPick, HIGH_PICKAXES Size 1.25 / 1.45 = 다이아 곡괭이 머리 반 폭을 재서 그 배수, 자루 길이도 그 배수). 미스릴 달빛 곡괭이 = 휜 은빛 양팔 + 빛나는 룬 줄·끝, 팔 위 가시, 빛 심 볏, 파란 보석 / 오리하르콘 태양 곡괭이 = 굵은 금빛 양팔 + 위쪽 둘째 팔(두 겹), 불꽃 볏 3갈래, 앞뒤 햇살 원반·태양 보석. 양쪽이 같은 모양이라 앞뒤 방향을 안 탄다
+    - 도끼: 미스릴 1.45 → 1.7배(자루 1.45, 뒤 작은 초승달·빛 심 창끝·보석), 오리하르콘 1.7 → 1.85배(자루 1.55, 앞뒤 햇살 원반·불꽃 볏). AXES의 LightRange·LightBrightness·SparkleRate·Aura(Frost/Flame, 투명 AuraArea 부품에서 뿜음)
+    - 무기(BuildWeaponsAndMobs, kit.glow에 세기 인자 + kit.aura): 미스릴 달빛 검(초승달 코등이 두 겹·빛나는 날 테두리·룬 홈) / 오리하르콘 태양 성검(두 겹 금 날·불꽃 톱니 5쌍·햇살 원반 코등이·불꽃 뿔) / 미스릴 룬 전투망치(빛나는 양 면·창끝·날개 4장) / 오리하르콘 태양 거인망치(큰 금 머리·주황 빛 면·햇살 원반·왕관 가시 5개) / 미스릴 달빛 활(앞면 빛 줄·초승달·끝 칼날, S 1.5) / 오리하르콘 태양궁(불꽃 줄·두 겹 날개·햇살 8갈래 원반·불꽃 뿔, S 1.7)
+  - 장비 겉모습(GearVisualService, Config.GearVisual.HighTiers, 2026-10-10부터 장신구만): 미스릴 = 은빛 파란 금속 + 파랗게 빛나는 테두리·가슴 V자 빛줄·이마 빛줄, 오리하르콘 = 금빛 + 주황 보석·큰 볏·투구 큰 날개 두 겹·어깨 뿔·발목 날개·반짝이
   - 타격 연출: Config.HitFeel.TierEffects·AxeTierEffects·Combat.TierEffects [5]·[6]. 오리하르콘은 두 번째 금빛 고리(DoubleRing) + 번쩍임(Flash)
 - [x] 조합 개수 줄이기 (2026-10-09): 4단계(다이아)부터는 아래 단계 2개 (2·3단계는 3개). 6단계 하나에 1단계 108개
 - [x] 시작 지급 (2026-10-09): 처음엔 돌 곡괭이 하나만(Config.StarterTools). 돌을 캐서 상인에게 팔고 → 돌 도끼(5G + 돌 5) → 통나무로 나머지. Studio 테스트 지급(Config.Debug)도 전부 끔, Studio 저장소는 PlayerData_Studio_v2로 새로 시작
+  - 2026-10-10: Studio 저장에 테스트 아이템이 쌓여서 Config.Save.StudioStoreName = PlayerData_Studio_v3로 다시 새로 시작 (돌 곡괭이 하나만)
+- [x] (임시, TODO 테스트 끝나면 지우기) 상점 3번 누르면 공짜 (2026-10-10 사용자 요청, Studio 전용): 상점 목록의 아이템 아이콘이나 재료 그림을 Config.Debug.ShopTripleClickWindow(0.8)초 안에 3번 누르면 그 아이템을 받는다 (쌓이는 것은 ShopFreeStackAmount(10)개, 도구·무기·장비는 1개). 한 번 누르면 상세 창은 그대로
+  - 클라 ShopUI openDetail → countDebugClick → 리모트 DebugShopGrant(shopId, itemId). 서버 CraftingService가 RunService:IsStudio() + Config.Debug.ShopTripleClickFree + ItemDefs에 있음 + 그 상점 NPC 근처(NpcService.isNear)를 확인하고 PickaxeService.give(도구·무기) 또는 InventoryService.add로 준다 → "[테스트] ~ 받았어요"
+  - 지울 때: Config.Debug.ShopTripleClickFree·ShopTripleClickWindow·ShopFreeStackAmount, Remotes DebugShopGrant, ShopUI countDebugClick, CraftingService onDebugShopGrant (모두 TODO(임시) 주석)
 - [x] 바다 생물: 물고기·복어·황금 물고기·낙지·상어 (2026-10-09 사용자 요청 "헤엄칠 수 있는 물에서 낙지·물고기 잡기")
+  - **2026-10-10 사용자 요청 "물고기는 모두 삭제": 물고기·복어·황금 물고기와 얕은 바다 구역, 복어 가시·황금 비늘 아이템을 뺐다** (남은 바다 생물 = 낙지·해파리·상어. 생선은 상어가 가끔 준다). 아래 줄의 물고기 내용은 기록용. 떼(School)·Prick 코드는 남아 있지만 쓰는 몹이 없다. 예전 저장의 복어 가시·황금 비늘은 Unknown에 보관. 제작 스크립트가 남은 템플릿·아이콘을 지운다
   - 몹 6종 더함 (MobDefs Habitat = "Water", SwimStyle Fish/Pulse, 수치 Config.Mobs Swim = true): 물고기(T1, 떼 3~5마리, 얌전·도망) / 복어(T2, 얌전, 맞으면 PuffTime초 동안 PuffScale배로 부풀고 Range 안에서 때린 사람을 찌름 = Config.Mobs.Pufferfish.Prick) / 황금 물고기(T2, 드묾·빠름·도망, 골드 40~70) / 낙지(T2, 먼저 안 덤비고 맞으면 쫓아와 때림 = Retaliate, 맞으면 가끔 먹물 = Ink) / 해파리(T2, 둥둥 떠다니다 닿으면 쏨 = Drift) / 상어(T3, 물에 들어온 사람에게 돌진해 묾 = ChargeSpeed·ChargeRange, 크기 1.3)
   - 헤엄(서버 MobService.stepSwimmer, 수치 Config.SeaAI): 지형만 보는 광선으로 물 기둥(수면 = 물 안 무시한 광선이 Water에 맞은 높이, 바닥 = 물 무시한 광선)을 ColumnCell 칸마다 한 번 재서 기억. 몸이 수면 아래·바닥 위에 있게 3D로 움직이고 물 밖·얕은 물·안전지대로는 안 간다. 물에 들어온(수면 위 PlayerWaterAbove까지) 플레이어만 노리고, 물 밖으로 나가면 포기. 물고기 떼(생성 자리 속성 School)는 떼 목적지를 같이 쓰고 자기 자리만큼 비켜 헤엄. 물고기는 몸을 좌우로 살랑(WiggleAngle), 낙지·해파리는 위아래로 둥실(PulseBob), 오르내릴 땐 머리를 기울임(MaxPitch)
   - 전투: 기존 흐름 그대로 (CombatService onAttack → MobService.damage, 주인·장비 벽·보스·전리품·줍기 연출). 물 속 몹은 위아래 거리도 본다(물가에서 깊은 바닥 물고기는 칼로 못 침, 클라 조준도 같은 기준). 몹 공격은 hurtPlayer 하나로 (피버 무적·방어구·구르기/방패)
   - 연출: 리모트 MobSpecial(mob, "Ink"|"Puff", userId, position, data) → 클라 CombatController가 먹물 구름(검은 입자) + 맞은 사람 화면이 Blind초 어두워짐 "앗, 먹물!" / 복어 "뿅" + 조각. 비명 Config.MobDeathSounds, 수치 Config.SeaEffects
   - 생성 자리(제작 스크립트 BuildWeaponsAndMobs 5번): 마을 둘레 Config.SeaSpawn.ScanRadius를 ScanStep 격자로 아래로 광선 → 지형 물 칸(깊이 MinDepth 이상, 안전지대·광산 밖)을 모으고, Config.SeaZones 구역(얕은 바다 = 물고기 떼 4 + 복어 3 + 황금 물고기 1 / 낙지 바위 = 낙지 4 + 해파리 3 / 깊은 바다 = 상어 3 + 낙지 1, 모두 약 31마리)마다 깊이가 맞고 물 칸이 많고 마을 거리 범위에 가까운 가운데를 고른다. 속성 MobType·Zone·Habitat·SwimDepth(그 자리 물 깊이)·School·BossSpot. 물을 못 찾으면 Output 경고
-  - 전리품·음식: 생선(먹으면 체력 20)·복어 가시·황금 비늘(60G)·낙지 다리(먹으면 체력 35·마나 10, 재료)·먹물 주머니·해파리 젤리·상어 이빨·상어 가죽 (ItemDefs, Config.Foods·SellPrices, 아이콘은 BuildWeaponsAndMobs). 조합식: 다이아몬드 갑옷에 상어 가죽 3(케르베로스 털가죽 10 → 8), 미스릴 검에 상어 이빨 4(케르베로스 송곳니 4 → 2)
-  - 지도: 바다 구역도 손그림 얼굴 (MinimapController FACES Fish·GoldenFish·Pufferfish·Octopus·Jellyfish·Shark, 주인 몹은 Config.SeaZones MobType)
+  - 전리품·음식: 생선(먹으면 체력 20)·복어 가시·황금 비늘(60G)·낙지 다리(먹으면 체력 35·마나 10, 재료)·먹물 주머니·해파리 젤리·상어 이빨·상어 가죽 (ItemDefs, Config.Foods·SellPrices, 아이콘은 BuildWeaponsAndMobs). 조합식: (다이아몬드 갑옷의 상어 가죽은 2026-10-10 몹 세트로 바뀌며 빠짐), 미스릴 검에 상어 이빨 4(케르베로스 송곳니 4 → 2)
+  - 지도: 바다 구역도 손그림 얼굴 (MinimapController FACES Octopus·Jellyfish·Shark — 물고기 얼굴은 2026-10-10 삭제, 주인 몹은 Config.SeaZones MobType)
   - TODO: 물 속 활 화살 느리게, 낙지 다리 꿈틀(클라 애니메이션), 전용 소리
+- [x] 스켈레톤 궁수·거대 몬스터 (2026-10-10 사용자 요청)
+  - 스켈레톤 궁수(SkeletonArcher, 2단계, 뼈다귀 + 5% 나무 화살통): 스켈레톤 무덤에 4마리 (Config.MobZones 구역의 Extras = 따로 두는 몹). Config.Mobs Ranged: KeepAway보다 가까우면 대상을 보며 뒷걸음질, Range(30) 안이면 AttackInterval마다 쏜다. 서버가 쏠 때 대상 자리(움직이면 Lead만큼 앞)를 정하고 ArrowSpeed로 날아가는 시간 뒤 HitRadius 안에 있어야 맞음 → 움직이거나 구르기 무적이면 피함. 벽·땅에 막히면 안 쏘고 다가간다. 모양 = 스켈레톤 + 초록 깃털 모자 + 왼손 활(건 화살) + 등 화살통·가슴 끈
+  - 거대 몬스터 3종 (사이클롭스 1.9배보다 큼, 모델 높이 × Config.Mobs Scale): 바위 골렘(StoneGolem, 5단계, 약 2.3배) / 서리 거인(FrostGiant, 6단계, 약 2.7배) / 베헤모스(Behemoth, 7단계 네발 짐승, 약 3.2배. 무기 최대 6단계라 장비 벽 0.4배)
+    - 구역(아주 먼 띠): 바위 골렘 돌무덤 280~350 3마리 / 서리 거인 얼음벌판 320~400 3마리 / 베헤모스 둥지 370~450 2마리. 땅이 모자라면 제작 스크립트가 Config.MobZoneLayout.FallbackShrink 배율로 거리를 당겨 다시 찾는다
+    - 큰 기술(Config.Mobs Specials, 차례로): Slam 대상 자리 내려찍기(골렘) / Stomp 내 둘레 발구르기(서리 거인·베헤모스) / Charge 직선 돌진(베헤모스). 대상이 Trigger 안이면 Windup초 동안 바닥에 빨간 원·직선(MobSpecial "Telegraph", 안쪽 원이 차오름) → 판정("Impact": 충격파 고리·흙먼지·쾅·화면 흔들림). 원 밖으로 나가거나 구르면 피함. 방망이 내려찍기 기절이면 취소("Cancel"). 주인이 있으면 주인만 맞는다. 보스 크기는 BossScale(1.2~1.5)
+    - 전리품(방어구 재료, 방어구 조합식은 장비 작업): 골렘 돌판 + 골렘 핵 30% / 서리 거인 가죽 + 서리 수정 30% / 베헤모스 비늘 + 베헤모스 뿔 25% (ItemDefs·SellPrices·아이콘 BuildWeaponsAndMobs). 지도 얼굴 MinimapController FACES, 비명 Config.MobDeathSounds(아주 낮게 두 번), 연출 수치 Config.MobAttackEffects
+  - 케르베로스 털가죽: ExtraLoot 85%·1~2장 그대로 (주 전리품 송곳니) — 사용자 확인 요청
+  - TODO: 거인 전용 소리·걷는 애니메이션, 궁수 활 당기는 동작
+- [x] 몹 방어구 세트 7단계 (2026-10-10 사용자 요청 "잡은 몹 재료로, 겉에서 딱 알아보게")
+  - 헬멧·갑옷·신발·장갑은 금속 대신 몹 세트 (EquipmentDefs ARMOR_SETS, 아이템 Id = 세트 + 칸, 정의 필드 Set). 목걸이·팔찌는 광물 1~6단계 그대로
+    | 단계 | 세트 | 주재료 + 두 번째 재료 | 겉모습 |
+    |---|---|---|---|
+    | 1 | 가죽 Leather | 슬라임 젤리 | 둥근 가죽 모자·조끼 |
+    | 2 | 뼈 Bone | 뼈다귀 + 낡은 천 | 해골 투구(초록 눈빛·이빨)·갈비뼈 갑옷·등뼈·정강이뼈·손가락 마디 뼈 |
+    | 3 | 케르베로스 Cerberus | 털가죽 + 송곳니 (+ 철괴 1) | 늑대 두건(주둥이·빨간 눈·뾰족 귀)·털 목도리 송곳니·X자 끈·발톱 |
+    | 4 | 사이클롭스 Cyclops | 사이클롭스 가죽 + 눈알 (+ 강철괴 1) | 이마 큰 외눈 투구·덧댄 거대 가죽(X 바느질)·아주 큰 둥근 어깨·투박한 장화·벙어리장갑 |
+    | 5 | 바위 골렘 Golem | 골렘 돌판 + 골렘 핵 (+ 미스릴괴 1) | 네모난 돌 투구·돌판 4장·초록빛 핵과 금·이끼 낀 어깨 바위·돌 주먹 |
+    | 6 | 서리 거인 Frost | 서리 거인 가죽 + 서리 수정 (+ 미스릴괴) | 하얀 털·얼음 수정 왕관·반투명 얼음 가슴판·수정 어깨·푸른 빛·눈송이 |
+    | 7 | 베헤모스 Behemoth | 비늘 + 뿔 + 보스의 증표 (+ 오리하르콘괴 1) | 크게 휜 뿔 투구·검붉은 비늘·용암 틈·불빛 핵·등 가시·뿔 어깨·불티 |
+  - 조합식(Config.Recipes): 2단계부터 같은 칸 바로 아래 세트 3개(4단계부터 2개) + 그 세트 몹 재료 + 바로 아래 세트 재료 조금 + 골드. 7단계 하나에 1단계 144개
+  - 7단계 "전설"(TierDefs, 짙은 진홍)은 지금 방어구만. 별은 모든 아이템이 7칸(★☆). Config.Equipment.TierMultiplier 7 = 23
+  - 겉모습: GearVisualService가 세트마다 다른 모양을 짓는다 (색·재질·빛·입자 Config.GearVisual.Sets). R15·R6 공통 "구역"(Anchor)으로 부위를 찾고, 세트별 몸통 크기·가슴 장식 두께(SET_SHAPE)로 목걸이·화살통 자리를 맞춘다. 한 세트 전부 입어도 부품 약 80개
+  - 아이콘: BuildWeaponsAndMobs 3-2 ARMOR_ICONS가 세트마다 다른 모양(같은 색표). 사냥꾼 방어구 탭 그림도 새 세트
+  - 예전 저장의 구리·철·다이아·미스릴·오리하르콘 투구·갑옷·장화·장갑은 불러올 때 같은 단계 세트로 바뀐다 (EquipmentDefs.Renamed → InventoryService 가방·Unknown, EquipmentService 끼운 장비)
 - [ ] 트로피, 모루 미니게임, 매크로 방어
 
 ## 7. MVP에서 제외하는 것 (먼저 확인받기 전에는 구현 금지)

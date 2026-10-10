@@ -52,9 +52,15 @@ local ItemDefs: { [string]: ItemDef } = {
 	CerberusHide = { Id = "CerberusHide", DisplayName = "케르베로스 털가죽", Category = "Etc", Stackable = true, Icon = "CerberusHide", Color = Color3.fromRGB(85, 65, 72) },
 	CyclopsHide = { Id = "CyclopsHide", DisplayName = "사이클롭스 가죽", Category = "Etc", Stackable = true, Icon = "CyclopsHide", Color = Color3.fromRGB(165, 170, 115) },
 	BossToken = { Id = "BossToken", DisplayName = "보스의 증표", Category = "Etc", Stackable = true, Icon = "BossToken", Color = Color3.fromRGB(255, 205, 60) },
+	-- 거대 몬스터 전리품 (2026-10-10): 방어구 재료. 주 전리품(MobDefs.LootId) / 두 번째 전리품(Config.Mobs ExtraLoot). 아이콘은 studio/BuildWeaponsAndMobs
+	GolemPlate = { Id = "GolemPlate", DisplayName = "골렘 돌판", Category = "Etc", Stackable = true, Icon = "GolemPlate", Color = Color3.fromRGB(135, 130, 125) },
+	GolemCore = { Id = "GolemCore", DisplayName = "골렘 핵", Category = "Etc", Stackable = true, Icon = "GolemCore", Color = Color3.fromRGB(80, 255, 170) },
+	FrostHide = { Id = "FrostHide", DisplayName = "서리 거인 가죽", Category = "Etc", Stackable = true, Icon = "FrostHide", Color = Color3.fromRGB(225, 238, 250) },
+	FrostCrystal = { Id = "FrostCrystal", DisplayName = "서리 수정", Category = "Etc", Stackable = true, Icon = "FrostCrystal", Color = Color3.fromRGB(150, 220, 255) },
+	BehemothScale = { Id = "BehemothScale", DisplayName = "베헤모스 비늘", Category = "Etc", Stackable = true, Icon = "BehemothScale", Color = Color3.fromRGB(120, 70, 95) },
+	BehemothHorn = { Id = "BehemothHorn", DisplayName = "베헤모스 뿔", Category = "Etc", Stackable = true, Icon = "BehemothHorn", Color = Color3.fromRGB(240, 225, 190) },
 	-- 바다 생물 전리품 (2026-10-09). 아이콘은 studio/BuildWeaponsAndMobs. 생선·낙지 다리는 먹을 수도 있다 (Config.Foods)
-	PufferSpine = { Id = "PufferSpine", DisplayName = "복어 가시", Category = "Etc", Stackable = true, Icon = "PufferSpine", Color = Color3.fromRGB(240, 210, 110) },
-	GoldenScale = { Id = "GoldenScale", DisplayName = "황금 비늘", Category = "Etc", Stackable = true, Icon = "GoldenScale", Color = Color3.fromRGB(255, 205, 60) },
+	-- (복어 가시·황금 비늘은 2026-10-10 물고기 삭제와 함께 뺐다. 예전 저장에 있으면 Unknown에 보관된다)
 	InkSac = { Id = "InkSac", DisplayName = "먹물 주머니", Category = "Etc", Stackable = true, Icon = "InkSac", Color = Color3.fromRGB(45, 40, 60) },
 	JellyfishJelly = { Id = "JellyfishJelly", DisplayName = "해파리 젤리", Category = "Etc", Stackable = true, Icon = "JellyfishJelly", Color = Color3.fromRGB(200, 170, 255) },
 	SharkTooth = { Id = "SharkTooth", DisplayName = "상어 이빨", Category = "Etc", Stackable = true, Icon = "SharkTooth", Color = Color3.fromRGB(250, 248, 235) },
@@ -113,7 +119,8 @@ local ORDER = {
 	"Stone", "Coal", "CopperOre", "IronOre", "Mithril", "Orichalcum", "CopperIngot", "IronIngot", "SteelIngot", "MithrilIngot", "OrichalcumIngot",
 	"Pine", "Oak", "Birch", "Maple", "Ebony",
 	"SlimeJelly", "Bone", "OldCloth", "CerberusFang", "CerberusHide", "CyclopsEye", "CyclopsHide", "BossToken",
-	"PufferSpine", "GoldenScale", "InkSac", "JellyfishJelly", "SharkTooth", "SharkSkin",
+	"GolemPlate", "GolemCore", "FrostHide", "FrostCrystal", "BehemothScale", "BehemothHorn",
+	"InkSac", "JellyfishJelly", "SharkTooth", "SharkSkin",
 }
 
 -- 장비 아이템을 더한다 (마지막 무기 다음 순서. 무기 수를 세지 않고 찾으니 단계가 늘어도 그대로 된다)

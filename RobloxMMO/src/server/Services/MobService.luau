@@ -7,8 +7,12 @@
 -- 얌전한 몹(Config.Mobs의 Passive, 슬라임)은 먼저 공격하지 않고, 맞으면 잠깐 도망친다.
 -- 생성 때 Config.MobBoss 확률로 크고 센 보스가 된다 (Model:ScaleTo, 보상도 크기만큼).
 -- 바다 생물(Config.Mobs의 Swim, 2026-10-09)은 stepSwimmer가 따로 움직인다: 지형 물 속에서 수면 아래·바닥 위로 3D로 헤엄치고,
---   물에 들어온 플레이어만 노리며, 대상이 물 밖으로 나가면 포기한다. 물고기 떼(생성 자리 속성 School)는 목적지를 같이 쓴다.
---   복어는 맞으면 부풀어 가까이서 때린 사람을 찌르고(Prick), 낙지는 먹물을 뿜는다(Ink → MobSpecial), 해파리는 닿으면 쏜다(Drift).
+--   물에 들어온 플레이어만 노리며, 대상이 물 밖으로 나가면 포기한다. 떼(생성 자리 속성 School)는 목적지를 같이 쓴다 (지금은 떼 몹 없음).
+--   낙지는 먹물을 뿜는다(Ink → MobSpecial), 해파리는 닿으면 쏜다(Drift). Prick(맞으면 부풀어 찌름)은 물고기 삭제(2026-10-10) 뒤 쓰는 몹이 없다.
+-- 활 쏘는 몹(Config.Mobs의 Ranged, 스켈레톤 궁수, 2026-10-10): 가까우면 물러나고 멀리서 화살을 쏜다.
+--   화살은 날아가는 시간이 있고, 도착할 때 그 자리(HitRadius)에 있어야 맞는다 → 움직이거나 구르면 피한다. 연출은 MobSpecial "Arrow"
+-- 거대 몬스터(Config.Mobs의 Specials, 2026-10-10): 큰 기술을 Windup초 동안 바닥에 표시(MobSpecial "Telegraph")한 뒤
+--   내려찍기·발구르기(원 안 모두) 또는 돌진(지나가는 길에 닿은 사람)으로 때린다 ("Impact"). 기절하면 준비하던 기술이 취소된다.
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
@@ -69,7 +73,17 @@ export type MobState = {
 	NextPrick: number, -- 복어: 다음에 찌를 수 있는 시각
 	NextInk: number, -- 낙지: 다음에 먹물을 뿜을 수 있는 시각
 	Pitch: number, -- 위아래로 기운 각도(라디안, + = 머리 위로)
+	-- 거대 몬스터 큰 기술 (2026-10-10). 기술이 없는 몹은 안 쓴다
+	NextSpecial: number, -- 다음 큰 기술을 쓸 수 있는 시각
+	SpecialIndex: number, -- 다음에 쓸 기술 번호 (Config.Mobs Specials, 차례로 돈다)
+	Cast: Cast?, -- 준비 중인 기술 (At에 판정)
+	Charge: Charge?, -- 돌진 중
 }
+
+-- 준비 중인 큰 기술: Spec = Config.Mobs Specials 한 줄, At = 판정 시각, Center = 원 가운데(내려찍기·발구르기), Dir = 돌진 방향
+type Cast = { Spec: any, At: number, Center: Vector3, Dir: Vector3 }
+-- 돌진: Until까지 Dir로 Speed(스터드/초), 닿은 사람(HitRange 안)은 한 번씩 Damage
+type Charge = { Until: number, Dir: Vector3, Speed: number, Damage: number, HitRange: number, Hit: { [Player]: boolean } }
 
 local MOB_TAG = "Mob"
 
@@ -281,13 +295,115 @@ local function hurtPlayer(state: MobState, player: Player, humanoid: Humanoid, a
 end
 
 -- 이번 생성이 보스인지 정하고 크기 배율을 돌려준다 (보스가 아니면 nil)
-local function rollBoss(spawnPart: BasePart): number?
+-- 몹마다 Config.Mobs BossScale이 있으면 그 크기 범위 (이미 큰 거대 몬스터는 덜 커진다, 2026-10-10)
+local function rollBoss(spawnPart: BasePart, mobConfig: any): number?
 	local boss = Config.MobBoss
 	local chance = if spawnPart:GetAttribute("BossSpot") == true then boss.SpotChance else boss.Chance
 	if random:NextNumber() >= chance then
 		return nil
 	end
-	return random:NextNumber(boss.Scale[1], boss.Scale[2])
+	local range = if typeof(mobConfig.BossScale) == "table" then mobConfig.BossScale else boss.Scale
+	return random:NextNumber(range[1], range[2])
+end
+
+---------------------------------------------------------------- 활 쏘는 몹 (2026-10-10)
+-- 스켈레톤 궁수가 player에게 화살을 쏜다. 움직이는 사람은 조금 앞(Lead)을 노린다.
+-- 벽·땅에 막히면 안 쏘고 false. 화살이 도착할 때(날아가는 시간 뒤) 그 자리 HitRadius 안에 있어야 맞는다 (구르기 무적이면 "피함!")
+local function shootArrow(state: MobState, player: Player, root: BasePart, ranged: any): boolean
+	local from = state.Position + Vector3.new(0, state.Height * 0.55, 0) + state.Facing * (state.Radius * 0.6)
+	local velocity = root.AssemblyLinearVelocity * Vector3.new(1, 0, 1)
+	local travel = (root.Position - from).Magnitude / ranged.ArrowSpeed
+	local aim = root.Position + velocity * travel * (ranged.Lead or 0)
+	travel = math.max((aim - from).Magnitude / ranged.ArrowSpeed, 0.05)
+	local blocker = Workspace:Raycast(from, aim - from, groundParams)
+	if blocker and (blocker.Position - aim).Magnitude > 2 then
+		return false
+	end
+	fireNearby(specialRemote, state.Position, state.Model, "Arrow", player.UserId, from, { To = aim, Time = travel })
+	local damage = state.Damage
+	task.delay(travel, function()
+		local hitRoot, humanoid = aliveRoot(player)
+		if hitRoot and humanoid and (hitRoot.Position - aim).Magnitude <= ranged.HitRadius and safeDepth(hitRoot.Position) <= 0 then
+			hurtPlayer(state, player, humanoid, damage, os.clock())
+		end
+	end)
+	return true
+end
+
+---------------------------------------------------------------- 거대 몬스터 큰 기술 (2026-10-10)
+-- 기술에 맞을 수 있는 플레이어 (주인이 있으면 주인만 = 남이 사냥 중인 거인에게 휘말리지 않게)
+local function canBeHit(state: MobState, player: Player): boolean
+	local owner = OwnershipService.ownerOf(state)
+	return owner == nil or owner == player.UserId
+end
+
+-- 기술 데미지 (보스는 커진 만큼 = 보통 공격과 같은 비율)
+local function specialDamage(state: MobState, spec: any): number
+	local base = Config.Mobs[state.Type].Damage
+	return spec.Damage * (if base > 0 then state.Damage / base else 1)
+end
+
+-- 원(center, radius) 안의 플레이어를 한 번씩 때린다. 높이는 반경의 절반 + 5까지
+local function hurtInCircle(state: MobState, center: Vector3, radius: number, damage: number, now: number)
+	for _, player in Players:GetPlayers() do
+		local root, humanoid = aliveRoot(player)
+		if root and humanoid and canBeHit(state, player) and safeDepth(root.Position) <= 0 then
+			local flat = Vector3.new(root.Position.X - center.X, 0, root.Position.Z - center.Z).Magnitude
+			if flat <= radius + 1 and math.abs(root.Position.Y - center.Y) <= radius * 0.5 + 5 then
+				hurtPlayer(state, player, humanoid, damage, now)
+			end
+		end
+	end
+end
+
+-- 큰 기술 시작: 바닥에 경고 표시(Telegraph)를 보내고 Windup초 뒤 stepMob이 판정한다
+-- 내려찍기 = 대상이 선 자리 둘레 / 발구르기 = 내 둘레 / 돌진 = 대상 쪽 직선
+local function startSpecial(state: MobState, spec: any, targetRoot: BasePart, now: number)
+	local s = state.Scale
+	local flat = (targetRoot.Position - state.Position) * Vector3.new(1, 0, 1)
+	local dir = if flat.Magnitude > 0.05 then flat.Unit else state.Facing
+	state.Facing = dir
+	local center = state.Position
+	local data: { [string]: any } = { Kind = spec.Kind, Time = spec.Windup, Shape = "Circle", Radius = (spec.Radius or 0) * s }
+	if spec.Kind == "Slam" then
+		local p = targetRoot.Position
+		center = Vector3.new(p.X, groundY(p, p.Y - 3), p.Z)
+	elseif spec.Kind == "Charge" then
+		data.Shape = "Line"
+		data.Length = spec.Distance * s
+		data.Width = spec.Width * s
+		data.Dir = dir
+	end
+	state.Cast = { Spec = spec, At = now + spec.Windup, Center = center, Dir = dir }
+	fireNearby(specialRemote, state.Position, state.Model, "Telegraph", 0, center, data)
+end
+
+-- 준비가 끝난 기술을 판정한다: 원 안 모두 때리기, 또는 돌진 시작
+local function resolveSpecial(state: MobState, now: number)
+	local cast = state.Cast
+	if not cast then
+		return
+	end
+	state.Cast = nil
+	local spec = cast.Spec
+	local s = state.Scale
+	local damage = specialDamage(state, spec)
+	if spec.Kind == "Charge" then
+		state.Charge = {
+			Until = now + spec.Distance / spec.Speed,
+			Dir = cast.Dir,
+			Speed = spec.Speed * s,
+			Damage = damage,
+			HitRange = math.max(spec.Width * s / 2, state.Radius * 0.6) + 1.5,
+			Hit = {},
+		}
+		fireNearby(specialRemote, state.Position, state.Model, "Impact", 0, state.Position, { Kind = "Charge", Radius = state.Radius })
+	else
+		local radius = (spec.Radius or 0) * s
+		hurtInCircle(state, cast.Center, radius, damage, now)
+		fireNearby(specialRemote, state.Position, state.Model, "Impact", 0, cast.Center, { Kind = spec.Kind, Radius = radius })
+	end
+	state.NextAttack = math.max(state.NextAttack, now + 0.6) -- 기술 바로 뒤 보통 공격은 잠깐 쉰다
 end
 
 -- 생성 자리에 몹을 하나 만든다
@@ -311,7 +427,7 @@ local function spawnMob(spawnPart: BasePart)
 	local model = template:Clone()
 	model.Name = mobType
 	-- 보스: 기준점(발밑)을 중심으로 키운다. 템플릿이 이미 Config.Mobs.Scale만큼 커져 있으니 거기에 곱한다
-	local bossScale = rollBoss(spawnPart)
+	local bossScale = rollBoss(spawnPart, config)
 	local scale = bossScale or 1
 	if bossScale then
 		model:ScaleTo(model:GetScale() * bossScale)
@@ -401,6 +517,10 @@ local function spawnMob(spawnPart: BasePart)
 		NextPrick = 0,
 		NextInk = 0,
 		Pitch = 0,
+		NextSpecial = 0,
+		SpecialIndex = 1,
+		Cast = nil,
+		Charge = nil,
 	}
 end
 
@@ -444,11 +564,23 @@ local function stepMob(state: MobState, dt: number, now: number)
 			end
 		end
 		state.Target = best
+		if best then
+			state.NextSpecial = math.max(state.NextSpecial, now + 1.5) -- 알아채자마자 큰 기술을 쓰진 않는다
+		end
 	end
 
 	local goal: Vector3? = nil
 	local speed = state.Speed
 	local fleeing = false
+	local retreating = false -- 활 쏘는 몹이 뒤로 물러나는 중 (막히면 도망처럼 옆으로 비킨다)
+	local charging = false -- 거대 몬스터 돌진 중
+	local faceAfterMove: Vector3? = nil -- 물러난 뒤에도 대상을 바라본다
+	local ranged = (config :: any).Ranged
+	local specials = (config :: any).Specials
+	local cast = state.Cast
+	if cast and now >= state.StunUntil and now >= cast.At then
+		resolveSpecial(state, now) -- 준비 끝: 쾅! (돌진이면 여기서 시작)
+	end
 	if now < state.KnockbackUntil then
 		-- 맞아서 밀려나는 중 (안전지대 안으로는 안 밀린다)
 		local nextPosition = state.Position + state.Knockback * dt
@@ -460,6 +592,30 @@ local function stepMob(state: MobState, dt: number, now: number)
 	elseif now < state.StunUntil then
 		-- 기절: 제자리에서 꼼짝 못 하고 공격도 못 한다 (쫓던 대상은 기억한다)
 		goal = nil
+	elseif state.Cast then
+		-- 큰 기술 준비 중: 제자리에서 힘을 모은다 (바닥 경고 표시가 차오르는 동안)
+		goal = nil
+	elseif state.Charge then
+		-- 돌진: 정한 방향으로 곧장 달리며 닿은 사람을 한 번씩 들이받는다. 안전지대 앞에서는 멈춘다
+		local charge = state.Charge :: Charge
+		local nextPosition = state.Position + charge.Dir * charge.Speed * dt
+		if now >= charge.Until or entersSafeZone(state.Position, nextPosition) then
+			state.Charge = nil
+		else
+			state.Position = nextPosition
+			state.Facing = charge.Dir
+			charging = true
+			for _, player in Players:GetPlayers() do
+				local root, humanoid = aliveRoot(player)
+				if root and humanoid and not charge.Hit[player] and canBeHit(state, player) and safeDepth(root.Position) <= 0 then
+					local offset = root.Position - state.Position
+					if Vector3.new(offset.X, 0, offset.Z).Magnitude <= charge.HitRange and offset.Y > -3 and offset.Y < state.Height + 3 then
+						charge.Hit[player] = true
+						hurtPlayer(state, player, humanoid, charge.Damage, now)
+					end
+				end
+			end
+		end
 	elseif state.FleeFrom then
 		-- 도망: 때린 사람 반대쪽으로 빠르게
 		fleeing = true
@@ -475,7 +631,37 @@ local function stepMob(state: MobState, dt: number, now: number)
 			if flat.Magnitude > 0.05 then
 				state.Facing = flat.Unit
 			end
-			if flat.Magnitude > state.AttackRange * 0.8 then
+			local distance = flat.Magnitude
+			-- 거대 몬스터: 큰 기술 차례가 됐고 대상이 Trigger 거리 안이면 준비를 시작한다 (2026-10-10)
+			if typeof(specials) == "table" and #specials > 0 and now >= state.NextSpecial then
+				local spec = specials[state.SpecialIndex] or specials[1]
+				if distance <= spec.Trigger * math.max(state.Scale, 1) then
+					startSpecial(state, spec, root, now)
+					state.SpecialIndex = state.SpecialIndex % #specials + 1
+					state.NextSpecial = now + spec.Windup + spec.Cooldown
+				end
+			end
+			if state.Cast then
+				goal = nil -- 방금 기술 준비를 시작했다
+			elseif typeof(ranged) == "table" then
+				-- 활 쏘는 몹 (스켈레톤 궁수): 너무 가까우면 뒤로 물러나고, 너무 멀면 다가가고, 사이면 서서 쏜다
+				if distance < ranged.KeepAway then
+					local away = if distance > 0.05 then -flat.Unit else -state.Facing
+					goal = state.Position + away * 6
+					speed *= ranged.RetreatSpeed or 1
+					retreating = true
+					faceAfterMove = state.Facing
+				elseif distance > ranged.Range * 0.9 then
+					goal = root.Position
+				end
+				if distance <= ranged.Range and now >= state.NextAttack and state.Damage > 0 then
+					if shootArrow(state, state.Target :: Player, root, ranged) then
+						state.NextAttack = now + config.AttackInterval
+					elseif not retreating then
+						goal = root.Position -- 벽에 막혀 못 쏜다 → 다가간다
+					end
+				end
+			elseif distance > state.AttackRange * 0.8 then
 				goal = root.Position
 			elseif now >= state.NextAttack and state.Damage > 0 then
 				-- 공격: 앞으로 살짝 들이받고 피해를 준다 (피버 중인 플레이어는 무적)
@@ -524,7 +710,7 @@ local function stepMob(state: MobState, dt: number, now: number)
 			local direction: Vector3? = flat.Unit
 			if entersSafeZone(state.Position, state.Position + flat.Unit * step) then
 				direction = nil
-				if fleeing then
+				if fleeing or retreating then
 					for _, angle in { 70, -70, 120, -120 } do
 						local side = CFrame.Angles(0, math.rad(angle), 0):VectorToWorldSpace(flat.Unit)
 						if not entersSafeZone(state.Position, state.Position + side * step) then
@@ -544,7 +730,10 @@ local function stepMob(state: MobState, dt: number, now: number)
 			end
 		end
 	end
-	moving = moving or now < state.KnockbackUntil
+	moving = moving or charging or now < state.KnockbackUntil
+	if faceAfterMove then
+		state.Facing = faceAfterMove -- 뒷걸음질: 물러나면서도 대상을 본다
+	end
 
 	-- 땅에 붙인다
 	state.Position = Vector3.new(state.Position.X, groundY(state.Position, state.Position.Y), state.Position.Z)
@@ -580,7 +769,7 @@ local function randomSwimPoint(center: Vector3, radius: number, height: number):
 end
 
 -- 바다 생물 하나의 생각·헤엄 (dt초만큼, 2026-10-09). 땅 몹(stepMob)과 순서는 같지만 3D로 움직이고 물 밖으로는 안 나간다
--- 물고기·복어·황금 물고기(Passive): 맞으면 도망 / 낙지(Retaliate): 맞으면 쫓아와 때림 / 해파리(Drift): 둥둥, 닿으면 쏨 / 상어: 물에 들어온 사람에게 돌진
+-- 얌전한 바다 몹(Passive, 지금은 없음): 맞으면 도망 / 낙지(Retaliate): 맞으면 쫓아와 때림 / 해파리(Drift): 둥둥, 닿으면 쏨 / 상어: 물에 들어온 사람에게 돌진
 local function stepSwimmer(state: MobState, dt: number, now: number)
 	local config = Config.Mobs[state.Type] :: any
 	local sea = Config.SeaAI
@@ -953,6 +1142,12 @@ function MobService.stun(mob: Model, seconds: number)
 		return
 	end
 	state.StunUntil = math.max(state.StunUntil, os.clock() + seconds)
+	-- 거대 몬스터가 준비하던 큰 기술·돌진은 기절하면 취소된다 (클라에 "Cancel"로 바닥 표시를 지우게, 2026-10-10)
+	if state.Cast then
+		fireNearby(specialRemote, state.Position, mob, "Cancel", 0, state.Position, nil)
+	end
+	state.Cast = nil
+	state.Charge = nil
 end
 
 -- 플레이어가 seconds초 동안 몹 피해를 reduction(0~1)만큼 덜 받게 한다. source마다 따로 ("Roll" 구르기, "Block" 방패)

@@ -10,8 +10,8 @@
 --      같은 티어 곡괭이 Tool을 복제해 쥐는 각도(Grip)는 그대로 쓰고, 곡괭이 모양은 숨긴 뒤 곡괭이 머리 방향에 맞춰
 --      단계마다 다른 도끼를 부품으로 짓는다: 돌 한날 손도끼 / 구리 바이킹 수염 도끼 / 철 양날 전투도끼 / 다이아 대형 양날 도끼
 --      / 미스릴 초승달 도끼 / 오리하르콘 태양 도끼 (2026-10-09)
---   1-2. 5·6단계 곡괭이 → Templates/Pickaxes/{MithrilPickaxe, OrichalcumPickaxe}: 다이아몬드 곡괭이(SteelPickaxe) Tool을 복제해
---      머리·자루 색과 재질을 바꾸고 빛·반짝이를 붙인 뒤 조금 키운다 (+ 아이콘)
+--   1-2. 5·6단계 곡괭이 → Templates/Pickaxes/{MithrilPickaxe, OrichalcumPickaxe}: 다이아몬드 곡괭이(SteelPickaxe) Tool의 쥐는 각도를 쓰고
+--      모양은 숨긴 뒤 부품으로 새로 짓는다 (2026-10-10: 미스릴 달빛 곡괭이 1.25배 / 오리하르콘 태양 곡괭이 1.45배, 빛·반짝이·서리/불꽃) (+ 아이콘)
 --   2. 나무 템플릿 5종 → ServerStorage/Templates/Ores/{Pine, Oak, Birch, Maple, Ebony}/
 --      맵에 원래 있는 나무(이름에 "Tree")를 본떠 종류별로 잎·줄기 색만 바꾼다. 맵 나무가 없으면 부품으로 만든다.
 --      기준점(Pivot)은 줄기 밑동 가운데, 잰 줄기 반지름은 속성 HitRadius (잔상 고리가 줄기에 딱 맞게).
@@ -122,18 +122,22 @@ local AXES = {
 		Trail = Color3.fromRGB(110, 235, 255), TrailLife = 0.28, Glow = true,
 	},
 	-- 5단계 미스릴: 은빛 파랑, 가볍고 날렵한 초승달 날 하나 + 파랗게 빛나는 룬 (2026-10-09)
+	-- 2026-10-10 사용자 요청 "다이아보다 크고 강해 보이게": 1.45 → 1.7배, 자루 1.2 → 1.45, 뒤 작은 초승달·빛 심 창끝·떠 있는 보석·서리 반짝이 더함
 	{
-		Id = "MithrilAxe", From = "SteelPickaxe", Design = "Crescent", Scale = 1.45, Reach = 1.2, Shaft = 0.26,
+		Id = "MithrilAxe", From = "SteelPickaxe", Design = "Crescent", Scale = 1.7, Reach = 1.45, Shaft = 0.3,
 		Head = Color3.fromRGB(175, 205, 240), Edge = Color3.fromRGB(120, 195, 255), Material = METAL,
 		ShaftColor = Color3.fromRGB(40, 50, 78), ShaftMaterial = METAL, Rune = Color3.fromRGB(90, 170, 255),
-		Trail = Color3.fromRGB(120, 190, 255), TrailLife = 0.3, Glow = true,
+		Trail = Color3.fromRGB(120, 190, 255), TrailLife = 0.34, Glow = true,
+		LightRange = 11, LightBrightness = 2, SparkleRate = 10, Aura = "Frost",
 	},
 	-- 6단계 오리하르콘: 금빛, 묵직하고 화려한 두 겹 양날 + 햇살 가시 + 주황 보석 핵, 불티 (2026-10-09)
+	-- 2026-10-10: 1.7 → 1.85배, 자루 1.3 → 1.55, 앞뒤 햇살 원반·불꽃 볏·금빛 불꽃 더함
 	{
-		Id = "OrichalcumAxe", From = "SteelPickaxe", Design = "Sun", Scale = 1.7, Reach = 1.3, Shaft = 0.36,
+		Id = "OrichalcumAxe", From = "SteelPickaxe", Design = "Sun", Scale = 1.85, Reach = 1.55, Shaft = 0.4,
 		Head = Color3.fromRGB(240, 180, 55), Edge = Color3.fromRGB(255, 225, 140), Material = METAL,
 		ShaftColor = Color3.fromRGB(70, 35, 25), ShaftMaterial = METAL, Gold = Color3.fromRGB(255, 215, 110), Ember = Color3.fromRGB(255, 130, 30),
-		Trail = Color3.fromRGB(255, 185, 70), TrailLife = 0.32, Glow = true,
+		Trail = Color3.fromRGB(255, 185, 70), TrailLife = 0.36, Glow = true,
+		LightRange = 13, LightBrightness = 2.4, SparkleRate = 12, Aura = "Flame",
 	},
 }
 
@@ -407,8 +411,25 @@ local function buildAxe(spec): Tool
 			local mid = (inner[i] + outer[i]) / 2
 			plate({ mid + V(0, 0.09), mid + V(0.06, 0), mid + V(0, -0.09), mid + V(-0.06, 0) }, 0.18, spec.Rune, Enum.Material.Neon)
 		end
-		plate({ V(-0.22, 0.2), V(-0.95, 0), V(-0.22, -0.2) }, 0.16, spec.Head, spec.Material) -- 뒤 가시
-		plate({ V(-0.12, 0.45), V(0, 1.15), V(0.12, 0.45) }, 0.14, spec.Head, spec.Material) -- 위 가시
+		-- 2026-10-10: 뒤 가시 대신 뒤쪽 작은 초승달(빛 테두리), 위 가시 대신 빛 심 창끝, 날 가운데 떠 있는 보석, 가죽 손잡이
+		local backOuter, backInner = {}, {}
+		for i = 0, 3 do
+			local a = math.rad(-60 + 120 * i / 3)
+			table.insert(backOuter, V(-0.1 - 0.75 * math.cos(a), 0.62 * math.sin(a)))
+			table.insert(backInner, V(-0.2 - 0.35 * math.cos(a), 0.4 * math.sin(a)))
+		end
+		for i = 1, 3 do
+			plate({ backInner[i], backOuter[i], backOuter[i + 1], backInner[i + 1] }, 0.13, spec.Head, spec.Material)
+		end
+		edgeStrip(backOuter, 0.08, 0.16)
+		plate({ V(-0.22, 0.2), V(-0.5, 0.14), V(-0.5, -0.14), V(-0.22, -0.2) }, 0.17, spec.Head:Lerp(Color3.new(0, 0, 0), 0.2), spec.Material) -- 뒤 초승달을 잇는 목
+		plate({ V(0, 0.42), V(0.17, 0.85), V(0, 1.55), V(-0.17, 0.85) }, 0.14, spec.Head, spec.Material) -- 창끝
+		plate({ V(0, 0.6), V(0.06, 0.88), V(0, 1.3), V(-0.06, 0.88) }, 0.2, spec.Rune, Enum.Material.Neon) -- 창끝 빛 심
+		block("FloatGem", 0.95, 0, Vector3.new(0.2, 0.2, 0.2), spec.Edge, Enum.Material.Neon, Enum.PartType.Ball, CFrame.new(0, 0, 0.12 * s))
+		block("FloatGem", 0.95, 0, Vector3.new(0.2, 0.2, 0.2), spec.Edge, Enum.Material.Neon, Enum.PartType.Ball, CFrame.new(0, 0, -0.12 * s))
+		for i = 0, 4 do
+			shaftPiece("Leather", -0.95 + i * 0.2, -0.95 + i * 0.2 + 0.13, d + 0.03, Color3.fromRGB(30, 35, 55), Enum.Material.Leather) -- 룬 고리(d + 0.05)보다 얇게
+		end
 		trailTop, trailBottom = at(outer[steps + 1].X, outer[steps + 1].Y), at(outer[1].X, outer[1].Y)
 	elseif spec.Design == "Sun" then
 		-- 오리하르콘 태양 도끼: 금 고리 감은 굵은 자루, 두 겹 금빛 양날, 날 끝 햇살 가시, 가운데 주황 보석 핵, 창끝
@@ -443,7 +464,87 @@ local function buildAxe(spec): Tool
 		block("SpearGem", 0, 1.1, Vector3.new(0.2, 0.2, 0.2), spec.Ember, Enum.Material.Neon, Enum.PartType.Ball)
 		block("Collar", 0, 0.55, Vector3.new(0.46, 0.15, 0.46), spec.Gold, METAL)
 		block("Collar", 0, -0.55, Vector3.new(0.46, 0.15, 0.46), spec.Gold, METAL)
+		-- 2026-10-10: 앞뒤 햇살 원반(금 원판 + 빛나는 햇살 6갈래)과 창끝 양옆 불꽃 볏
+		for _, z in { 0.3, -0.3 } do
+			block("SunDisk", 0, 0, Vector3.new(0.06, 0.95, 0.95), spec.Gold, METAL, Enum.PartType.Cylinder, CFrame.new(0, 0, z * s) * CFrame.Angles(0, math.rad(90), 0))
+			for i = 0, 5 do
+				local a = i / 6 * math.pi * 2 + math.pi / 6
+				local dir, across = V(math.cos(a), math.sin(a)), V(-math.sin(a), math.cos(a))
+				plate({ dir * 0.4 + across * 0.07, dir * 0.72, dir * 0.4 - across * 0.07 }, 0.04, spec.Edge, Enum.Material.Neon, z + 0.03 * math.sign(z))
+			end
+		end
+		for _, side in { 1, -1 } do
+			plate({ V(0.12 * side, 0.6), V(0.42 * side, 1.25), V(0.3 * side, 0.55) }, 0.12, spec.Ember, Enum.Material.Neon) -- 불꽃 볏
+		end
 		trailTop, trailBottom = at(1.2, 1.3), at(1.2, -1.3)
+	elseif spec.Design == "MoonPick" or spec.Design == "SunPick" then
+		-- 5·6단계 곡괭이 (2026-10-10 새로): 다이아몬드 곡괭이를 색만 바꾸던 것을 부품으로 새로 짓는다.
+		-- 머리 좌표는 다이아몬드 곡괭이 머리 반 폭 = 1 (s에 다이아 머리 크기 × 배수가 들어 있다). 양쪽이 같은 모양이라 앞뒤가 바뀌어도 괜찮다
+		local sun = spec.Design == "SunPick"
+		-- 휘어 내려가는 곡괭이 팔 하나: 가운데 선 c(x), 반 두께 w(x)를 n칸 사각형으로 잇는다. 마지막 칸(끝)은 빛나는 색,
+		-- 가운데에 빛나는 룬 줄(팔보다 두꺼워 앞뒤로 보임)
+		local function arm(side: number, x0: number, x1: number, c: (number) -> number, w: (number) -> number, n: number, color: Color3, tipColor: Color3, lineColor: Color3, thickness: number)
+			for i = 0, n - 1 do
+				local xa, xb = x0 + (x1 - x0) * i / n, x0 + (x1 - x0) * (i + 1) / n
+				local tip = i == n - 1
+				plate({ V(xa * side, c(xa) + w(xa)), V(xb * side, c(xb) + w(xb)), V(xb * side, c(xb) - w(xb)), V(xa * side, c(xa) - w(xa)) },
+					thickness, if tip then tipColor else color, if tip then Enum.Material.Neon else spec.Material)
+				if not tip then
+					local lw = math.min(w(xb), 0.03)
+					plate({ V(xa * side, c(xa) + lw), V(xb * side, c(xb) + lw), V(xb * side, c(xb) - lw), V(xa * side, c(xa) - lw) }, thickness + 0.05, lineColor, Enum.Material.Neon)
+				end
+			end
+		end
+		local glowColor = if sun then spec.Ember else spec.Rune
+		-- 자루
+		shaftPiece("Shaft", -1.1, top, d, spec.ShaftColor, spec.ShaftMaterial)
+		for i = 0, 4 do
+			shaftPiece("Leather", -0.95 + i * 0.22, -0.95 + i * 0.22 + 0.14, d + 0.06, if sun then Color3.fromRGB(60, 25, 20) else Color3.fromRGB(30, 35, 55), Enum.Material.Leather)
+		end
+		for _, f in { 0.4, 0.6, 0.8 } do
+			local y = reach * f
+			shaftPiece(if sun then "GoldBand" else "Rune", y, y + 0.08, d + 0.07, if sun then spec.Gold else glowColor, if sun then METAL else Enum.Material.Neon)
+		end
+		shaftPiece("PommelCap", -1.25, -1.1, d + 0.1, if sun then spec.Gold else spec.Head, METAL)
+		shaftPiece("Pommel", -1.45, -1.25, d + 0.16, glowColor, Enum.Material.Neon)
+		-- 머리 받침
+		local socketSize = if sun then Vector3.new(0.34, 0.54, 0.32) else Vector3.new(0.27, 0.44, 0.26)
+		block("Socket", 0, 0, socketSize, spec.ShaftColor, METAL)
+		block("Collar", 0, socketSize.Y / 2, Vector3.new(socketSize.X + 0.05, 0.06, socketSize.Z + 0.05), if sun then spec.Gold else spec.Head, METAL)
+		block("Collar", 0, -socketSize.Y / 2, Vector3.new(socketSize.X + 0.05, 0.06, socketSize.Z + 0.05), if sun then spec.Gold else spec.Head, METAL)
+		if sun then
+			-- 오리하르콘 태양 곡괭이: 굵은 금빛 팔 + 위쪽 짧은 둘째 팔(두 겹), 불꽃 볏 3갈래, 앞뒤 햇살 원반·태양 보석
+			for _, side in { 1, -1 } do
+				arm(side, 0.12, 1.0, function(x) return 0.03 - 0.26 * x * x end, function(x) return 0.17 * (1 - x) ^ 0.7 + 0.012 end, 4, spec.Head, spec.Ember, spec.Ember, 0.18)
+				arm(side, 0.12, 0.62, function(x) return 0.22 + 0.1 * x - 0.35 * x * x end, function(x) return 0.075 * (1 - x / 0.62) + 0.008 end, 3, spec.Gold, spec.Edge, spec.Edge, 0.12)
+				plate({ V(0.12 * side, 0.24), V(0.32 * side, 0.6), V(0.22 * side, 0.22) }, 0.12, spec.Ember, Enum.Material.Neon) -- 옆 불꽃
+			end
+			plate({ V(-0.1, 0.26), V(0, 0.85), V(0.1, 0.26) }, 0.14, spec.Edge, Enum.Material.Neon) -- 가운데 불꽃
+			for _, z in { 0.18, -0.18 } do
+				block("SunDisk", 0, 0, Vector3.new(0.04, 0.5, 0.5), spec.Gold, METAL, Enum.PartType.Cylinder, CFrame.new(0, 0, z * s) * CFrame.Angles(0, math.rad(90), 0))
+				block("Sun", 0, 0, Vector3.new(0.22, 0.22, 0.22), spec.Ember, Enum.Material.Neon, Enum.PartType.Ball, CFrame.new(0, 0, z * 1.1 * s))
+				for i = 0, 5 do
+					local a = i / 6 * math.pi * 2
+					local dir, across = V(math.cos(a), math.sin(a)), V(-math.sin(a), math.cos(a))
+					plate({ dir * 0.24 + across * 0.04, dir * 0.42, dir * 0.24 - across * 0.04 }, 0.02, spec.Edge, Enum.Material.Neon, z + 0.02 * math.sign(z))
+				end
+			end
+			trailTop, trailBottom = at(1.0, 0.03 - 0.26), at(0.3, 0.03)
+		else
+			-- 미스릴 달빛 곡괭이: 가늘게 휜 은빛 팔 + 빛나는 룬 줄·끝, 팔 위 작은 가시, 위 빛 심 볏, 앞뒤 파란 보석
+			for _, side in { 1, -1 } do
+				arm(side, 0.12, 1.0, function(x) return 0.02 - 0.3 * x * x end, function(x) return 0.13 * (1 - x) ^ 0.8 + 0.01 end, 4, spec.Head, spec.Edge, spec.Rune, 0.15)
+				local x = 0.45
+				local y = 0.02 - 0.3 * x * x + 0.13 * (1 - x) ^ 0.8
+				plate({ V((x - 0.08) * side, y), V((x + 0.04) * side, y + 0.2), V((x + 0.1) * side, y - 0.02) }, 0.1, spec.Head, spec.Material) -- 팔 위 가시
+			end
+			plate({ V(-0.1, 0.2), V(0, 0.68), V(0.1, 0.2) }, 0.12, spec.Head, spec.Material) -- 위 볏
+			plate({ V(0, 0.28), V(0.04, 0.42), V(0, 0.58), V(-0.04, 0.42) }, 0.17, spec.Rune, Enum.Material.Neon)
+			for _, z in { 0.14, -0.14 } do
+				block("Gem", 0, 0, Vector3.new(0.15, 0.15, 0.15), spec.Edge, Enum.Material.Neon, Enum.PartType.Ball, CFrame.new(0, 0, z * s))
+			end
+			trailTop, trailBottom = at(1.0, 0.02 - 0.3), at(0.3, 0.02)
+		end
 	else
 		-- Great: 대형 양날 도끼: 계단식 날개, 가운데 빛나는 마름모, 금 고리 감은 검은 자루
 		shaftPiece("Shaft", -1.2, top, d, spec.ShaftColor, spec.ShaftMaterial)
@@ -500,8 +601,8 @@ local function buildAxe(spec): Tool
 		glow.WorldPosition = center
 		local light = Instance.new("PointLight")
 		light.Color = spec.Head
-		light.Range = 8
-		light.Brightness = 1.5
+		light.Range = spec.LightRange or 8
+		light.Brightness = spec.LightBrightness or 1.5
 		light.Parent = glow
 		local sparkles = Instance.new("ParticleEmitter")
 		sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
@@ -509,10 +610,47 @@ local function buildAxe(spec): Tool
 		sparkles.LightEmission = 1
 		sparkles.Size = NumberSequence.new(0.35, 0)
 		sparkles.Lifetime = NumberRange.new(0.4, 0.9)
-		sparkles.Rate = 6
+		sparkles.Rate = spec.SparkleRate or 6
 		sparkles.Speed = NumberRange.new(0.5, 1.2)
 		sparkles.SpreadAngle = Vector2.new(180, 180)
 		sparkles.Parent = glow
+		-- 5·6단계 둘레 기운 (2026-10-10): 머리 크기만큼 투명한 상자 부품에서 뿜는다 (부품이 투명해서 아이콘에는 안 들어감)
+		-- Frost = 천천히 떨어지는 파란 서리 반짝이 / Flame = 위로 타오르는 작은 금빛 불꽃
+		if spec.Aura then
+			local area = part({
+				Name = "AuraArea", Size = Vector3.new(1.6 * s, 1.2 * s, 0.3 * s), Transparency = 1,
+				CFrame = frame, Anchored = false, CanCollide = false, CanQuery = false, CanTouch = false, Massless = true,
+			}, tool)
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = handle
+			weld.Part1 = area
+			weld.Parent = area
+			local aura = Instance.new("ParticleEmitter")
+			aura.Name = "Aura"
+			aura.Shape = Enum.ParticleEmitterShape.Box
+			aura.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+			aura.LightEmission = 1
+			aura.SpreadAngle = Vector2.new(25, 25)
+			if spec.Aura == "Flame" then
+				aura.Texture = "rbxasset://textures/particles/fire_main.dds"
+				aura.Color = ColorSequence.new(Color3.fromRGB(255, 215, 110), Color3.fromRGB(255, 110, 25))
+				aura.Size = NumberSequence.new(0.4, 0)
+				aura.Transparency = NumberSequence.new(0.35, 1)
+				aura.Lifetime = NumberRange.new(0.25, 0.5)
+				aura.Rate = 18
+				aura.Speed = NumberRange.new(0.6, 1.4)
+				aura.Acceleration = Vector3.new(0, 3, 0)
+			else
+				aura.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+				aura.Color = ColorSequence.new(Color3.fromRGB(200, 235, 255), spec.Edge)
+				aura.Size = NumberSequence.new(0.25, 0)
+				aura.Lifetime = NumberRange.new(0.7, 1.3)
+				aura.Rate = 10
+				aura.Speed = NumberRange.new(0.1, 0.4)
+				aura.Acceleration = Vector3.new(0, -1.2, 0)
+			end
+			aura.Parent = area
+		end
 		-- 오리하르콘: 위로 날아오르는 불티
 		if spec.Ember then
 			local embers = Instance.new("ParticleEmitter")
@@ -565,7 +703,7 @@ for _, spec in AXES do
 	end
 	iconFromTool(tool, spec.Id).Parent = iconFolder
 end
-print(`[BuildTreesAndAxes] (버전 13) 도끼 {#AXES}종 완료`)
+print(`[BuildTreesAndAxes] (버전 14) 도끼 {#AXES}종 완료`)
 
 -- 곡괭이 크기 조정 (Studio에서 만든 곡괭이 Tool을 손잡이 기준으로 키운다). 도끼를 다 만든 뒤에 해야 도끼 크기에 영향이 없다
 -- 이미 키운 Tool은 속성 ScaledBy로 표시해서 두 번 키우지 않는다
@@ -615,158 +753,48 @@ for id, factor in PICKAXE_SCALES do
 	end
 end
 
----------------------------------------------------------------- 1-2. 5·6단계 곡괭이 (2026-10-09)
--- Studio에서 만든 다이아몬드 곡괭이(SteelPickaxe)를 복제해 색·재질을 바꾼다 (모양은 같고 색·빛·크기가 다르다).
--- 머리 = 쥐는 점에서 먼 부품. 원래 Neon인 작은 부품(빛나는 장식)은 Edge 빛 색, 나머지 머리는 Head 금속, 자루는 Shaft
--- Scale: 다이아몬드 곡괭이(이미 PICKAXE_SCALES로 키운 것) 기준 배수
+---------------------------------------------------------------- 1-2. 5·6단계 곡괭이 (2026-10-09, 2026-10-10 새로 지음)
+-- 예전: 다이아몬드 곡괭이(SteelPickaxe)를 복제해 색만 바꿈 → 2026-10-10 사용자 요청 "다이아보다 더 크고 강해 보이게, 빛도 나게"로
+-- 도끼처럼 다이아몬드 곡괭이 Tool의 쥐는 각도(Grip)·자루 방향만 쓰고 모양은 숨긴 뒤 부품으로 새로 짓는다 (buildAxe의 MoonPick·SunPick).
+-- Size: 다이아몬드 곡괭이(이미 PICKAXE_SCALES로 키운 것) 기준 전체 배수. 머리 폭은 다이아 곡괭이 머리 반 폭을 재서 그 배수, 자루 길이도 그 배수
 local HIGH_PICKAXES = {
 	{
-		Id = "MithrilPickaxe", From = "SteelPickaxe", Scale = 1.06,
-		Head = Color3.fromRGB(175, 205, 240), Edge = Color3.fromRGB(90, 170, 255), Shaft = Color3.fromRGB(40, 50, 78),
-		Trail = Color3.fromRGB(120, 190, 255), Light = Color3.fromRGB(110, 180, 255), Sparkle = Color3.fromRGB(170, 220, 255), SparkleRate = 6,
+		Id = "MithrilPickaxe", From = "SteelPickaxe", Design = "MoonPick", Size = 1.25, Shaft = 0.32,
+		Head = Color3.fromRGB(175, 205, 240), Edge = Color3.fromRGB(120, 195, 255), Material = METAL,
+		ShaftColor = Color3.fromRGB(40, 50, 78), ShaftMaterial = METAL, Rune = Color3.fromRGB(90, 170, 255),
+		Trail = Color3.fromRGB(120, 190, 255), TrailLife = 0.34, Glow = true,
+		LightRange = 11, LightBrightness = 2, SparkleRate = 10, Aura = "Frost",
 	},
 	{
-		Id = "OrichalcumPickaxe", From = "SteelPickaxe", Scale = 1.15,
-		Head = Color3.fromRGB(240, 180, 55), Edge = Color3.fromRGB(255, 130, 30), Shaft = Color3.fromRGB(70, 35, 25),
-		Trail = Color3.fromRGB(255, 185, 70), Light = Color3.fromRGB(255, 160, 60), Sparkle = Color3.fromRGB(255, 215, 120), SparkleRate = 12,
-		Ember = Color3.fromRGB(255, 130, 30),
+		Id = "OrichalcumPickaxe", From = "SteelPickaxe", Design = "SunPick", Size = 1.45, Shaft = 0.4,
+		Head = Color3.fromRGB(240, 180, 55), Edge = Color3.fromRGB(255, 225, 140), Material = METAL,
+		ShaftColor = Color3.fromRGB(70, 35, 25), ShaftMaterial = METAL, Gold = Color3.fromRGB(255, 215, 110), Ember = Color3.fromRGB(255, 130, 30),
+		Trail = Color3.fromRGB(255, 185, 70), TrailLife = 0.36, Glow = true,
+		LightRange = 13, LightBrightness = 2.4, SparkleRate = 12, Aura = "Flame",
 	},
 }
 
--- 도구를 아이콘용 모델로 (모델 안에 묶인 부품까지 전부, 보이는 것만)
-local function iconFromToolDeep(tool: Tool, name: string): Model
-	local model = Instance.new("Model")
-	model.Name = name
-	for _, d in tool:GetDescendants() do
-		if d:IsA("BasePart") and d.Transparency < 1 then
-			local copy = d:Clone()
-			for _, c in copy:GetChildren() do
-				if not (c:IsA("SpecialMesh") or c:IsA("SurfaceAppearance") or c:IsA("Decal") or c:IsA("Texture")) then
-					c:Destroy()
-				end
-			end
-			copy.Anchored = true
-			copy.Parent = model
-		end
-	end
-	model:SetAttribute("GeneratedBy", GENERATED)
-	return model
-end
-
-local function buildHighPickaxe(spec): Tool?
-	local source = pickaxeFolder:FindFirstChild(spec.From)
-	if not (source and source:IsA("Tool") and source:FindFirstChild("Handle")) then
-		warn(`[BuildTreesAndAxes] {spec.From} 곡괭이 템플릿이 없어 {spec.Id}를 못 만들었어요.`)
-		return nil
-	end
-	local tool = source:Clone()
-	tool.Name = spec.Id
-	tool:SetAttribute("PickaxeId", nil)
-	tool:SetAttribute("ScaledBy", nil)
-	tool:SetAttribute("GeneratedBy", GENERATED)
-	local handle = tool.Handle :: BasePart
-	local gripWorld = handle.CFrame:PointToWorldSpace(tool.Grip.Position)
-
-	-- 보이는 부품 중 쥐는 점에서 가장 먼 거리, 가장 큰 머리 부품 부피
-	local parts: { BasePart } = {}
+-- 다이아몬드 곡괭이 머리의 반 폭(스터드): 머리 부품(쥐는 점에서 먼 쪽)의 모서리를 머리 방향으로 잰 가장 먼 거리
+local function headHalfSpan(source: Tool): number
+	local probe, gripWorld, center, _, edge = prepareFromPickaxe(source) -- 방향만 읽고 버린다 (원본은 그대로)
+	probe:Destroy()
 	local farthest = 0
-	for _, d in tool:GetDescendants() do
+	for _, d in source:GetDescendants() do
 		if d:IsA("BasePart") and d.Transparency < 1 then
-			table.insert(parts, d)
 			farthest = math.max(farthest, (d.Position - gripWorld).Magnitude)
 		end
 	end
-	local function volume(p: BasePart): number
-		return p.Size.X * p.Size.Y * p.Size.Z
-	end
-	local biggestHead = 0
-	for _, p in parts do
-		if (p.Position - gripWorld).Magnitude >= farthest * 0.6 then
-			biggestHead = math.max(biggestHead, volume(p))
+	local span = 0
+	for _, d in source:GetDescendants() do
+		if d:IsA("BasePart") and d.Transparency < 1 and (d.Position - gripWorld).Magnitude >= farthest * 0.6 then
+			for _, corner in { Vector3.new(1, 1, 1), Vector3.new(1, 1, -1), Vector3.new(1, -1, 1), Vector3.new(1, -1, -1),
+				Vector3.new(-1, 1, 1), Vector3.new(-1, 1, -1), Vector3.new(-1, -1, 1), Vector3.new(-1, -1, -1) } do
+				local world = d.CFrame:PointToWorldSpace(d.Size / 2 * corner)
+				span = math.max(span, math.abs((world - center):Dot(edge)))
+			end
 		end
 	end
-
-	-- 색·재질 바꾸기
-	local weighted, total = Vector3.zero, 0
-	for _, p in parts do
-		local isHead = (p.Position - gripWorld).Magnitude >= farthest * 0.6
-		local accent = p.Material == Enum.Material.Neon and volume(p) < biggestHead * 0.25 -- 작은 빛 장식
-		if accent then
-			p.Color = spec.Edge
-			p.Material = Enum.Material.Neon
-		elseif isHead then
-			p.Color = spec.Head
-			p.Material = METAL
-		else
-			p.Color = spec.Shaft
-			p.Material = METAL
-		end
-		if isHead then
-			weighted += p.Position * volume(p)
-			total += volume(p)
-		end
-		if p:IsA("MeshPart") then
-			pcall(function()
-				(p :: any).TextureID = ""
-			end)
-		end
-	end
-	for _, d in tool:GetDescendants() do
-		if d:IsA("SpecialMesh") then
-			d.TextureId = ""
-		elseif d:IsA("SurfaceAppearance") or d:IsA("Decal") or d:IsA("Texture") then
-			d:Destroy()
-		elseif d:IsA("Trail") then
-			d.Color = ColorSequence.new(spec.Trail)
-			d.LightEmission = 1
-			d.Lifetime = math.max(d.Lifetime, 0.3)
-		elseif d:IsA("Light") then
-			d.Color = spec.Light
-		elseif d:IsA("ParticleEmitter") then
-			d.Color = ColorSequence.new(spec.Sparkle)
-		end
-	end
-
-	-- 머리 가운데에 빛 + 반짝이 (+ 오리하르콘은 불티)
-	local center = if total > 0 then weighted / total else handle.Position
-	local glowPoint = Instance.new("Attachment")
-	glowPoint.Name = "TierGlow"
-	glowPoint.Parent = handle
-	glowPoint.WorldPosition = center
-	local light = Instance.new("PointLight")
-	light.Color = spec.Light
-	light.Range = 9
-	light.Brightness = 1.6
-	light.Parent = glowPoint
-	local sparkles = Instance.new("ParticleEmitter")
-	sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	sparkles.Color = ColorSequence.new(spec.Sparkle)
-	sparkles.LightEmission = 1
-	sparkles.Size = NumberSequence.new(0.35, 0)
-	sparkles.Lifetime = NumberRange.new(0.4, 0.9)
-	sparkles.Rate = spec.SparkleRate
-	sparkles.Speed = NumberRange.new(0.5, 1.2)
-	sparkles.SpreadAngle = Vector2.new(180, 180)
-	sparkles.Parent = glowPoint
-	if spec.Ember then
-		local embers = Instance.new("ParticleEmitter")
-		embers.Name = "Embers"
-		embers.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-		embers.Color = ColorSequence.new(spec.Ember, spec.Head)
-		embers.LightEmission = 1
-		embers.Size = NumberSequence.new(0.25, 0)
-		embers.Lifetime = NumberRange.new(0.5, 1)
-		embers.Rate = 10
-		embers.Speed = NumberRange.new(0.5, 1.5)
-		embers.SpreadAngle = Vector2.new(180, 180)
-		embers.Acceleration = Vector3.new(0, 4, 0)
-		embers.Parent = glowPoint
-	end
-
-	if spec.Scale and spec.Scale ~= 1 then
-		scaleTool(tool, spec.Scale)
-	end
-	return tool
+	return math.clamp(if span > 0 then span else 1.5, 0.8, 4)
 end
 
 local highCount = 0
@@ -775,15 +803,23 @@ for _, spec in HIGH_PICKAXES do
 	if old then
 		old:Destroy()
 	end
-	local tool = buildHighPickaxe(spec)
-	if tool then
+	local source = pickaxeFolder:FindFirstChild(spec.From)
+	if source and source:IsA("Tool") and source:FindFirstChild("Handle") then
+		local span = headHalfSpan(source)
+		spec.Scale = span * spec.Size -- 머리 좌표 1 = 다이아 머리 반 폭 × 배수
+		spec.Reach = spec.Size
+		local tool = buildAxe(spec)
+		tool:SetAttribute("ScaledBy", nil)
 		tool.Parent = pickaxeFolder
 		local oldIcon = iconFolder:FindFirstChild(spec.Id)
 		if oldIcon then
 			oldIcon:Destroy()
 		end
-		iconFromToolDeep(tool, spec.Id).Parent = iconFolder
+		iconFromTool(tool, spec.Id).Parent = iconFolder
 		highCount += 1
+		print(`[BuildTreesAndAxes] {spec.Id}: 다이아 머리 반 폭 {math.floor(span * 100) / 100} → x{spec.Size}`)
+	else
+		warn(`[BuildTreesAndAxes] {spec.From} 곡괭이 템플릿이 없어 {spec.Id}를 못 만들었어요.`)
 	end
 end
 print(`[BuildTreesAndAxes] 5·6단계 곡괭이 {highCount}종 완료`)

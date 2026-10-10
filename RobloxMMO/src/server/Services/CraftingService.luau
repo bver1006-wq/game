@@ -5,6 +5,7 @@
 -- 모루 타이밍 미니게임으로 직접 만드는 제작은 나중에 추가한다 (지금은 NPC 의뢰 구매만).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
 local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
@@ -218,9 +219,45 @@ local function onShopAction(player: Player, shopId: unknown, action: unknown, id
 	end
 end
 
+-- TODO(임시, 테스트 끝나면 지우기): Studio 테스트용 공짜 지급 (2026-10-10 사용자 요청)
+-- 클라 ShopUI가 상점 아이콘을 빨리 3번 누르면 (shopId, itemId)를 보낸다.
+-- Studio + Config.Debug.ShopTripleClickFree일 때만, 있는 아이템이고 그 상점 NPC 근처일 때만 준다.
+-- 도구·무기는 PickaxeService.give로 1개(Tool도 생김), 쌓이는 아이템은 ShopFreeStackAmount개, 나머지(장비·화살통)는 1개
+local function onDebugShopGrant(player: Player, shopId: unknown, itemId: unknown)
+	if not (RunService:IsStudio() and Config.Debug.ShopTripleClickFree) then
+		return
+	end
+	if typeof(shopId) ~= "string" or typeof(itemId) ~= "string" then
+		return
+	end
+	local def = ItemDefs.Items[itemId]
+	if not def then
+		return
+	end
+	if not NpcService.isNear(player, shopId) then
+		NotifyService.send(player, "[테스트] 상인에게 더 가까이 가세요.", "bad")
+		return
+	end
+	local given = 0
+	if PickaxeDefs[itemId] then
+		given = if PickaxeService.give(player, itemId) then 1 else 0
+	else
+		local amount = if def.Stackable then Config.Debug.ShopFreeStackAmount else 1
+		given = InventoryService.add(player, itemId, amount)
+	end
+	if given > 0 then
+		local countText = if given > 1 then ` {given}개` else ""
+		NotifyService.send(player, `[테스트] {def.DisplayName}{countText} 받았어요`, "good")
+		print(`[CraftingService] (테스트 지급) {player.Name} {def.DisplayName} x{given}`)
+	else
+		NotifyService.send(player, "[테스트] 가방에 빈 칸이 없어요.", "bad")
+	end
+end
+
 -- 서버 시작 시 한 번 호출
 function CraftingService.init()
 	Remotes.get(Remotes.Names.ShopAction).OnServerEvent:Connect(onShopAction)
+	Remotes.get(Remotes.Names.DebugShopGrant).OnServerEvent:Connect(onDebugShopGrant) -- TODO(임시): 테스트 끝나면 지우기
 end
 
 return CraftingService

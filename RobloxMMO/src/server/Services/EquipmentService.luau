@@ -285,7 +285,9 @@ function EquipmentService.init()
 		if InventoryService.waitLoaded(player) then
 			local saved = DataService.load(player).Equipped
 			if typeof(saved) == "table" then
-				for slot, itemId in saved do
+				for slot, savedId in saved do
+					-- 예전 금속 방어구 Id는 가방과 같이 새 세트 Id로 (2026-10-10)
+					local itemId = if typeof(savedId) == "string" then EquipmentDefs.Renamed[savedId] or savedId else savedId
 					local def = typeof(itemId) == "string" and EquipmentDefs.Items[itemId]
 					if def and def.Slot == slot and InventoryService.count(player, itemId) > 0 then
 						equipped[player][slot] = itemId

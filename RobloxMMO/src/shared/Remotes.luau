@@ -34,10 +34,11 @@ Remotes.Names = table.freeze({
 	RollRequest = "RollRequest", -- 클라 → 서버: (direction Vector3) 구르기 (움직임은 클라, 무적·마나·쿨다운은 서버)
 	SkillRequest = "SkillRequest", -- 클라 → 서버: (target 몹·바위 Model 또는 nil) 들고 있는 도구·무기 스킬 쓰기
 	SkillEffect = "SkillEffect", -- 서버 → 클라: (kind "Roll"|"Block"|"Slam"|"RapidFire"|"PowerStrike", userId, position, data) 스킬 연출·쿨다운 시작
-	MobSpecial = "MobSpecial", -- 서버 → 클라: (mob, kind "Ink"|"Puff", targetUserId, position, data) 바다 생물 특수 연출 (낙지 먹물·복어 부풀기, 2026-10-09)
+	MobSpecial = "MobSpecial", -- 서버 → 클라: (mob, kind "Ink"|"Puff"|"Arrow"|"Telegraph"|"Impact"|"Cancel", targetUserId, position, data) 몹 특수 연출 (낙지 먹물 2026-10-09 / 궁수 화살·거인 기술 경고·충격 2026-10-10)
 	MobDied = "MobDied", -- 서버 → 클라: (position, mobType, killerUserId, gold, lootId, lootCount, extras { {Id, Count} } — 두 번째·보스 전리품, 2026-10-09)
 	ReturnHome = "ReturnHome", -- 클라 → 서버: () 마을로 귀환 (다시 누르면 취소)
 	SaveHotbar = "SaveHotbar", -- 클라 → 서버: ({ itemId 또는 "" }) 빠른 칸 배치 저장 (들어올 때는 플레이어 속성 SavedHotbar로 돌려받는다)
+	DebugShopGrant = "DebugShopGrant", -- 클라 → 서버: (shopId, itemId) TODO(임시): Studio 테스트용, 상점 아이콘 3번 누르면 공짜 지급 (Config.Debug.ShopTripleClickFree)
 })
 
 export type RemoteName = typeof(Remotes.Names.SwingRequest)

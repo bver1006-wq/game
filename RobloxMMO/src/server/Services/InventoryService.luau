@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage.Shared.Config)
+local EquipmentDefs = require(ReplicatedStorage.Shared.EquipmentDefs)
 local ItemDefs = require(ReplicatedStorage.Shared.ItemDefs)
 local Remotes = require(ReplicatedStorage.Shared.Remotes)
 
@@ -114,6 +115,11 @@ local function bagFromSave(saved: any): Bag
 		if typeof(list) == "table" then
 			for itemId, count in list do
 				if typeof(itemId) == "string" and typeof(count) == "number" and count == count and count >= 1 then
+					-- 예전 금속 방어구(구리·철·다이아·미스릴·오리하르콘 투구 등)는 같은 단계 몹 세트로 바꿔 준다 (2026-10-10)
+					local renamed = EquipmentDefs.Renamed[itemId]
+					if renamed and ItemDefs.Items[renamed] then
+						itemId = renamed
+					end
 					local target = if ItemDefs.Items[itemId] then bag.Items else bag.Unknown
 					target[itemId] = (target[itemId] or 0) + math.floor(count)
 				end

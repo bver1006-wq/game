@@ -614,58 +614,117 @@ FACES.Cyclops = function(face: Frame)
 	facePart(face, 0.64, 0.76, 0.09, 0.09, ivory, 6, { Corner = 0.15, Rotation = 45, Stroke = 1 })
 end
 
--- 바다 생물 (2026-10-09): 옆모습 물고기들 + 낙지·해파리·상어
--- 물고기 옆모습: 왼쪽을 보는 동그란 몸 + 마름모 꼬리 + 등지느러미 + 밝은 배 + 줄무늬 + 반짝 눈 + 뽀글 거품
-local function fishFace(face: Frame, body: Color3, belly: Color3, stripe: Color3)
+-- 스켈레톤 궁수 (2026-10-10): 스켈레톤 얼굴 + 초록 깃털 모자 + 주황 눈빛
+FACES.SkeletonArcher = function(face: Frame)
+	local bone = Color3.fromRGB(240, 233, 215)
+	local dark = Color3.fromRGB(55, 42, 40)
+	local green = Color3.fromRGB(80, 145, 80)
 	silhouette(face, {
-		{ X = 0.8, Y = 0.52, W = 0.28, H = 0.28, Corner = 0.15, Rot = 45 }, -- 꼬리
-		{ X = 0.5, Y = 0.3, W = 0.24, H = 0.16, Corner = 0.3, Rot = -15 }, -- 등지느러미
-		{ X = 0.42, Y = 0.54, W = 0.7, H = 0.5 }, -- 몸
-	}, body, 1)
-	facePart(face, 0.4, 0.66, 0.5, 0.18, belly, 3) -- 배
-	for _, x in { 0.5, 0.62 } do
-		facePart(face, x, 0.52, 0.05, 0.36, stripe, 3, { Corner = 0.5, Transparency = 0.25 }) -- 줄무늬
+		{ X = 0.5, Y = 0.5, W = 0.8, H = 0.68 },
+		{ X = 0.5, Y = 0.8, W = 0.5, H = 0.26, Corner = 0.3 },
+	}, bone, 1)
+	silhouette(face, {
+		{ X = 0.5, Y = 0.22, W = 0.92, H = 0.32 }, -- 모자
+		{ X = 0.8, Y = 0.12, W = 0.3, H = 0.2, Corner = 0.3, Rot = 30 }, -- 모자 끝
+	}, green, 3)
+	facePart(face, 0.25, 0.08, 0.05, 0.26, Color3.fromRGB(225, 55, 65), 6, { Corner = 0.5, Rotation = -35 }) -- 깃털
+	facePart(face, 0.34, 0.52, 0.22, 0.22, dark, 6)
+	facePart(face, 0.66, 0.52, 0.22, 0.22, dark, 6)
+	facePart(face, 0.35, 0.52, 0.08, 0.08, Color3.fromRGB(255, 170, 80), 7) -- 주황 눈빛
+	facePart(face, 0.67, 0.52, 0.08, 0.08, Color3.fromRGB(255, 170, 80), 7)
+	faceGlyph(face, "▼", 0.5, 0.68, 0.13, dark, 6)
+	facePart(face, 0.5, 0.83, 0.34, 0.035, dark, 6, { Corner = 0 })
+	for _, x in { 0.4, 0.5, 0.6 } do
+		facePart(face, x, 0.83, 0.03, 0.13, dark, 6, { Corner = 0 })
 	end
-	shinyEye(face, 0.24, 0.47, 0.15, 0.17, Color3.fromRGB(25, 30, 45), 4)
-	facePart(face, 0.11, 0.58, 0.05, 0.05, COLORS.Ink, 4) -- 뽀 입
-	facePart(face, 0.13, 0.22, 0.07, 0.07, Color3.new(1, 1, 1), 3, { Stroke = 1, Transparency = 0.3 }) -- 거품
-	facePart(face, 0.2, 0.1, 0.05, 0.05, Color3.new(1, 1, 1), 3, { Stroke = 1, Transparency = 0.3 })
 end
 
--- 물고기: 파란 고등어
-FACES.Fish = function(face: Frame)
-	fishFace(face, Color3.fromRGB(95, 160, 225), Color3.fromRGB(220, 238, 250), Color3.fromRGB(40, 80, 140))
+-- 거대 몬스터 (2026-10-10): 무섭지만 귀엽게 (반짝 눈·볼 + 화난 눈썹)
+-- 바위 골렘: 울퉁불퉁 회색 바위 머리 + 이끼 + 동그란 초록 빛 눈 + 바위 눈썹 + 머리 위 초록 수정
+FACES.StoneGolem = function(face: Frame)
+	local rock = Color3.fromRGB(150, 145, 138)
+	local dark = Color3.fromRGB(95, 92, 88)
+	local glow = Color3.fromRGB(80, 245, 165)
+	silhouette(face, { { X = 0.56, Y = 0.1, W = 0.13, H = 0.22, Corner = 0.2, Rot = -12 } }, glow, 1) -- 수정
+	silhouette(face, {
+		{ X = 0.5, Y = 0.56, W = 0.86, H = 0.76, Corner = 0.35 },
+		{ X = 0.22, Y = 0.32, W = 0.3, H = 0.28, Corner = 0.4, Rot = 20 }, -- 울퉁불퉁
+		{ X = 0.78, Y = 0.34, W = 0.28, H = 0.26, Corner = 0.4, Rot = -15 },
+	}, rock, 3)
+	facePart(face, 0.3, 0.22, 0.26, 0.09, Color3.fromRGB(100, 150, 75), 5, { Rotation = -10 }) -- 이끼
+	facePart(face, 0.2, 0.2, 0.06, 0.06, Color3.fromRGB(255, 200, 220), 6) -- 작은 꽃
+	facePart(face, 0.35, 0.52, 0.2, 0.2, glow, 6, { Stroke = Config.Minimap.HabitatInkWidth * 0.75 })
+	facePart(face, 0.65, 0.52, 0.2, 0.2, glow, 6, { Stroke = Config.Minimap.HabitatInkWidth * 0.75 })
+	facePart(face, 0.36, 0.54, 0.08, 0.08, Color3.fromRGB(20, 60, 40), 7)
+	facePart(face, 0.66, 0.54, 0.08, 0.08, Color3.fromRGB(20, 60, 40), 7)
+	facePart(face, 0.34, 0.4, 0.26, 0.09, dark, 7, { Corner = 0.2, Rotation = 15 }) -- 바위 눈썹
+	facePart(face, 0.66, 0.4, 0.26, 0.09, dark, 7, { Corner = 0.2, Rotation = -15 })
+	facePart(face, 0.5, 0.76, 0.3, 0.05, COLORS.Ink, 6, { Corner = 0.4 }) -- 꾹 다문 입
+	facePart(face, 0.62, 0.66, 0.03, 0.14, dark, 6, { Corner = 0, Rotation = 30 }) -- 금
+	facePart(face, 0.2, 0.68, 0.1, 0.06, Color3.fromRGB(255, 140, 150), 6, { Transparency = 0.45 }) -- 볼
+	facePart(face, 0.8, 0.68, 0.1, 0.06, Color3.fromRGB(255, 140, 150), 6, { Transparency = 0.45 })
 end
 
--- 황금 물고기: 금빛 물고기 + 반짝이
-FACES.GoldenFish = function(face: Frame)
-	fishFace(face, Color3.fromRGB(255, 200, 60), Color3.fromRGB(255, 240, 170), Color3.fromRGB(215, 140, 30))
-	faceGlyph(face, "✦", 0.82, 0.16, 0.2, Color3.fromRGB(255, 230, 120), 5)
-	faceGlyph(face, "✦", 0.94, 0.82, 0.14, Color3.fromRGB(255, 230, 120), 5)
-end
-
--- 복어: 동그란 노란 공 + 둘레 가시 + 큰 눈 + 동그란 입
-FACES.Pufferfish = function(face: Frame)
-	local yellow = Color3.fromRGB(245, 205, 95)
-	local pieces: { Piece } = {}
-	for i = 0, 9 do
-		local angle = i / 10 * math.pi * 2
-		table.insert(pieces, { X = 0.5 + math.cos(angle) * 0.4, Y = 0.52 + math.sin(angle) * 0.4, W = 0.12, H = 0.12, Corner = 0.1, Rot = 45 + math.deg(angle) })
+-- 서리 거인: 하얀 털 머리 + 하늘색 얼굴 + 얼음 왕관 + 큰 눈 + 화난 눈썹 + 얼음 엄니 + 털 수염
+FACES.FrostGiant = function(face: Frame)
+	local fur = Color3.fromRGB(240, 245, 252)
+	local skin = Color3.fromRGB(150, 200, 235)
+	local deep = Color3.fromRGB(50, 85, 140)
+	local ice = Color3.fromRGB(175, 230, 255)
+	local crown: { Piece } = {}
+	for i, x in { 0.3, 0.4, 0.5, 0.6, 0.7 } do
+		local h = if i == 3 then 0.24 else 0.16
+		table.insert(crown, { X = x, Y = 0.16 - (h - 0.16) / 2, W = 0.07, H = h, Corner = 0.1 })
 	end
-	table.insert(pieces, { X = 0.5, Y = 0.52, W = 0.74, H = 0.74 })
-	silhouette(face, pieces, yellow, 1)
-	facePart(face, 0.5, 0.68, 0.5, 0.28, Color3.fromRGB(255, 240, 200), 3) -- 배
-	for _, spot in { { 0.3, 0.3 }, { 0.68, 0.26 }, { 0.5, 0.2 } } do
-		facePart(face, spot[1], spot[2], 0.07, 0.07, Color3.fromRGB(185, 140, 60), 3) -- 점무늬
-	end
-	shinyEye(face, 0.36, 0.45, 0.18, 0.2, Color3.fromRGB(30, 30, 40), 4)
-	shinyEye(face, 0.64, 0.45, 0.18, 0.2, Color3.fromRGB(30, 30, 40), 4)
-	facePart(face, 0.5, 0.68, 0.12, 0.11, COLORS.Ink, 4) -- 오 입
-	facePart(face, 0.5, 0.69, 0.06, 0.05, Color3.fromRGB(255, 130, 140), 5)
-	facePart(face, 0.24, 0.62, 0.1, 0.06, Color3.fromRGB(255, 140, 150), 4, { Transparency = 0.35 }) -- 볼
-	facePart(face, 0.76, 0.62, 0.1, 0.06, Color3.fromRGB(255, 140, 150), 4, { Transparency = 0.35 })
+	silhouette(face, crown, ice, 1)
+	silhouette(face, {
+		{ X = 0.5, Y = 0.52, W = 0.88, H = 0.78 },
+		{ X = 0.5, Y = 0.82, W = 0.6, H = 0.3 }, -- 수염
+	}, fur, 3)
+	facePart(face, 0.5, 0.52, 0.62, 0.46, skin, 5, { Corner = 0.45 })
+	shinyEye(face, 0.37, 0.48, 0.16, 0.18, Color3.fromRGB(30, 40, 70), 6)
+	shinyEye(face, 0.63, 0.48, 0.16, 0.18, Color3.fromRGB(30, 40, 70), 6)
+	facePart(face, 0.36, 0.36, 0.18, 0.04, deep, 8, { Corner = 0, Rotation = 20 }) -- 화난 눈썹
+	facePart(face, 0.64, 0.36, 0.18, 0.04, deep, 8, { Corner = 0, Rotation = -20 })
+	facePart(face, 0.5, 0.67, 0.26, 0.07, deep, 6, { Corner = 0.4 }) -- 입
+	facePart(face, 0.42, 0.7, 0.05, 0.09, ice, 7, { Corner = 0.2, Stroke = 1 }) -- 얼음 엄니
+	facePart(face, 0.58, 0.7, 0.05, 0.09, ice, 7, { Corner = 0.2, Stroke = 1 })
+	facePart(face, 0.26, 0.6, 0.09, 0.05, Color3.fromRGB(255, 150, 170), 6, { Transparency = 0.4 }) -- 볼
+	facePart(face, 0.74, 0.6, 0.09, 0.05, Color3.fromRGB(255, 150, 170), 6, { Transparency = 0.4 })
+	faceGlyph(face, "❄", 0.9, 0.2, 0.18, ice, 6)
 end
 
+-- 베헤모스: 검보라 큰 머리 + 위로 휜 상아 뿔 둘 + 빨간 눈 + 화난 눈썹 + 큰 콧구멍 주둥이 + 엄니
+FACES.Behemoth = function(face: Frame)
+	local hide = Color3.fromRGB(120, 78, 100)
+	local light = Color3.fromRGB(170, 125, 145)
+	local ivory = Color3.fromRGB(245, 232, 200)
+	local red = Color3.fromRGB(235, 55, 55)
+	silhouette(face, {
+		{ X = 0.12, Y = 0.3, W = 0.1, H = 0.32, Corner = 0.5, Rot = -25 }, -- 왼 뿔
+		{ X = 0.16, Y = 0.08, W = 0.08, H = 0.16, Corner = 0.5, Rot = 15 },
+		{ X = 0.88, Y = 0.3, W = 0.1, H = 0.32, Corner = 0.5, Rot = 25 }, -- 오른 뿔
+		{ X = 0.84, Y = 0.08, W = 0.08, H = 0.16, Corner = 0.5, Rot = -15 },
+	}, ivory, 1)
+	silhouette(face, {
+		{ X = 0.5, Y = 0.5, W = 0.8, H = 0.66 },
+		{ X = 0.5, Y = 0.78, W = 0.62, H = 0.34, Color = light }, -- 주둥이
+	}, hide, 3)
+	facePart(face, 0.36, 0.44, 0.17, 0.17, Color3.new(1, 1, 1), 5, { Stroke = Config.Minimap.HabitatInkWidth * 0.75 })
+	facePart(face, 0.64, 0.44, 0.17, 0.17, Color3.new(1, 1, 1), 5, { Stroke = Config.Minimap.HabitatInkWidth * 0.75 })
+	facePart(face, 0.37, 0.46, 0.09, 0.09, red, 6)
+	facePart(face, 0.65, 0.46, 0.09, 0.09, red, 6)
+	facePart(face, 0.35, 0.43, 0.03, 0.03, Color3.new(1, 1, 1), 7)
+	facePart(face, 0.63, 0.43, 0.03, 0.03, Color3.new(1, 1, 1), 7)
+	facePart(face, 0.35, 0.32, 0.22, 0.06, COLORS.Ink, 7, { Corner = 0.2, Rotation = 22 }) -- 화난 눈썹
+	facePart(face, 0.65, 0.32, 0.22, 0.06, COLORS.Ink, 7, { Corner = 0.2, Rotation = -22 })
+	facePart(face, 0.42, 0.74, 0.08, 0.06, COLORS.Ink, 6) -- 콧구멍
+	facePart(face, 0.58, 0.74, 0.08, 0.06, COLORS.Ink, 6)
+	facePart(face, 0.32, 0.9, 0.06, 0.1, ivory, 6, { Corner = 0.3, Rotation = -15, Stroke = 1 }) -- 엄니
+	facePart(face, 0.68, 0.9, 0.06, 0.1, ivory, 6, { Corner = 0.3, Rotation = 15, Stroke = 1 })
+end
+
+-- 바다 생물 (2026-10-09): 낙지·해파리·상어 (물고기·복어·황금 물고기 얼굴은 2026-10-10 삭제)
 -- 낙지: 분홍 둥근 머리 + 꼬불 다리 넷(빨판 점) + 큰 눈 + 오므린 입 + 먹물 방울
 FACES.Octopus = function(face: Frame)
 	local pink = Color3.fromRGB(235, 115, 125)
